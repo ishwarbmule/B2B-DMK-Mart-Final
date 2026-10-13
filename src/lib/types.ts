@@ -1,0 +1,165 @@
+export interface TopCategoryNode {
+  id: string;
+  name: string;
+  emoji: string;
+  image: string;
+  color: string;
+  sortOrder: number;
+  productCount?: number;
+  mids: {
+    id: string;
+    name: string;
+    ends: { id: string; name: string }[];
+  }[];
+}
+
+export interface BrandNode {
+  id: string;
+  name: string;
+  slug: string;
+  logo: string;
+  tagline?: string;
+  isFeatured: boolean;
+  _count?: { products: number };
+}
+
+export interface OfferNode {
+  id: string;
+  name: string;
+  slug: string;
+  type: string;
+  headline: string;
+  subText: string;
+  ctaText: string;
+  ctaUrl: string;
+  bgColor: string;
+  textColor: string;
+  heroSlot: boolean;
+  startAt?: string | null;
+  endAt?: string | null;
+}
+
+export interface CouponNode {
+  id: string;
+  code: string;
+  headline: string;
+  subText: string;
+  type: string;
+  value: number;
+  minOrder: number;
+  maxDiscount: number;
+  bgColor: string;
+  textColor: string;
+}
+
+export interface SliderRow {
+  id: string;
+  heading: string;
+  content: string;
+  buttonText: string;
+  buttonUrl: string;
+  image: string;
+  position: string;
+}
+
+export interface AdRow {
+  id: string;
+  title: string;
+  link: string;
+  image: string;
+}
+
+export interface CatalogPayload {
+  tops: TopCategoryNode[];
+  brands: BrandNode[];
+  sliders: SliderRow[];
+  ads: AdRow[];
+  settings: Record<string, string>;
+  stats: { products: number; stores: number; brands: number };
+  activeOffer: OfferNode | null;
+  homeCoupons: CouponNode[];
+  footerPages: { slug: string; title: string; type: string }[];
+}
+
+export interface DProduct {
+  id: string;
+  sku: string;
+  slug?: string;
+  name: string;
+  dealerPrice: number;
+  basePrice: number;
+  mrp: number;
+  packQty: number;
+  piecesPerBox?: number;
+  unit?: string;
+  stock: number;
+  barcode: string;
+  gst: number;
+  image: string;
+  isHot: boolean;
+  isTop: boolean;
+  isFeatured: boolean;
+  isDeal?: boolean;
+  dealPrice?: number;
+  active: boolean;
+  rating?: number;
+  reviewCount?: number;
+  brand?: { name: string; slug: string; logo?: string };
+  top?: { name: string };
+  mid?: { name: string };
+  end?: { name: string };
+}
+
+export interface OrderItemRow {
+  id: string;
+  productId: string;
+  sku: string;
+  name: string;
+  image: string;
+  unitType: string;
+  packQty: number;
+  qty: number;
+  pieces: number;
+  unitPrice: number;
+  gst: number;
+  hsn: string;
+  total: number;
+  barcode: string;
+}
+
+export interface OrderRow {
+  id: string;
+  invoiceNo: string;
+  otp?: string;
+  items?: OrderItemRow[];
+  totalPieces?: number;
+  itemTotal: number;
+  gstAmount: number;
+  deliveryFee: number;
+  discount: number;
+  couponCode?: string;
+  grandTotal: number;
+  totalSavings: number;
+  customerName: string;
+  customerType?: string;
+  priceTier?: string;
+  phone: string;
+  email: string;
+  addressLine: string;
+  city: string;
+  pincode: string;
+  zone: string;
+  slot: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  shippingStatus: string;
+  status: string;
+  source: string;
+  note?: string;
+  createdAt: string;
+}
+
+export function discountPct(mrp: number, price: number): number {
+  if (!mrp || mrp <= price) return 0;
+  return Math.round(((mrp - price) / mrp) * 100);
+}

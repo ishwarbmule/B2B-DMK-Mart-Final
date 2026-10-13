@@ -1,0 +1,468 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────── BRANDS (DMK Mart sells many brands) ─────────────────────────
+
+model Brand {
+  id               String    @id @default(cuid())
+  name             String    @unique
+  slug             String    @unique
+  logo             String    @default("") // Cloudinary brand-logos URL
+  banner           String    @default("")
+  description      String    @default("")
+  tagline          String    @default("")
+  color            String    @default("#111111")
+  erpNames         String    @default("[]") // JSON: aliases of ERP company/brand strings
+  storefrontLayout Int       @default(1) // 1..10 template id
+  storefrontConfig String    @default("{}") // JSON layout config (hero text, colors, sections)
+  isFeatured       Boolean   @default(false)
+  sortOrder        Int       @default(0)
+  active           Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  products         Product[]
+}
+
+// ───────────────────────── CATEGORIES (3-level) ─────────────────────────
+
+model TopCategory {
+  id       String        @id @default(cuid())
+  name     String        @unique
+  emoji    String        @default("🧺")
+  image    String        @default("")
+  color    String        @default("#facc15")
+  sortOrder Int          @default(0)
+  mids     MidCategory[]
+  products Product[]
+}
+
+model MidCategory {
+  id       String        @id @default(cuid())
+  name     String
+  topId    String
+  top      TopCategory   @relation(fields: [topId], references: [id], onDelete: Cascade)
+  ends     EndCategory[]
+  products Product[]
+
+  @@unique([topId, name])
+}
+
+model EndCategory {
+  id       String      @id @default(cuid())
+  name     String
+  midId    String
+  mid      MidCategory @relation(fields: [midId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@unique([midId, name])
+}
+
+// ───────────────────────── PRODUCTS ─────────────────────────
+
+model Product {
+  id                String      @id @default(cuid())
+  sku               String      @unique // canonical SKU (ERP SKU for synced items)
+  legacySku         String      @default("")
+  erpId             String      @default("") // Neon Product.id
+  slug              String      @unique
+  name              String
+  brandId           String
+  brand             Brand       @relation(fields: [brandId], references: [id])
+  topId             String
+  top               TopCategory @relation(fields: [topId], references: [id])
+  midId             String
+  mid               MidCategory @relation(fields: [midId], references: [id])
+  endId             String
+  end               EndCategory @relation(fields: [endId], references: [id])
+
+  // units
+  unit              String      @default("Pcs")
+  packQty           Int         @default(1) // pieces per pack
+  piecesPerBox      Int         @default(0) // pieces per bulk box
+
+  // pricing (purchaseCost NEVER leaves admin panel)
+  purchaseCost      Float       @default(0)
+  dealerPrice       Float // selling price shown (tier4 default)
+  basePrice         Float       @default(0)
+  mrp               Float
+  tier1             Float       @default(0)
+  tier2             Float       @default(0)
+  tier3             Float       @default(0)
+  tier4             Float       @default(0)
+  tier5             Float       @default(0)
+  packPrice         Float       @default(0)
+  packDiscountPct   Float       @default(0)
+  dealPrice         Float       @default(0) // hot deal / deal-of-day price
+
+  // stock
+  stock             Float       @default(0)
+  damagedStock      Float       @default(0)
+  reservedQty       Float       @default(0)
+  lowStockThreshold Int         @default(10)
+
+  // compliance / logistics
+  barcode           String      @default("")
+  hsn               String      @default("")
+  gst               Float       @default(18)
+  weightGrams       Float       @default(0)
+
+  // media + content
+  image             String      @default("")
+  gallery           String      @default("[]")
+  description       String      @default("")
+
+  // SEO
+  seoTitle          String      @default("")
+  seoDesc           String      @default("")
+  keywords          String      @default("")
+
+  // merchandising
+  rating            Float       @default(4.5)
+  reviewCount       Int         @default(0)
+  isHot             Boolean     @default(false)
+  isTop             Boolean     @default(false)
+  isFeatured        Boolean     @default(false)
+  isDeal            Boolean     @default(false)
+
+  active            Boolean     @default(true)
+  syncSource        String      @default("LOCAL") // ERP | LOCAL | LEGACY
+  lastSyncedAt      DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  orderItems        OrderItem[]
+
+  @@index([name])
+  @@index([brandId])
+  @@index([isFeatured])
+  @@index([isDeal])
+  @@index([active])
+}
+
+// ───────────────────────── CUSTOMERS (B2B: retailers, wholesalers, distributors) ─────────────────────────
+
+model Customer {
+  id           String   @id @default(cuid())
+  name         String
+  shopName     String   @default("")
+  phone        String   @unique
+  email        String   @default("")
+  password     String   @default("")
+  gstin        String   @default("")
+  address      String   @default("")
+  city         String   @default("")
+  pincode      String   @default("")
+  customerType String   @default("RETAILER") // RETAILER | WHOLESALE | DISTRIBUTOR
+  tier         String   @default("tier4") // tier1..tier4 price tier
+  creditLimit  Float    @default(0)
+  status       String   @default("PENDING") // PENDING | APPROVED | SUSPENDED
+  source       String   @default("WEB") // WEB | ERP
+  erpId        String   @default("")
+  orders       Int      @default(0)
+  totalSpent   Float    @default(0)
+  createdAt    DateTime @default(now())
+}
+
+// ───────────────────────── ORDERS (OTP + unit-aware items) ─────────────────────────
+
+model Order {
+  id             String      @id @default(cuid())
+  invoiceNo      String      @default("")
+  otp            String      @default("") // 4-digit delivery OTP
+  otpSentAt      DateTime?
+  items          OrderItem[]
+  totalCases     Int         @default(0)
+  totalUnits     Int         @default(0)
+  itemTotal      Float
+  gstAmount      Float       @default(0)
+  deliveryFee    Float       @default(0)
+  discount       Float       @default(0)
+  couponCode     String      @default("")
+  offerId        String      @default("")
+  grandTotal     Float
+  totalSavings   Float       @default(0)
+  customerId     String      @default("")
+  customerName   String
+  customerType   String      @default("GUEST") // GUEST | RETAILER | WHOLESALE | DISTRIBUTOR
+  priceTier      String      @default("tier4")
+  phone          String
+  email          String      @default("")
+  addressLine    String
+  city           String
+  pincode        String
+  zone           String      @default("")
+  slot           String      @default("Express 2-hour")
+  paymentMethod  String      @default("UPI")
+  paymentStatus  String      @default("PENDING")
+  shippingStatus String      @default("PENDING")
+  status         String      @default("PENDING")
+  source         String      @default("WEB")
+  storeId        String      @default("")
+  salesPerson    String      @default("")
+  deliveryMan    String      @default("")
+  note           String      @default("")
+  createdAt      DateTime    @default(now())
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  sku       String
+  name      String
+  image     String  @default("")
+  unitType  String  @default("SINGLE") // SINGLE | PACK | BULK
+  packQty   Int     @default(1)
+  qty       Float // number of that unit type
+  pieces    Float // total pieces = qty * packQty
+  unitPrice Float // price per unit type
+  discount  Float   @default(0)
+  gst       Float   @default(18)
+  hsn       String  @default("")
+  total     Float
+  barcode   String  @default("")
+}
+
+// ───────────────────────── OFFERS & COUPONS (Big Million Days engine) ─────────────────────────
+
+model Offer {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  type          String   @default("MEGA_SALE") // FESTIVAL | SEASON | MEGA_SALE | CLEARANCE
+  headline      String   @default("")
+  subText       String   @default("")
+  ctaText       String   @default("Shop Now")
+  ctaUrl        String   @default("#deals")
+  bannerImage   String   @default("")
+  bgColor       String   @default("#111111")
+  textColor     String   @default("#facc15")
+  heroSlot      Boolean  @default(true) // auto-appear in homepage hero
+  startAt       DateTime?
+  endAt         DateTime?
+  scopeType     String   @default("ALL") // ALL | BRAND | CATEGORY | PRODUCT
+  scopeIds      String   @default("[]") // JSON id list
+  discountType  String   @default("PERCENT") // PERCENT | AMOUNT
+  discountValue Float    @default(0)
+  minOrder      Float    @default(0)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+}
+
+model Coupon {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  headline    String    @default("") // creative text shown on homepage card
+  subText     String    @default("")
+  type        String    @default("PERCENT") // PERCENT | AMOUNT
+  value       Float
+  minOrder    Float     @default(0)
+  maxDiscount Float     @default(0)
+  bgColor     String    @default("#111111")
+  textColor   String    @default("#facc15")
+  scopeType   String    @default("ALL") // ALL | BRAND | CATEGORY | PRODUCT
+  scopeIds    String    @default("[]")
+  usageLimit  Int       @default(0) // 0 = unlimited
+  usedCount   Int       @default(0)
+  showOnHome  Boolean   @default(true)
+  startAt     DateTime?
+  endAt       DateTime?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+}
+
+// ───────────────────────── WEBSITE MANAGEMENT (pages, SEO, sitemap) ─────────────────────────
+
+model Page {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  title           String
+  type            String   @default("CUSTOM") // SYSTEM | CUSTOM | LEGAL
+  blocks          String   @default("[]") // JSON canvas blocks
+  metaTitle       String   @default("")
+  metaDescription String   @default("")
+  keywords        String   @default("")
+  ogImage         String   @default("")
+  inFooter        Boolean  @default(false)
+  sortOrder       Int      @default(0)
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model SeoMeta {
+  path            String  @id // e.g. "/", "/catalog", "/brands"
+  title           String  @default("")
+  description     String  @default("")
+  keywords        String  @default("")
+  ogImage         String  @default("")
+  noindex         Boolean @default(false)
+  extraHead       String  @default("")
+}
+
+// ───────────────────────── ERP SYNC (Neon <-> ecommerce) ─────────────────────────
+
+model SyncEvent {
+  id           String   @id @default(cuid())
+  direction    String // PULL_ERP | PUSH_ERP | WEBHOOK_IN
+  action       String // PRODUCTS | CUSTOMERS | ...
+  status       String   @default("OK") // OK | ERROR | PARTIAL
+  message      String   @default("")
+  productsSeen Int      @default(0)
+  created      Int      @default(0)
+  updated      Int      @default(0)
+  skipped      Int      @default(0)
+  durationMs   Int      @default(0)
+  createdAt    DateTime @default(now())
+}
+
+model PriceChangeLog {
+  id        String   @id @default(cuid())
+  productId String
+  sku       String   @default("")
+  name      String   @default("")
+  field     String // mrp | dealerPrice | tier1..5 | dealPrice
+  oldVal    Float
+  newVal    Float
+  basis     String   @default("") // e.g. "purchaseCost + 18%"
+  user      String   @default("Super Admin")
+  createdAt DateTime @default(now())
+}
+
+// ───────────────────────── LEGACY / SUPPORT MODULES ─────────────────────────
+
+model Store {
+  id        String   @id @default(cuid())
+  name      String
+  manager   String   @default("")
+  phone     String   @default("")
+  email     String   @default("")
+  zone      String   @default("West")
+  city      String   @default("")
+  area      String   @default("")
+  status    String   @default("APPROVED")
+  createdAt DateTime @default(now())
+}
+
+model Zone {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+}
+
+model PriceSlab {
+  id          String   @id @default(cuid())
+  title       String
+  minQty      Int      @default(0)
+  discountPct Float    @default(0)
+  note        String   @default("")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Slider {
+  id         String  @id @default(cuid())
+  heading    String
+  content    String  @default("")
+  buttonText String  @default("Shop Now")
+  buttonUrl  String  @default("#deals")
+  image      String  @default("")
+  position   String  @default("LEFT")
+  active     Boolean @default(true)
+  sortOrder  Int     @default(0)
+}
+
+model Ad {
+  id        String  @id @default(cuid())
+  title     String
+  link      String  @default("#")
+  image     String  @default("")
+  active    Boolean @default(true)
+  sortOrder Int     @default(0)
+}
+
+model SalesPerson {
+  id            String   @id @default(cuid())
+  name          String
+  mobile        String   @unique
+  historyAccess Boolean  @default(true)
+  createdAt     DateTime @default(now())
+}
+
+model DeliveryMan {
+  id        String   @id @default(cuid())
+  name      String
+  username  String   @unique
+  email     String   @default("")
+  phone     String   @default("")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model AdminUser {
+  id          String   @id @default(cuid())
+  fullName    String
+  email       String   @unique
+  password    String
+  role        String   @default("COMPANY_ADMIN")
+  permissions String   @default("[]")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  action    String
+  entity    String
+  entityId  String   @default("")
+  detail    String   @default("")
+  user      String   @default("Super Admin")
+  createdAt DateTime @default(now())
+}
+
+model Purchase {
+  id        String   @id @default(cuid())
+  ref       String   @default("")
+  company   String
+  product   String
+  qty       Int
+  rate      Float
+  amount    Float
+  note      String   @default("")
+  createdAt DateTime @default(now())
+}
+
+model ReturnRequest {
+  id        String   @id @default(cuid())
+  orderId   String
+  product   String
+  qty       Int
+  reason    String
+  amount    Float    @default(0)
+  status    String   @default("REQUESTED")
+  createdAt DateTime @default(now())
+}
+
+model Setting {
+  key   String @id
+  value String
+}
+
+model Size {
+  id   String @id @default(cuid())
+  name String @unique
+}
+
+model Color {
+  id   String @id @default(cuid())
+  name String @unique
+  hex  String @default("#000000")
+}

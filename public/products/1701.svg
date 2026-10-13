@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0" stop-color="#fef9c3"/><stop offset="1" stop-color="#facc15"/></linearGradient></defs>
+<rect width="600" height="600" rx="48" fill="url(#g)"/>
+<circle cx="520" cy="90" r="140" fill="#ffffff" opacity="0.18"/>
+<circle cx="70" cy="540" r="110" fill="#000000" opacity="0.08"/>
+<text x="300" y="235" font-size="150" text-anchor="middle">🍳</text>
+<text x="300" y="380" font-size="34" font-weight="800" fill="#1c1917" text-anchor="middle" font-family="Arial, sans-serif"><tspan x="300" dy="0">GLORY LAVENDER SS</tspan><tspan x="300" dy="30">LUNCH BOX SET OF 2</tspan><tspan x="300" dy="30">-…</tspan></text>
+<rect x="170" y="470" width="260" height="46" rx="23" fill="#111111"/>
+<text x="300" y="501" font-size="24" font-weight="700" fill="#ffd200" text-anchor="middle" font-family="Arial, sans-serif">Borosil Kitchenware · Pk 8</text>
+<text x="300" y="560" font-size="20" font-weight="600" fill="#44403c" text-anchor="middle" letter-spacing="3" font-family="Arial, sans-serif">DMK MART · TEMP IMAGE</text>
+</svg>
