@@ -1,9 +1,9 @@
 import { createHmac, timingSafeEqual } from "crypto";
 
-const SECRET = "dmk-mart-admin-hmac-secret-2026";
+const SECRET = process.env.ADMIN_AUTH_SECRET || "dmk-mart-admin-hmac-secret-2026";
 
-export const ADMIN_LOGIN_ID = "B2B DMK Mart";
-export const ADMIN_PASSWORD = "1234";
+export const ADMIN_LOGIN_ID = process.env.ADMIN_LOGIN_ID || "B2B DMK Mart";
+export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "1234";
 
 export function makeToken(): string {
   const ts = Date.now().toString();
