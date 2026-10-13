@@ -4,7 +4,9 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // Dedicated name: the sandbox platform injects its own DATABASE_URL (sqlite),
+  // which would override .env. APP_DATABASE_URL is app-owned everywhere (local + Vercel).
+  url = env("APP_DATABASE_URL")
 }
 
 // ───────────────────────── BRANDS (DMK Mart sells many brands) ─────────────────────────
