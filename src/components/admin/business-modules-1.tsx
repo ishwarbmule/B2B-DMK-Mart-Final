@@ -479,3 +479,118 @@ export function PricingModule({ token }: { token: string }) {
     </div>
   );
 }
+
+/* ══════════════ BRAND PRODUCTS (per-brand catalogue under Brand Management) ══════════════ */
+type ProdRow = {
+  id: string; sku: string; name: string; image: string; dealerPrice: number; mrp: number;
+  stock: number; active: boolean; isTop: boolean; isFeatured: boolean; isHot: boolean; isDeal: boolean;
+};
+
+export function BrandProductsModule({ token }: { token: string }) {
+  const call = api(token);
+  const [brands, setBrands] = useState<{ id: string; name: string; productCount?: number }[]>([]);
+  const [brandId, setBrandId] = useState("");
+  const [rows, setRows] = useState<ProdRow[]>([]);
+  const [q, setQ] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    call("/api/admin/crud/brands")
+      .then((d) => setBrands(d.rows ?? []))
+      .catch(() => {});
+     
+  }, [token]);
+
+  const loadBrand = async () => {
+    if (!brandId) return;
+    setLoading(true);
+    try {
+      const d = await call(`/api/admin/products?brand=${brandId}&limit=100`);
+      setRows(d.rows ?? []);
+    } catch {
+      toast.error("Failed to load brand products");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadBrand();
+     
+  }, [brandId, token]);
+
+  const toggleActive = async (r: ProdRow, v: boolean) => {
+    await fetch("/api/admin/products", {
+      method: "PATCH",
+      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: JSON.stringify({ id: r.id, active: v }),
+    });
+    setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, active: v } : x)));
+    toast.success(`${r.sku} ${v ? "live" : "hidden"}`);
+  };
+
+  const filtered = rows.filter((r) => !q || `${r.name} ${r.sku}`.toLowerCase().includes(q.toLowerCase()));
+
+  return (
+    <div>
+      <ModuleHeader title="Brand Products" sub="Pick a brand to manage its full product list — visibility, prices at a glance, homepage sections">
+        <select value={brandId} onChange={(e) => setBrandId(e.target.value)} className="h-9 rounded-lg border px-2 text-xs font-semibold">
+          <option value="">Select brand…</option>
+          {brands.map((b) => (
+            <option key={b.id} value={b.id}>{b.name}{typeof b.productCount === "number" ? ` (${b.productCount})` : ""}</option>
+          ))}
+        </select>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter products…" className="h-9 w-48 rounded-lg border px-3 text-xs outline-none focus:border-yellow-400" />
+      </ModuleHeader>
+
+      {!brandId ? (
+        <p className="rounded-xl border border-dashed p-10 text-center text-sm text-gray-400">Select a brand above to view and manage its products.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border bg-white">
+          <table className="w-full text-xs">
+            <thead className="bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-500">
+              <tr>
+                <th className="px-3 py-2.5">Product</th>
+                <th className="px-3 py-2.5 text-right">Price</th>
+                <th className="px-3 py-2.5 text-right">MRP</th>
+                <th className="px-3 py-2.5 text-right">Stock</th>
+                <th className="px-3 py-2.5">Sections</th>
+                <th className="px-3 py-2.5">Live</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-400">Loading…</td></tr>}
+              {!loading && filtered.length === 0 && <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-400">No products for this brand.</td></tr>}
+              {filtered.map((r) => (
+                <tr key={r.id} className="border-t hover:bg-gray-50/60">
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      {r.image && <Image src={r.image} alt="" width={28} height={28} className="h-7 w-7 rounded object-cover" unoptimized />}
+                      <div>
+                        <p className="max-w-[260px] truncate font-semibold">{r.name}</p>
+                        <p className="text-[10px] text-gray-400">{r.sku}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-right font-bold">{formatINR(r.dealerPrice)}</td>
+                  <td className="px-3 py-2 text-right text-gray-500">{formatINR(r.mrp)}</td>
+                  <td className={`px-3 py-2 text-right ${r.stock <= 10 ? "font-semibold text-red-500" : ""}`}>{r.stock}</td>
+                  <td className="px-3 py-2">
+                    <div className="flex gap-1 text-[9px] font-black">
+                      {r.isTop && <span className="rounded bg-emerald-600 px-1.5 py-0.5 text-white">TOP</span>}
+                      {r.isFeatured && <span className="rounded bg-yellow-400 px-1.5 py-0.5 text-black">FEAT</span>}
+                      {r.isHot && <span className="rounded bg-orange-500 px-1.5 py-0.5 text-white">HOT</span>}
+                      {r.isDeal && <span className="rounded bg-red-500 px-1.5 py-0.5 text-white">DEAL</span>}
+                      {!r.isTop && !r.isFeatured && !r.isHot && !r.isDeal && <span className="text-gray-300">—</span>}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2"><Toggle checked={r.active} onChange={(v) => toggleActive(r, v)} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronDown, Search, ShoppingCart, User, Phone, ShieldCheck, ChevronRight, X, Building2, Zap } from "lucide-react";
-import { useCartStore } from "@/lib/store";
+import { useCartStore, useSiteStore } from "@/lib/store";
 import { useHydrated } from "@/hooks/use-hydrated";
 import type { CatalogPayload } from "@/lib/types";
 
@@ -36,12 +36,16 @@ export function SiteHeaderV2() {
   const [mega, setMega] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const gst = useSiteStore((s) => s.gstEnabled);
+  useEffect(() => { useSiteStore.getState().load(); }, []);
 
   const tops = catalog?.tops ?? [];
   const brands = catalog?.brands ?? [];
   const announcement = catalog?.activeOffer
     ? `${catalog.activeOffer.headline} — ${catalog.activeOffer.subText}`
-    : "B2B wholesale rates on 2,200+ SKUs · GST invoice on every order · Delivery OTP verified handover";
+    : gst
+      ? "B2B wholesale rates on 2,200+ SKUs · GST invoice on every order · Delivery OTP verified handover"
+      : "B2B wholesale rates on 2,200+ SKUs · Itemised invoice on every order · Delivery OTP verified handover";
 
   const submit = (e?: React.FormEvent) => {
     e?.preventDefault();

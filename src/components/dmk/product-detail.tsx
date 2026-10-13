@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { BadgeCheck, Flame, Minus, Package, Plus, ShoppingCart, Star, TrendingUp, Truck, Zap } from "lucide-react";
 import { toast } from "sonner";
-import { useCartStore, formatINR, lineKey, unitPriceFor, piecesPerUnit, type UnitType } from "@/lib/store";
+import { useCartStore, formatINR, lineKey, unitPriceFor, piecesPerUnit, useSiteStore, type UnitType } from "@/lib/store";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { discountPct, type DProduct } from "@/lib/types";
 import { toCartItem, ProductCard } from "./product-card";
@@ -21,6 +21,8 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
   const addItem = useCartStore((s) => s.addItem);
   const openCart = useCartStore((s) => s.openCart);
   const items = useCartStore((s) => s.items);
+  const gst = useSiteStore((s) => s.gstEnabled);
+  useEffect(() => { useSiteStore.getState().load(); }, []);
   const [unit, setUnit] = useState<UnitType>("SINGLE");
   const [qty, setQty] = useState(1);
   const [imgIdx, setImgIdx] = useState(0);
@@ -57,8 +59,7 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
     ["Pack qty", `${p.packQty} pcs / pack`],
     ...(p.piecesPerBox ? ([["Bulk case", `${p.piecesPerBox} pcs / case`]] as [string, string][]) : []),
     ["Unit", p.unit ?? "Pcs"],
-    ["HSN code", p.hsn || "—"],
-    ["GST", `${p.gst}%`],
+    ...(gst ? ([["HSN code", p.hsn || "—"], ["GST", `${p.gst}%`]] as [string, string][]) : []),
     ["Barcode", p.barcode || "—"],
   ];
 
@@ -142,7 +143,7 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
             <div>
               <p className="text-3xl font-black text-gray-900">{formatINR(up)}</p>
               <p className="text-[11px] text-gray-500">
-                per {unit === "SINGLE" ? "piece" : unit === "PACK" ? `pack of ${p.packQty}` : `case of ${ppu}`} · excl. GST {p.gst}%
+                per {unit === "SINGLE" ? "piece" : unit === "PACK" ? `pack of ${p.packQty}` : `case of ${ppu}`}{gst ? ` · excl. GST ${p.gst}%` : " · final price"}
               </p>
             </div>
             {p.mrp > up && (
@@ -170,7 +171,7 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
           {/* trust */}
           <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
             <span className="flex items-center gap-1.5 rounded-lg border bg-white p-2.5 text-gray-600"><Truck className="h-4 w-4 text-yellow-500" /> 48h dispatch</span>
-            <span className="flex items-center gap-1.5 rounded-lg border bg-white p-2.5 text-gray-600"><BadgeCheck className="h-4 w-4 text-yellow-500" /> GST invoice</span>
+            <span className="flex items-center gap-1.5 rounded-lg border bg-white p-2.5 text-gray-600"><BadgeCheck className="h-4 w-4 text-yellow-500" /> {gst ? "GST invoice" : "Itemised invoice"}</span>
             <span className="flex items-center gap-1.5 rounded-lg border bg-white p-2.5 text-gray-600"><Package className="h-4 w-4 text-yellow-500" /> OTP delivery</span>
           </div>
 

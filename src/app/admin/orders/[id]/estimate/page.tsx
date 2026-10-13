@@ -27,6 +27,8 @@ export default async function EstimatePage({
   const { id } = await params;
   const order = await db.order.findUnique({ where: { id }, include: { items: true } });
   if (!order) notFound();
+  // GST display follows the mode stored on THIS order (gstAmount = 0 ⇒ Without-GST order)
+  const gstOn = order.gstAmount > 0;
 
   return (
     <div className="mx-auto bg-white" style={{ width: "80mm" }}>
@@ -50,7 +52,7 @@ export default async function EstimatePage({
       <div className="px-1 py-1 font-mono text-[10px] leading-snug text-black">
         <p className="text-center text-[13px] font-black tracking-wide">DMK MART</p>
         <p className="text-center text-[9px]">Plot 14, MIDC Industrial Area, Solapur Road, Pune 411019</p>
-        <p className="text-center text-[9px]">Ph: +91 98220 12345 · GSTIN: 27ABCDE1234F1Z5</p>
+        <p className="text-center text-[9px]">Ph: +91 98220 12345{gstOn ? " · GSTIN: 27ABCDE1234F1Z5" : ""}</p>
         <p className="my-1 text-center">--------------------------------</p>
         <p className="text-center font-bold">ESTIMATE / CHALLAN</p>
         <div className="flex justify-between"><span>No: {order.invoiceNo}</span><span>{new Date(order.createdAt).toLocaleDateString("en-IN")}</span></div>
@@ -80,7 +82,7 @@ export default async function EstimatePage({
         <p className="my-1 text-center">--------------------------------</p>
         <div className="flex justify-between"><span>Items {order.items.length} · Pieces {order.items.reduce((s, i) => s + i.pieces, 0)}</span><span>{inr(order.itemTotal)}</span></div>
         {order.discount > 0 && <div className="flex justify-between"><span>Discount {order.couponCode ? `(${order.couponCode})` : ""}</span><span>-{inr(order.discount)}</span></div>}
-        <div className="flex justify-between"><span>GST 18%</span><span>{inr(order.gstAmount)}</span></div>
+        {gstOn && <div className="flex justify-between"><span>GST 18%</span><span>{inr(order.gstAmount)}</span></div>}
         {order.deliveryFee > 0 && <div className="flex justify-between"><span>Freight</span><span>{inr(order.deliveryFee)}</span></div>}
         <div className="flex justify-between border-t border-black text-[12px] font-black"><span>TOTAL</span><span>{inr(order.grandTotal)}</span></div>
         <p className="mt-2 text-center text-[16px] font-black tracking-[0.4em]">OTP {order.otp || "----"}</p>

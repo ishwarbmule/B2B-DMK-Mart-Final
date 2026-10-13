@@ -3,10 +3,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Phone, Mail, MapPin, ShieldCheck, Truck, Store } from "lucide-react";
+import { useEffect } from "react";
 import { useCatalog } from "./site-header-v2";
+import { useSiteStore } from "@/lib/store";
 
 export function SiteFooter() {
   const catalog = useCatalog();
+  const gst = useSiteStore((s) => s.gstEnabled);
+  useEffect(() => { useSiteStore.getState().load(); }, []);
   const tops = catalog?.tops ?? [];
   const pages = catalog?.footerPages ?? [];
   const settings = catalog?.settings ?? {};
@@ -26,7 +30,7 @@ export function SiteFooter() {
             {settings.site_tagline ?? "Plastic & Home Appliances Wholesale"} — pieces, packs & bulk cases from 39 trusted brands with tier-based B2B pricing.
           </p>
           <div className="mt-4 flex flex-wrap gap-2 text-[10px]">
-            <span className="flex items-center gap-1 rounded-full border border-gray-800 px-2 py-1"><ShieldCheck className="h-3 w-3 text-yellow-400" /> GST Registered</span>
+            {gst && <span className="flex items-center gap-1 rounded-full border border-gray-800 px-2 py-1"><ShieldCheck className="h-3 w-3 text-yellow-400" /> GST Registered</span>}
             <span className="flex items-center gap-1 rounded-full border border-gray-800 px-2 py-1"><Truck className="h-3 w-3 text-yellow-400" /> Fast Dispatch</span>
             <span className="flex items-center gap-1 rounded-full border border-gray-800 px-2 py-1"><Store className="h-3 w-3 text-yellow-400" /> OTP-verified Delivery</span>
           </div>
@@ -83,7 +87,7 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="border-t border-gray-900 py-4 text-center text-[11px] text-gray-600">
-        © 2026 DMK Mart · All rights reserved · Prices exclusive of GST unless stated
+        © 2026 DMK Mart · All rights reserved · {gst ? "Prices exclusive of GST unless stated" : "Prices as marked · no additional taxes"}
       </div>
     </footer>
   );

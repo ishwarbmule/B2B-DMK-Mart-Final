@@ -4,23 +4,16 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
-  LayoutDashboard, Globe, Store, Package, Ticket, Layers, MapPin, Megaphone,
-  UserCheck, Building2, ShoppingCart, Monitor, ShoppingBag, Undo2, LineChart,
-  Truck, Image as ImageIcon, Users, ScrollText, BookOpen, Send, ShieldCheck,
-  LogOut, Menu, X, Eye, Settings2, FolderTree, Palette, ChevronRight,
+  LayoutDashboard, Globe, Package, Building2, ShoppingCart,
+  Users, LogOut, Menu, X, Eye, Settings2, ChevronRight,
   Barcode as BarcodeIcon, BadgePercent, IndianRupee, Wallet, FileSpreadsheet,
-  LayoutTemplate, KeyRound,
 } from "lucide-react";
 import { toast } from "sonner";
-import { DashboardModule, CustomersModule, PricingModule } from "./business-modules-1";
+import { DashboardModule, CustomersModule, PricingModule, BrandProductsModule } from "./business-modules-1";
 import { FinancialModule, ReportsModule, WebsiteModule, StorefrontsModule } from "./business-modules-2";
 import { ProductsModule } from "./products-module";
 import { OrdersModule } from "./orders-module";
-import { PosModule } from "./pos-module";
 import { SettingsModule } from "./settings-module";
-import { UsersModule, RolesModule } from "./users-module";
-import { LogsModule } from "./logs-module";
-import { BrochureModule } from "./brochure-module";
 import { BarcodeStudio } from "./barcode-studio";
 import { CrudModule } from "./ui-bits";
 import { CONFIGS } from "./crud-configs";
@@ -28,37 +21,44 @@ import { CONFIGS } from "./crud-configs";
 type ModuleId = string;
 
 const NAV: { group: string; items: { id: ModuleId; label: string; icon: React.ComponentType<{ className?: string }>; sub?: { id: string; label: string }[] }[] }[] = [
-  { group: "1 · Command Center", items: [
+  { group: "Command Center", items: [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "financial", label: "Financial Section", icon: Wallet },
     { id: "reports", label: "Reports & Exports", icon: FileSpreadsheet },
   ]},
-  { group: "2 · Catalog", items: [
-    { id: "products", label: "Product Management", icon: Package },
-    { id: "brands", label: "Brand Management", icon: Building2, sub: [{ id: "brands", label: "Brands" }, { id: "storefronts", label: "Brand Storefronts" }] },
+  { group: "Catalog & Pricing", items: [
+    { id: "products", label: "Product Management", icon: Package, sub: [
+      { id: "products", label: "Products & Sections" },
+      { id: "tops", label: "Top Categories" },
+      { id: "mids", label: "Mid Categories" },
+      { id: "ends", label: "End Categories" },
+    ]},
+    { id: "brands", label: "Brand Management", icon: Building2, sub: [
+      { id: "brands", label: "Brands" },
+      { id: "brand-products", label: "Brand Products" },
+      { id: "storefronts", label: "Brand Storefronts" },
+    ]},
     { id: "pricing", label: "Products Pricing", icon: IndianRupee },
-    { id: "brochure", label: "Catalog Generator", icon: BookOpen },
   ]},
-  { group: "3 · Sales & Orders", items: [
+  { group: "Sales & Fulfilment", items: [
     { id: "orders", label: "Orders & Invoices", icon: ShoppingCart },
-    { id: "pos", label: "POS Billing", icon: Monitor },
     { id: "barcodes", label: "Barcode Printing", icon: BarcodeIcon },
-    { id: "purchases", label: "Purchase Management", icon: ShoppingBag },
-    { id: "returns", label: "Returns & Refunds", icon: Undo2 },
   ]},
-  { group: "4 · Growth", items: [
-    { id: "offers", label: "Offers & Coupons", icon: BadgePercent, sub: [{ id: "offers", label: "Offers / Big Sale Days" }, { id: "coupons", label: "Coupons" }, { id: "sliders", label: "Hero Sliders" }, { id: "ads", label: "Ads" }] },
+  { group: "Growth", items: [
+    { id: "offers", label: "Offers & Coupons", icon: BadgePercent, sub: [
+      { id: "offers", label: "Offers / Big Sale Days" },
+      { id: "coupons", label: "Coupons" },
+    ]},
   ]},
-  { group: "5 · People", items: [
+  { group: "People", items: [
     { id: "customers", label: "Customer Management", icon: Users },
-    { id: "network", label: "Network", icon: Truck, sub: [{ id: "stores", label: "Stores" }, { id: "salespersons", label: "Sales Persons" }, { id: "delivery", label: "Delivery Men" }, { id: "zones", label: "Zones" }, { id: "slabs", label: "Price Slabs" }] },
   ]},
-  { group: "6 · Website & System", items: [
-    { id: "website", label: "Website Management", icon: Globe, sub: [{ id: "website", label: "Pages / SEO / Robots" }, { id: "seoMeta", label: "SEO Manager" }] },
-    { id: "shop", label: "Shop Settings", icon: FolderTree, sub: [{ id: "tops", label: "Top Categories" }, { id: "mids", label: "Mid Categories" }, { id: "ends", label: "End Categories" }, { id: "sizes", label: "Sizes" }, { id: "colors", label: "Colors" }] },
+  { group: "Website & System", items: [
+    { id: "website", label: "Website Management", icon: Globe, sub: [
+      { id: "website", label: "Pages / SEO / Robots" },
+      { id: "seoMeta", label: "SEO Manager" },
+    ]},
     { id: "settings", label: "Settings", icon: Settings2 },
-    { id: "users", label: "Users & Roles", icon: ShieldCheck, sub: [{ id: "users", label: "Manage Users" }, { id: "roles", label: "Roles & Permissions" }] },
-    { id: "logs", label: "Activity Logs", icon: ScrollText },
   ]},
 ];
 
@@ -166,7 +166,6 @@ export function AdminPortal() {
       case "dashboard": return <DashboardModule token={token} />;
       case "products": return <ProductsModule token={token} />;
       case "orders": return <OrdersModule token={token} />;
-      case "pos": return <PosModule token={token} />;
       case "barcodes": return <BarcodeStudio token={token} />;
       case "customers": return <CustomersModule token={token} />;
       case "pricing": return <PricingModule token={token} />;
@@ -175,10 +174,7 @@ export function AdminPortal() {
       case "website": return <WebsiteModule token={token} />;
       case "storefronts": return <StorefrontsModule token={token} />;
       case "settings": return <SettingsModule token={token} />;
-      case "users": return <UsersModule token={token} />;
-      case "roles": return <RolesModule token={token} />;
-      case "logs": return <LogsModule token={token} />;
-      case "brochure": return <BrochureModule token={token} />;
+      case "brand-products": return <BrandProductsModule token={token} />;
       default: {
         const cfg = CONFIGS[active];
         if (!cfg) return <p className="rounded-xl border border-dashed p-10 text-center text-sm text-gray-400">Module not found.</p>;
@@ -211,7 +207,7 @@ export function AdminPortal() {
           </button>
           <Image src="/dmk-logo.png" alt="DMK" width={30} height={30} className="h-[30px] w-[30px] rounded-full" unoptimized />
           <p className="text-sm font-black text-white">DMK Mart <span className="hidden text-yellow-400 sm:inline">Super Admin</span></p>
-          <span className="rounded-md bg-yellow-400 px-2 py-0.5 text-[10px] font-black uppercase text-black">12 Modules</span>
+          <span className="rounded-md bg-yellow-400 px-2 py-0.5 text-[10px] font-black uppercase text-black">13 Modules</span>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => router.push("/")} className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-1.5 text-xs font-semibold text-gray-300 hover:bg-gray-900">
