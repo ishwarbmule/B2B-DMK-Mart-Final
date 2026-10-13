@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { CheckCircle2, Package, BadgeCheck, MessageCircle, KeyRound } from "lucide-react";
 import { toast } from "sonner";
-import { useCartStore, cartTotals, formatINR, unitPriceFor, piecesPerUnit } from "@/lib/store";
+import { useCartStore, cartTotals, formatINR, unitPriceFor, piecesPerUnit, useSiteStore } from "@/lib/store";
 import { useHydrated } from "@/hooks/use-hydrated";
 
 const SLOTS = ["Standard dispatch (48h)", "Express 2-day", "Weekly scheduled"];
@@ -26,6 +26,8 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
   const hydrated = useHydrated();
   const items = useCartStore((s) => s.items);
   const clearCart = useCartStore((s) => s.clearCart);
+  const gst = useSiteStore((s) => s.gstEnabled);
+  useEffect(() => { useSiteStore.getState().load(); }, []);
   const [step, setStep] = useState(0);
   const [placing, setPlacing] = useState(false);
   const [result, setResult] = useState<{ invoiceNo: string; grandTotal: number; otp: string; phone: string } | null>(null);
@@ -35,7 +37,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const t = cartTotals(items);
+  const t = cartTotals(items, gst);
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -102,7 +104,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
           <p className="text-sm font-bold text-yellow-400">
             {step === 2 ? "Order Confirmed" : "Checkout"} · {formatINR(Math.max(0, t.grandTotal - couponDisc))}
           </p>
-          <p className="text-[10px] text-gray-400">{items.length} lines · GST invoice · Delivery OTP printed on invoice</p>
+          <p className="text-[10px] text-gray-400">{items.length} lines · {gst ? "GST invoice" : "Invoice"} · Delivery OTP printed on invoice</p>
         </div>
 
         {step === 0 && (
@@ -176,7 +178,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
             <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-500" />
             <div>
               <p className="text-lg font-black text-gray-900">Order {result.invoiceNo}</p>
-              <p className="text-sm text-gray-600">{formatINR(result.grandTotal)} · GST invoice generated</p>
+              <p className="text-sm text-gray-600">{formatINR(result.grandTotal)} · {gst ? "GST invoice generated" : "Invoice generated"}</p>
             </div>
             <div className="mx-auto w-fit rounded-2xl border-2 border-dashed border-yellow-400 bg-yellow-50 px-6 py-4">
               <p className="flex items-center justify-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-500">

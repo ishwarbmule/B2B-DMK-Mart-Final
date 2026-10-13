@@ -3,8 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Building2, Flame, LayoutTemplate, Package, Star, TrendingUp, Zap } from "lucide-react";
+import { useEffect } from "react";
 import { ProductCard, ProductCardMini } from "./product-card";
-import { formatINR } from "@/lib/store";
+import { formatINR, useSiteStore } from "@/lib/store";
 import type { DProduct } from "@/lib/types";
 
 export interface BrandData {
@@ -30,6 +31,8 @@ interface Props {
 }
 
 function BrandHero({ brand, cfg, dark, tall }: { brand: BrandData; cfg: Config; dark?: boolean; tall?: boolean }) {
+  const gst = useSiteStore((s) => s.gstEnabled);
+  useEffect(() => { useSiteStore.getState().load(); }, []);
   return (
     <section className={`relative overflow-hidden rounded-2xl border ${dark ? "border-gray-800" : "border-gray-200"}`} style={{ background: cfg.bg || (dark ? "#0a0a0a" : "#fff") }}>
       <div className="grid items-center gap-6 p-6 md:grid-cols-[1fr_auto] md:p-10">
@@ -46,7 +49,7 @@ function BrandHero({ brand, cfg, dark, tall }: { brand: BrandData; cfg: Config; 
           <div className={`mt-4 flex flex-wrap gap-3 text-[11px] ${dark ? "text-gray-400" : "text-gray-500"}`}>
             <span className="rounded-lg bg-black/5 px-3 py-1.5"><b>{brand.productCount}</b> SKUs</span>
             <span className="rounded-lg bg-black/5 px-3 py-1.5"><b>4</b> price tiers</span>
-            <span className="rounded-lg bg-black/5 px-3 py-1.5"><b>GST</b> invoice</span>
+            {gst ? <span className="rounded-lg bg-black/5 px-3 py-1.5"><b>GST</b> invoice</span> : <span className="rounded-lg bg-black/5 px-3 py-1.5"><b>Itemised</b> invoice</span>}
           </div>
         </div>
         <div className={`relative ${tall ? "h-40 w-40 md:h-52 md:w-52" : "h-32 w-32 md:h-40 md:w-40"} mx-auto overflow-hidden rounded-3xl border-4 shadow-2xl ${dark ? "border-yellow-400/60 bg-white" : "border-yellow-400/60 bg-white"}`}>

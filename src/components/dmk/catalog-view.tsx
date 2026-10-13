@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { SlidersHorizontal, X, ChevronLeft, ChevronRight } from "lucide-react";
 import type { DProduct, TopCategoryNode, BrandNode } from "@/lib/types";
+import { useSiteStore } from "@/lib/store";
 import { ProductCard } from "./product-card";
 
 interface Filters {
@@ -38,6 +39,8 @@ export function CatalogView({
   const [data, setData] = useState<{ products: DProduct[]; total: number; pages: number }>({ products: [], total: 0, pages: 1 });
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
+  const gst = useSiteStore((s) => s.gstEnabled);
+  useEffect(() => { useSiteStore.getState().load(); }, []);
 
   const setF = (patch: Partial<Filters>) => {
     setLoading(true);
@@ -213,7 +216,9 @@ export function CatalogView({
                 </div>
               )}
               <p className="mt-3 text-center text-[11px] text-gray-400">
-                Wholesale prices are exclusive of GST · GST invoice on every dispatch
+                {gst
+                  ? "Wholesale prices are exclusive of GST · GST invoice on every dispatch"
+                  : "Wholesale prices · Itemised invoice on every dispatch"}
               </p>
             </>
           )}

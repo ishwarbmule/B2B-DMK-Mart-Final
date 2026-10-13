@@ -109,7 +109,8 @@ export interface CartTotals {
   totalSavings: number;
 }
 
-export function cartTotals(items: CartItem[]): CartTotals {
+/** gstEnabled = admin GST master toggle (Settings → GST Mode). When false, no tax is added or shown anywhere. */
+export function cartTotals(items: CartItem[], gstEnabled = true): CartTotals {
   let itemTotal = 0;
   let totalPieces = 0;
   let totalSavings = 0;
@@ -124,7 +125,7 @@ export function cartTotals(items: CartItem[]): CartTotals {
   itemTotal = Math.round(itemTotal * 100) / 100;
   const slab = slabFor(itemTotal);
   const slabDisc = Math.round((itemTotal * slab.pct) / 100 * 100) / 100;
-  const gstAmount = Math.round((itemTotal - slabDisc) * GST_RATE * 100) / 100;
+  const gstAmount = gstEnabled ? Math.round((itemTotal - slabDisc) * GST_RATE * 100) / 100 : 0;
   const deliveryFee = itemTotal >= FREE_DELIVERY_ABOVE || itemTotal === 0 ? 0 : DELIVERY_FEE;
   const grandTotal = Math.round((itemTotal - slabDisc + gstAmount + deliveryFee) * 100) / 100;
   return {
@@ -144,3 +145,28 @@ export function cartTotals(items: CartItem[]): CartTotals {
 export function formatINR(n: number): string {
   return "₹" + n.toLocaleString("en-IN", { maximumFractionDigits: 2 });
 }
+
+// ───────────────────────── SITE SETTINGS (GST master toggle etc.) ─────────────────────────
+
+interface SiteState {
+  gstEnabled: boolean;
+  loaded: boolean;
+  load: () => Promise<void>;
+}
+
+/** Client-side mirror of admin Settings (public, non-secret). GST off ⇒ the whole site renders without GST. */
+export const useSiteStore = create<SiteState>()((set, get) => ({
+  gstEnabled: true,
+  loaded: false,
+  load: async () => {
+    if (get().loaded) return;
+    set({ loaded: true });
+    try {
+      const r = await fetch("/api/site-settings", { cache: "no-store" });
+      const d = await r.json();
+      set({ gstEnabled: d.gstEnabled !== false });
+    } catch {
+      /* keep default (GST on) */
+    }
+  },
+}));

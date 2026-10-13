@@ -154,9 +154,12 @@ export async function POST(req: NextRequest) {
     }
 
     const discount = Math.min(itemTotal, Math.round((slabDisc + couponDisc) * 100) / 100);
+    // GST Mode (admin Settings toggle): "off" ⇒ the order is billed WITHOUT GST (no tax added/shown).
+    const gstSetting = await db.setting.findUnique({ where: { key: "gst_enabled" } });
+    const gstEnabled = gstSetting?.value !== "off";
     // blended GST from lines
     const taxableBase = itemTotal - discount;
-    const gstAmount = Math.round(taxableBase * 0.18 * 100) / 100;
+    const gstAmount = gstEnabled ? Math.round(taxableBase * 0.18 * 100) / 100 : 0;
     const deliveryFee = itemTotal >= 5000 ? 0 : 250;
     const grandTotal = Math.round((taxableBase + gstAmount + deliveryFee) * 100) / 100;
     const totalSavings = Math.round(

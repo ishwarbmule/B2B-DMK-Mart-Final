@@ -33,8 +33,10 @@ export default async function InvoicePage({
   for (const s of settings) S[s.key] = s.value;
 
   const taxable = order.itemTotal - order.discount;
-  const cgst = taxable * 0.09;
-  const sgst = taxable * 0.09;
+  // GST display follows the mode stored on THIS order (gstAmount = 0 ⇒ placed in Without-GST mode)
+  const gstOn = order.gstAmount > 0;
+  const cgst = gstOn ? Math.round((order.gstAmount / 2) * 100) / 100 : 0;
+  const sgst = cgst;
 
   return (
     <div className="mx-auto max-w-[820px] bg-white p-6 print:p-0">
@@ -52,7 +54,7 @@ export default async function InvoicePage({
       `}</style>
 
       <div className="no-print mb-4 flex items-center justify-between">
-        <p className="text-xs font-bold text-gray-500">A4 Tax Invoice · prints multiple pages automatically for long orders</p>
+        <p className="text-xs font-bold text-gray-500">A4 {gstOn ? "Tax " : ""}Invoice · prints multiple pages automatically for long orders</p>
         <PrintButton label="Print Invoice (A4)" />
       </div>
 
@@ -65,11 +67,11 @@ export default async function InvoicePage({
             <p className="text-xl font-black tracking-tight">{S.firm_name ?? "DMK Mart"}</p>
             <p className="text-[10px] text-gray-600">{S.firm_address}</p>
             <p className="text-[10px] text-gray-600">{S.firm_phone} · {S.firm_email}</p>
-            <p className="text-[10px] text-gray-600">GSTIN: {S.firm_gstin} · State: {S.gst_state}</p>
+            {gstOn && <p className="text-[10px] text-gray-600">GSTIN: {S.firm_gstin} · State: {S.gst_state}</p>}
           </div>
         </div>
         <div className="text-right">
-          <p className="text-lg font-black">TAX INVOICE</p>
+          <p className="text-lg font-black">{gstOn ? "TAX INVOICE" : "INVOICE"}</p>
           <p className="text-[11px]"><b>Invoice:</b> {order.invoiceNo}</p>
           <p className="text-[11px]"><b>Date:</b> {new Date(order.createdAt).toLocaleDateString("en-IN")}</p>
           <p className="inline-block border-2 border-black px-2 py-0.5 text-[10px] font-black tracking-widest">{order.status}</p>
@@ -100,7 +102,7 @@ export default async function InvoicePage({
             <th className="border border-black px-1.5 py-1.5 text-left">#</th>
             <th className="border border-black px-1.5 py-1.5 text-left">SKU</th>
             <th className="border border-black px-1.5 py-1.5 text-left">Product</th>
-            <th className="border border-black px-1.5 py-1.5 text-left">HSN</th>
+            {gstOn && <th className="border border-black px-1.5 py-1.5 text-left">HSN</th>}
             <th className="border border-black px-1.5 py-1.5 text-left">Unit</th>
             <th className="border border-black px-1.5 py-1.5 text-right">Qty</th>
             <th className="border border-black px-1.5 py-1.5 text-right">Pcs</th>
@@ -114,7 +116,7 @@ export default async function InvoicePage({
               <td className="border border-gray-300 px-1.5 py-1">{i + 1}</td>
               <td className="border border-gray-300 px-1.5 py-1 font-mono">{it.sku}</td>
               <td className="border border-gray-300 px-1.5 py-1">{it.name}</td>
-              <td className="border border-gray-300 px-1.5 py-1">{it.hsn || "—"}</td>
+              {gstOn && <td className="border border-gray-300 px-1.5 py-1">{it.hsn || "—"}</td>}
               <td className="border border-gray-300 px-1.5 py-1">{it.unitType === "SINGLE" ? "Piece" : it.unitType === "PACK" ? `Pack of ${it.packQty}` : `Case of ${it.packQty}`}</td>
               <td className="border border-gray-300 px-1.5 py-1 text-right">{it.qty}</td>
               <td className="border border-gray-300 px-1.5 py-1 text-right">{it.pieces}</td>
@@ -133,9 +135,13 @@ export default async function InvoicePage({
             {order.discount > 0 && (
               <tr><td className="border px-2 py-1">Discount {order.couponCode ? `(${order.couponCode})` : ""}</td><td className="border px-2 py-1 text-right">− {inr(order.discount)}</td></tr>
             )}
-            <tr><td className="border px-2 py-1">Taxable Value</td><td className="border px-2 py-1 text-right">{inr(taxable)}</td></tr>
-            <tr><td className="border px-2 py-1">CGST @ 9%</td><td className="border px-2 py-1 text-right">{inr(cgst)}</td></tr>
-            <tr><td className="border px-2 py-1">SGST @ 9%</td><td className="border px-2 py-1 text-right">{inr(sgst)}</td></tr>
+            {gstOn && (
+              <>
+                <tr><td className="border px-2 py-1">Taxable Value</td><td className="border px-2 py-1 text-right">{inr(taxable)}</td></tr>
+                <tr><td className="border px-2 py-1">CGST @ 9%</td><td className="border px-2 py-1 text-right">{inr(cgst)}</td></tr>
+                <tr><td className="border px-2 py-1">SGST @ 9%</td><td className="border px-2 py-1 text-right">{inr(sgst)}</td></tr>
+              </>
+            )}
             {order.deliveryFee > 0 && <tr><td className="border px-2 py-1">Delivery / Freight</td><td className="border px-2 py-1 text-right">{inr(order.deliveryFee)}</td></tr>}
             <tr className="bg-black text-white"><td className="border border-black px-2 py-1.5 font-black">GRAND TOTAL</td><td className="border border-black px-2 py-1.5 text-right font-black">{inr(order.grandTotal)}</td></tr>
           </tbody>
