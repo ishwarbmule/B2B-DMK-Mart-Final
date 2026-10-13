@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "crypto";
 
-const SECRET = "dmk-mart-customer-hmac-secret-2026";
+const SECRET = process.env.CUSTOMER_AUTH_SECRET || "dmk-mart-customer-hmac-secret-2026";
 
 export function makeCustomerToken(customerId: string): string {
   const ts = Date.now().toString();
