@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin, jsonError } from "@/lib/admin-auth";
-import { sendSms, smsTemplates } from "@/lib/sms";
+import { smsTemplates } from "@/lib/sms";
+import { notifyCustomer } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 
@@ -71,13 +72,17 @@ export async function PATCH(req: NextRequest) {
       data: { action: "UPDATE", entity: "order", entityId: row.id, detail: `Order ${row.invoiceNo} updated (status: ${row.status}, shipping: ${row.shippingStatus}${regenerateOtp ? `, OTP regenerated: ${row.otp}` : ""})` },
     });
 
-    // SMS the customer when the order status changed (real SMS when gateway configured, else demo log)
+    // Notify the customer when the order status changed (WhatsApp free-first → SMS → demo log)
     if (status && status !== "PENDING") {
       try {
         const cust = row.customerId ? await db.customer.findUnique({ where: { id: row.customerId } }) : null;
         const phone = cust?.phone || row.phone;
         if (phone) {
-          sendSms(phone, smsTemplates.orderStatus(row.invoiceNo, status, "")).catch(() => {});
+          const support = (await db.setting.findUnique({ where: { key: "support_phone" } }))?.value || "";
+          notifyCustomer(phone, smsTemplates.orderStatus(row.invoiceNo, status, support), {
+            templateKey: "wa_status_template",
+            params: [row.invoiceNo, status, support || "-"],
+          }).catch(() => {});
         }
       } catch { /* notification must never block the admin update */ }
     }

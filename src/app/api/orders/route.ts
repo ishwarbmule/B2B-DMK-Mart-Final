@@ -6,7 +6,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { customerFromReq } from "@/lib/customer-auth";
-import { sendSms, smsTemplates } from "@/lib/sms";
+import { smsTemplates } from "@/lib/sms";
+import { notifyCustomer } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 
@@ -217,8 +218,11 @@ export async function POST(req: NextRequest) {
       data: { action: "CREATE", entity: "order", entityId: order.id, detail: `Web order ${invoiceNo} placed by ${d.customerName} (₹${grandTotal}) — OTP ${otp}` },
     });
 
-    // SMS confirmation (gateway configured → real SMS; otherwise logged in demo mode)
-    sendSms(d.phone, smsTemplates.orderPlaced(invoiceNo, grandTotal, otp)).catch(() => {});
+    // Order confirmation (WhatsApp free-first → SMS gateway → demo log)
+    notifyCustomer(d.phone, smsTemplates.orderPlaced(invoiceNo, grandTotal, otp), {
+      templateKey: "wa_order_template",
+      params: [invoiceNo, String(grandTotal), otp],
+    }).catch(() => {});
 
     return NextResponse.json({
       ok: true, orderId: order.id, invoiceNo, otp,
