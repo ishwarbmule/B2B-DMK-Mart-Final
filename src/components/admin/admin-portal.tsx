@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardModule, CustomersModule, PricingModule, BrandProductsModule } from "./business-modules-1";
-import { FinancialModule, ReportsModule, WebsiteModule, StorefrontsModule } from "./business-modules-2";
+import { FinancialModule, ReportsModule, WebsiteModule, StorefrontsModule, HomeEditorModule } from "./business-modules-2";
 import { ProductsModule } from "./products-module";
 import { OrdersModule } from "./orders-module";
 import { SettingsModule } from "./settings-module";
@@ -57,6 +57,7 @@ const NAV: { group: string; items: { id: ModuleId; label: string; icon: React.Co
   { group: "Website & System", items: [
     { id: "website", label: "Website Management", icon: Globe, sub: [
       { id: "website", label: "Pages / SEO / Robots" },
+      { id: "homeEditor", label: "Homepage Editor (v2)" },
       { id: "seoMeta", label: "SEO Manager" },
     ]},
     { id: "settings", label: "Settings", icon: Settings2 },
@@ -173,6 +174,7 @@ export function AdminPortal() {
       case "financial": return <FinancialModule token={token} />;
       case "reports": return <ReportsModule token={token} />;
       case "website": return <WebsiteModule token={token} />;
+      case "homeEditor": return <HomeEditorModule token={token} />;
       case "storefronts": return <StorefrontsModule token={token} />;
       case "settings": return <SettingsModule token={token} />;
       case "brand-products": return <BrandProductsModule token={token} />;

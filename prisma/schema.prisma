@@ -203,6 +203,7 @@ model Order {
   slot           String      @default("Express 2-hour")
   paymentMethod  String      @default("UPI")
   paymentStatus  String      @default("PENDING")
+  waOptIn        Boolean     @default(false) // customer consented to WhatsApp order updates at checkout
   shippingStatus String      @default("PENDING")
   status         String      @default("PENDING")
   source         String      @default("WEB")

@@ -23,7 +23,12 @@ export function OrdersModule({ token }: { token: string }) {
   const [source, setSource] = useState("");
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState<string | null>(null);
-  const [showBarcodes, setShowBarcodes] = useState(false);
+  const [showBarcodes, setShowBarcodes] = useState<string | false>(false);
+  const [waPanel, setWaPanel] = useState<string | null>(null);
+  const [waStatus, setWaStatus] = useState("");
+  const [waMsg, setWaMsg] = useState("");
+  const [waBusy, setWaBusy] = useState(false);
+  const [waNote, setWaNote] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -59,10 +64,42 @@ export function OrdersModule({ token }: { token: string }) {
     }
   };
 
-  const waLink = (o: OrderRow) =>
-    `https://wa.me/91${o.phone}?text=${encodeURIComponent(
-      `DMK Mart Order ${o.invoiceNo}\nDelivery OTP: ${o.otp}\nAmount: ₹${Number(o.grandTotal).toLocaleString("en-IN")}\nItems: ${o.items?.length ?? 0}\n\nShare this OTP with our delivery staff at handover.\n— DMK Mart B2B Wholesale`
-    )}`;
+  const toggleWa = (o: OrderRow) => {
+    if (waPanel === o.id) { setWaPanel(null); return; }
+    setWaPanel(o.id);
+    setWaStatus(o.status);
+    setWaNote("");
+    setWaMsg(`DMK Mart order ${o.invoiceNo} — status ${o.status}.`);
+    call(`/api/admin/whatsapp?action=order-preview&orderId=${o.id}&status=${o.status}`)
+      .then((d) => setWaMsg(d.message ?? ""))
+      .catch(() => {});
+  };
+
+  const pickWaStatus = (o: OrderRow, s: string) => {
+    setWaStatus(s);
+    call(`/api/admin/whatsapp?action=order-preview&orderId=${o.id}&status=${s}`)
+      .then((d) => setWaMsg(d.message ?? ""))
+      .catch(() => {});
+  };
+
+  const sendWaGateway = async (o: OrderRow) => {
+    setWaBusy(true);
+    setWaNote("");
+    try {
+      const d = await call("/api/admin/whatsapp", { method: "POST", body: JSON.stringify({ action: "ORDER_STATUS", orderId: o.id, status: waStatus, message: waMsg }) });
+      if (d.mode === "GATEWAY") {
+        setWaNote("Delivered via gateway ✓");
+        toast.success("WhatsApp sent via gateway");
+      } else {
+        setWaNote("No gateway configured — use 'Open WhatsApp' below (free, you press send)");
+        toast.info("Gateway not configured — message ready for WhatsApp");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Send failed");
+    } finally {
+      setWaBusy(false);
+    }
+  };
 
   return (
     <div>
@@ -163,9 +200,13 @@ export function OrdersModule({ token }: { token: string }) {
                       >
                         <span className="px-0.5 text-[9px] font-black">80</span>
                       </a>
-                      <a href={waLink(o)} target="_blank" rel="noopener noreferrer" title="Send OTP on WhatsApp" className="rounded-md border border-emerald-200 bg-emerald-50 p-1.5 text-emerald-600 hover:bg-emerald-100">
+                      <button
+                        onClick={() => toggleWa(o)}
+                        title="Send WhatsApp as per status"
+                        className={`rounded-md border p-1.5 ${waPanel === o.id ? "border-emerald-400 bg-emerald-100 text-emerald-700" : "border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100"}`}
+                      >
                         <MessageCircle className="h-3.5 w-3.5" />
-                      </a>
+                      </button>
                       <button onClick={() => patch(o.id, { regenerateOtp: true }, `OTP regenerated: ${o.invoiceNo}`)} title="Regenerate OTP" className="rounded-md border p-1.5 hover:bg-gray-100">
                         <KeyRound className="h-3.5 w-3.5" />
                       </button>
@@ -175,6 +216,52 @@ export function OrdersModule({ token }: { token: string }) {
                     </div>
                   </td>
                 </tr>
+                {waPanel === o.id && (
+                  <tr key={`${o.id}-wa`} className="bg-emerald-50/50">
+                    <td colSpan={8} className="px-4 pb-4 pt-1">
+                      <div className="rounded-xl border border-emerald-200 bg-white p-3">
+                        <p className="mb-2 flex items-center gap-2 text-xs font-black text-gray-900">
+                          <MessageCircle className="h-4 w-4 text-emerald-600" /> WhatsApp message — pick the status, edit if needed, send
+                          <span className="ml-auto rounded-full bg-gray-100 px-2 py-0.5 text-[9px] font-bold text-gray-500">to {o.phone}</span>
+                        </p>
+                        <div className="mb-2 flex flex-wrap gap-1.5">
+                          {STATUSES.map((s) => (
+                            <button
+                              key={s}
+                              onClick={() => pickWaStatus(o, s)}
+                              className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition ${waStatus === s ? "bg-emerald-600 text-white" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}
+                            >
+                              {s}
+                            </button>
+                          ))}
+                        </div>
+                        <textarea
+                          value={waMsg}
+                          onChange={(e) => setWaMsg(e.target.value)}
+                          rows={4}
+                          className="w-full rounded-lg border p-2.5 text-xs leading-relaxed outline-none focus:border-emerald-400"
+                        />
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <a
+                            href={`https://wa.me/91${o.phone}?text=${encodeURIComponent(waMsg)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 rounded-lg bg-[#25D366] px-3.5 py-2 text-xs font-bold text-white hover:bg-[#1fb958]"
+                          >
+                            <MessageCircle className="h-3.5 w-3.5" /> Open WhatsApp (free)
+                          </a>
+                          <button onClick={() => sendWaGateway(o)} disabled={waBusy} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50">
+                            {waBusy ? "Sending…" : "Send via gateway"}
+                          </button>
+                          {waNote && <span className="text-[10px] font-semibold text-gray-500">{waNote}</span>}
+                        </div>
+                        <p className="mt-1.5 text-[10px] text-gray-400">
+                          Open WhatsApp always works — it opens WhatsApp with this message ready for {o.phone} (you press send). “Send via gateway” needs Admin → Settings → WhatsApp configured.
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
                 {open === o.id && (
                   <tr key={`${o.id}-detail`} className="bg-gray-50/70">
                     <td colSpan={8} className="px-4 pb-4 pt-1">
