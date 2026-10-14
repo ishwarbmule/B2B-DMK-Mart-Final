@@ -29,6 +29,37 @@ function useCountdown(target?: string | null) {
   return left;
 }
 
+/* ─────────────── Homepage section config (Website Management → Homepage Editor) ─────────────── */
+export type HomeSectionCfg = { id: string; visible: boolean; title?: string; sub?: string };
+
+export const HOME_SECTIONS: { id: string; label: string; hasTitle: boolean; hasSub: boolean }[] = [
+  { id: "offerHero", label: "Offer Hero (auto from Offers)", hasTitle: false, hasSub: false },
+  { id: "brandStrip", label: "Shop by Brand", hasTitle: true, hasSub: false },
+  { id: "couponStrip", label: "Live Coupons", hasTitle: true, hasSub: false },
+  { id: "dealsRail", label: "Deals of the Day", hasTitle: true, hasSub: true },
+  { id: "tabbedShowcase", label: "Product Showcase (tabs)", hasTitle: false, hasSub: false },
+  { id: "adsStrip", label: "Brand Ads Showcase", hasTitle: true, hasSub: false },
+  { id: "deptCards", label: "Wholesale Departments", hasTitle: true, hasSub: false },
+  { id: "trustStrip", label: "Trust Badges", hasTitle: false, hasSub: false },
+  { id: "howItWorks", label: "How It Works", hasTitle: true, hasSub: false },
+];
+
+const DEFAULT_ORDER = HOME_SECTIONS.map((s) => s.id);
+
+function parseSections(raw: string | undefined): HomeSectionCfg[] {
+  if (!raw) return DEFAULT_ORDER.map((id) => ({ id, visible: true }));
+  try {
+    const arr = JSON.parse(raw) as HomeSectionCfg[];
+    if (!Array.isArray(arr)) throw new Error("bad");
+    // keep any new sections the editor doesn't know yet, in editor order
+    const known = arr.filter((s) => DEFAULT_ORDER.includes(s.id));
+    for (const id of DEFAULT_ORDER) if (!known.some((s) => s.id === id)) known.push({ id, visible: true });
+    return known;
+  } catch {
+    return DEFAULT_ORDER.map((id) => ({ id, visible: true }));
+  }
+}
+
 /* ─────────────── Offer Hero (auto from admin Offers) ─────────────── */
 function OfferHero() {
   const catalog = useCatalog();
@@ -133,14 +164,14 @@ function CollageImg({ seed }: { seed: string }) {
 }
 
 /* ─────────────── Brand strip ─────────────── */
-function BrandStrip() {
+function BrandStrip({ title }: { title?: string }) {
   const catalog = useCatalog();
   const brands = (catalog?.brands ?? []).slice(0, 16);
   return (
     <section>
       <div className="mb-3 flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-lg font-black text-gray-900">
-          <Building2 className="h-5 w-5 text-yellow-500" /> Shop by Brand
+          <Building2 className="h-5 w-5 text-yellow-500" /> {title || "Shop by Brand"}
         </h2>
         <Link href="/brands" className="text-xs font-bold text-yellow-600 hover:underline">View all brands →</Link>
       </div>
@@ -164,7 +195,7 @@ function BrandStrip() {
 }
 
 /* ─────────────── Coupon creatives (auto from admin) ─────────────── */
-function CouponStrip() {
+function CouponStrip({ title }: { title?: string }) {
   const catalog = useCatalog();
   const coupons = catalog?.homeCoupons ?? [];
   if (!coupons.length) return null;
@@ -172,7 +203,7 @@ function CouponStrip() {
     <section>
       <div className="mb-3 flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-lg font-black text-gray-900">
-          <BadgePercent className="h-5 w-5 text-yellow-500" /> Live Coupons — apply at checkout
+          <BadgePercent className="h-5 w-5 text-yellow-500" /> {title || "Live Coupons — apply at checkout"}
         </h2>
         <Link href="/catalog" className="text-xs font-bold text-yellow-600 hover:underline">Start ordering →</Link>
       </div>
@@ -210,7 +241,7 @@ function useFlagRows() {
   return rows;
 }
 
-function DealsRail({ deals }: { deals: DProduct[] }) {
+function DealsRail({ deals, title, sub }: { deals: DProduct[]; title?: string; sub?: string }) {
   if (!deals.length) return null;
   return (
     <section className="rounded-2xl bg-gradient-to-r from-red-600 to-red-500 p-4 md:p-6">
@@ -218,8 +249,8 @@ function DealsRail({ deals }: { deals: DProduct[] }) {
         <div className="flex items-center gap-3">
           <span className="rounded-lg bg-white px-3 py-1.5 text-lg font-black text-red-600">DEALS</span>
           <div>
-            <p className="text-base font-black text-white md:text-xl">Deals of the Day</p>
-            <p className="text-[11px] text-red-100">Extra margin on today&apos;s picks — while stocks last</p>
+            <p className="text-base font-black text-white md:text-xl">{title || "Deals of the Day"}</p>
+            <p className="text-[11px] text-red-100">{sub || "Extra margin on today's picks — while stocks last"}</p>
           </div>
         </div>
         <Link href="/catalog?flag=deal" className="flex items-center gap-1 rounded-lg bg-black/30 px-3 py-2 text-xs font-bold text-white hover:bg-black/50">
@@ -269,14 +300,14 @@ function TabbedShowcase() {
 /* ─────────────── Brand Ads showcase (uniform cards below the product list) ─────────────── */
 type AdRow = { id: string; title: string; image: string; link: string; brand?: { name: string; slug: string } | null };
 
-function AdsStrip() {
+function AdsStrip({ title }: { title?: string }) {
   const catalog = useCatalog();
   const ads = ((catalog?.ads ?? []) as AdRow[]).filter((a) => a.image).slice(0, 4);
   if (!ads.length) return null;
   return (
     <section>
       <h2 className="mb-3 flex items-center gap-2 text-lg font-black text-gray-900">
-        <Megaphone className="h-5 w-5 text-yellow-500" /> Brand Showcase
+        <Megaphone className="h-5 w-5 text-yellow-500" /> {title || "Brand Showcase"}
       </h2>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {ads.map((a) => (
@@ -301,13 +332,13 @@ function AdsStrip() {
 }
 
 /* ─────────────── Departments ─────────────── */
-function DeptCards() {
+function DeptCards({ title }: { title?: string }) {
   const catalog = useCatalog();
   const tops = catalog?.tops ?? [];
   return (
     <section>
       <h2 className="mb-3 flex items-center gap-2 text-lg font-black text-gray-900">
-        <PackageCheck className="h-5 w-5 text-yellow-500" /> Wholesale Departments
+        <PackageCheck className="h-5 w-5 text-yellow-500" /> {title || "Wholesale Departments"}
       </h2>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {tops.map((t, i) => (
@@ -332,7 +363,7 @@ function DeptCards() {
 }
 
 /* ─────────────── How it works ─────────────── */
-function HowItWorks() {
+function HowItWorks({ title }: { title?: string }) {
   const steps = [
     { icon: Building2, title: "Create B2B Account", text: "Register as retailer, wholesaler or distributor — get your price tier after approval." },
     { icon: PackageCheck, title: "Order Pieces, Packs or Cases", text: "Every product supports single pieces, full packs and bulk cases with transparent pricing." },
@@ -340,7 +371,7 @@ function HowItWorks() {
   ];
   return (
     <section className="rounded-2xl bg-black p-6 md:p-10">
-      <h2 className="text-center text-xl font-black text-white md:text-2xl">Built for Serious B2B Buyers</h2>
+      <h2 className="text-center text-xl font-black text-white md:text-2xl">{title || "Built for Serious B2B Buyers"}</h2>
       <div className="mt-8 grid gap-6 md:grid-cols-3">
         {steps.map((s, i) => (
           <div key={i} className="relative rounded-2xl border border-gray-800 bg-gray-950 p-5">
@@ -389,17 +420,26 @@ function TrustStrip() {
 
 export function HomeView() {
   const rows = useFlagRows();
+  const catalog = useCatalog();
+  const cfg = parseSections(catalog?.settings?.home_sections);
+
   return (
     <div className="mx-auto max-w-[1400px] space-y-8 px-3 py-5 md:px-6">
-      <OfferHero />
-      <BrandStrip />
-      <CouponStrip />
-      <DealsRail deals={rows.deals} />
-      <TabbedShowcase />
-      <AdsStrip />
-      <DeptCards />
-      <TrustStrip />
-      <HowItWorks />
+      {cfg.map((s) => {
+        if (!s.visible) return null;
+        switch (s.id) {
+          case "offerHero": return <OfferHero key={s.id} />;
+          case "brandStrip": return <BrandStrip key={s.id} title={s.title} />;
+          case "couponStrip": return <CouponStrip key={s.id} title={s.title} />;
+          case "dealsRail": return <DealsRail key={s.id} deals={rows.deals} title={s.title} sub={s.sub} />;
+          case "tabbedShowcase": return <TabbedShowcase key={s.id} />;
+          case "adsStrip": return <AdsStrip key={s.id} title={s.title} />;
+          case "deptCards": return <DeptCards key={s.id} title={s.title} />;
+          case "trustStrip": return <TrustStrip key={s.id} />;
+          case "howItWorks": return <HowItWorks key={s.id} title={s.title} />;
+          default: return null;
+        }
+      })}
     </div>
   );
 }

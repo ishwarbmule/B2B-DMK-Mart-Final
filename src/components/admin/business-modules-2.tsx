@@ -291,7 +291,7 @@ export function WebsiteModule({ token }: { token: string }) {
   const saveSetting = async (key: string, value: string) => {
     setSaving(true);
     try {
-      await call("/api/admin/settings", { method: "PATCH", body: JSON.stringify({ key, value }) });
+      await call("/api/admin/settings", { method: "PATCH", body: JSON.stringify({ [key]: value }) });
       toast.success(`Saved ${key}`);
       load();
     } catch (e) {
@@ -536,6 +536,163 @@ export function StorefrontsModule({ token }: { token: string }) {
               {activeSlug && (
                 <a href={`/brand/${activeSlug}`} target="_blank" rel="noopener noreferrer" className="rounded-xl border px-5 py-2.5 text-xs font-bold hover:bg-gray-50">Preview Live →</a>
               )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════ HOMEPAGE EDITOR (visual canvas v2) ══════════════ */
+type SectionCfg = { id: string; visible: boolean; title?: string; sub?: string };
+
+const SECTION_DEFS: { id: string; label: string; hasTitle: boolean; hasSub: boolean; hint: string }[] = [
+  { id: "offerHero", label: "Offer Hero", hasTitle: false, hasSub: false, hint: "Auto-renders the active Offer / sliders from Offers & Coupons" },
+  { id: "brandStrip", label: "Shop by Brand", hasTitle: true, hasSub: false, hint: "16 brand tiles → /brands" },
+  { id: "couponStrip", label: "Live Coupons", hasTitle: true, hasSub: false, hint: "Coupon creatives — hidden automatically when none active" },
+  { id: "dealsRail", label: "Deals of the Day", hasTitle: true, hasSub: true, hint: "Deal-flagged products rail" },
+  { id: "tabbedShowcase", label: "Product Showcase (tabs)", hasTitle: false, hasSub: false, hint: "Featured / Top / Hot tabs — the main products list" },
+  { id: "adsStrip", label: "Brand Ads Showcase", hasTitle: true, hasSub: false, hint: "Up to 4 ad cards from Brand Ads module — hidden when none" },
+  { id: "deptCards", label: "Wholesale Departments", hasTitle: true, hasSub: false, hint: "Top-category cards" },
+  { id: "trustStrip", label: "Trust Badges", hasTitle: false, hasSub: false, hint: "Rating / dispatch / tier badges" },
+  { id: "howItWorks", label: "How It Works", hasTitle: true, hasSub: false, hint: "3 steps + container-load CTA" },
+];
+
+const DEFAULT_CFG: SectionCfg[] = SECTION_DEFS.map((s) => ({ id: s.id, visible: true }));
+
+export function HomeEditorModule({ token }: { token: string }) {
+  const call = api(token);
+  const [sections, setSections] = useState<SectionCfg[]>(DEFAULT_CFG);
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
+  const [previewKey, setPreviewKey] = useState(0);
+
+  useEffect(() => {
+    // NOTE: key on token only — api() returns a new function each render, so [call] would
+    // re-run this effect after every state change and wipe in-progress edits.
+    fetch("/api/admin/settings", { headers: { authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((d) => {
+        const raw = (d.settings ?? {}).home_sections as string | undefined;
+        if (raw) {
+          try {
+            const arr = JSON.parse(raw) as SectionCfg[];
+            if (Array.isArray(arr)) {
+              const known = arr.filter((s) => SECTION_DEFS.some((def) => def.id === s.id));
+              for (const def of SECTION_DEFS) if (!known.some((s) => s.id === def.id)) known.push({ id: def.id, visible: true });
+              setSections(known);
+            }
+          } catch { /* defaults */ }
+        }
+      })
+      .catch(() => {});
+  }, [token]);
+
+  const mutate = (fn: (arr: SectionCfg[]) => SectionCfg[]) => {
+    setSections((arr) => fn([...arr]));
+    setDirty(true);
+  };
+
+  const move = (idx: number, dir: -1 | 1) => {
+    mutate((arr) => {
+      const j = idx + dir;
+      if (j < 0 || j >= arr.length) return arr;
+      [arr[idx], arr[j]] = [arr[j], arr[idx]];
+      return arr;
+    });
+  };
+
+  const toggle = (idx: number) => mutate((arr) => { arr[idx] = { ...arr[idx], visible: arr[idx].visible === false }; return arr; });
+
+  const setField = (idx: number, field: "title" | "sub", value: string) =>
+    mutate((arr) => { arr[idx] = { ...arr[idx], [field]: value }; return arr; });
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await call("/api/admin/settings", { method: "PUT", body: JSON.stringify({ home_sections: JSON.stringify(sections) }) });
+      toast.success("Homepage layout saved — live on the website");
+      setDirty(false);
+      setPreviewKey((k) => k + 1);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div>
+      <ModuleHeader title="Homepage Editor" sub="Visual canvas — reorder, hide/show and retitle every homepage section, with live preview">
+        <div className="flex overflow-hidden rounded-lg border">
+          {(["desktop", "mobile"] as const).map((d) => (
+            <button key={d} onClick={() => setDevice(d)} className={`px-3 py-1.5 text-[10px] font-black uppercase ${device === d ? "bg-black text-yellow-400" : "bg-white text-gray-500 hover:bg-gray-50"}`}>{d}</button>
+          ))}
+        </div>
+        <button onClick={() => setPreviewKey((k) => k + 1)} className="flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold hover:bg-gray-50">
+          <RefreshCcw className="h-3.5 w-3.5" /> Refresh preview
+        </button>
+        <button onClick={save} disabled={saving || !dirty} className="flex h-9 items-center gap-1.5 rounded-lg bg-black px-3.5 text-xs font-bold text-yellow-400 disabled:opacity-40">
+          <Save className="h-3.5 w-3.5" /> {saving ? "Saving…" : dirty ? "Save Layout" : "Saved"}
+        </button>
+      </ModuleHeader>
+
+      <div className="grid gap-4 lg:grid-cols-[420px_1fr]">
+        {/* CANVAS — section stack */}
+        <div className="space-y-2">
+          {sections.map((s, i) => {
+            const def = SECTION_DEFS.find((d) => d.id === s.id);
+            if (!def) return null;
+            const hidden = s.visible === false;
+            return (
+              <div key={s.id} className={`rounded-xl border bg-white p-3 transition ${hidden ? "opacity-55" : ""}`}>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-md bg-gray-100 px-1.5 py-0.5 text-[9px] font-black text-gray-400">{i + 1}</span>
+                  <p className="text-xs font-black text-gray-900">{def.label}</p>
+                  <div className="ml-auto flex items-center gap-1">
+                    <button onClick={() => move(i, -1)} disabled={i === 0} title="Move up" className="rounded border px-1.5 py-0.5 text-[10px] font-bold disabled:opacity-30 hover:bg-gray-50">↑</button>
+                    <button onClick={() => move(i, 1)} disabled={i === sections.length - 1} title="Move down" className="rounded border px-1.5 py-0.5 text-[10px] font-bold disabled:opacity-30 hover:bg-gray-50">↓</button>
+                    <button onClick={() => toggle(i)} title={hidden ? "Show section" : "Hide section"} className={`rounded-md border px-2 py-0.5 text-[9px] font-black uppercase ${hidden ? "border-red-200 bg-red-50 text-red-600" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
+                      {hidden ? "Hidden" : "Visible"}
+                    </button>
+                  </div>
+                </div>
+                <p className="mt-1 text-[10px] text-gray-400">{def.hint}</p>
+                {(def.hasTitle || def.hasSub) && !hidden && (
+                  <div className="mt-2 grid gap-1.5">
+                    {def.hasTitle && (
+                      <input value={s.title ?? ""} onChange={(e) => setField(i, "title", e.target.value)} placeholder={`Title (default: ${def.label})`} className="h-8 w-full rounded-lg border px-2.5 text-xs" />
+                    )}
+                    {def.hasSub && (
+                      <input value={s.sub ?? ""} onChange={(e) => setField(i, "sub", e.target.value)} placeholder="Subtitle (default: Extra margin on today's picks…)" className="h-8 w-full rounded-lg border px-2.5 text-xs" />
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          <div className="rounded-xl border border-dashed bg-white p-3 text-[10px] leading-relaxed text-gray-400">
+            Tip: hidden sections keep their content (Offers, Coupons, Ads still run in admin) — they just don&apos;t render on the homepage until you switch them back on. The storefront applies changes on the next visit.
+          </div>
+        </div>
+
+        {/* LIVE PREVIEW */}
+        <div className="rounded-xl border bg-gray-100 p-3">
+          <div className="mx-auto transition-all" style={{ maxWidth: device === "desktop" ? "100%" : 390 }}>
+            <div className="overflow-hidden rounded-xl border-2 border-gray-300 bg-white shadow-inner">
+              <div className="flex items-center gap-1.5 border-b bg-gray-50 px-3 py-1.5">
+                <span className="h-2 w-2 rounded-full bg-red-400" /><span className="h-2 w-2 rounded-full bg-yellow-400" /><span className="h-2 w-2 rounded-full bg-emerald-400" />
+                <span className="ml-2 truncate text-[9px] text-gray-400">dmkmartb2b — homepage preview ({device})</span>
+              </div>
+              <iframe
+                key={previewKey}
+                src="/"
+                title="Homepage live preview"
+                className="w-full bg-white"
+                style={{ height: device === "desktop" ? 640 : 700, border: "none" }}
+              />
             </div>
           </div>
         </div>

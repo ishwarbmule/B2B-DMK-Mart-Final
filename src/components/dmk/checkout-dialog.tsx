@@ -36,6 +36,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
     customerName: "", phone: "", email: "", addressLine: "", city: "", pincode: "",
     slot: SLOTS[0], paymentMethod: "UPI", note: "",
   });
+  const [waOptIn, setWaOptIn] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const t = cartTotals(items, gst);
@@ -61,6 +62,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
         headers: { "content-type": "application/json", ...(token ? { "x-customer-token": token } : {}) },
         body: JSON.stringify({
           ...form,
+          waOptIn,
           couponCode,
           items: items.map((i) => ({ id: i.id, unitType: i.unitType, qty: i.qty })),
         }),
@@ -112,6 +114,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
           <div className="space-y-3 p-5">
             {field("customerName", "Business / Contact name *", "e.g. Rajesh Traders")}
             {field("phone", "Mobile number *", "10-digit mobile", "tel")}
+            {waOptIn && <p className="-mt-1 text-[10px] font-semibold text-emerald-600">✓ WhatsApp updates enabled for this number — you can opt out below.</p>}
             {field("email", "Email", "optional@example.com", "email")}
             {field("addressLine", "Delivery address *", "Shop no, street, landmark")}
             <div className="grid grid-cols-2 gap-3">
@@ -119,6 +122,12 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
               {field("pincode", "Pincode *", "6-digit pincode")}
             </div>
             {field("note", "Order note", "Any instructions (optional)")}
+            <label className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
+              <input type="checkbox" checked={waOptIn} onChange={(e) => setWaOptIn(e.target.checked)} className="mt-0.5 h-4 w-4 accent-emerald-600" />
+              <span className="text-[11px] leading-relaxed text-gray-700">
+                <b className="text-emerald-700">Get order updates on WhatsApp</b> — confirmation, dispatch &amp; delivery OTP on this mobile number. Free for you, faster than SMS.
+              </span>
+            </label>
             <button
               onClick={() => validate() && setStep(1)}
               className="w-full rounded-xl bg-black py-3 text-sm font-bold uppercase tracking-wide text-yellow-400 hover:bg-gray-800"

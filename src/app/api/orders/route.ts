@@ -29,6 +29,7 @@ const orderSchema = z.object({
   paymentMethod: z.enum(["UPI", "CARD", "COD", "CREDIT"]),
   couponCode: z.string().optional().or(z.literal("")),
   note: z.string().optional().or(z.literal("")),
+  waOptIn: z.boolean().optional(),
   items: z.array(lineSchema).min(1),
 });
 
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
     const ids = d.items.map((i) => i.id);
     const products = await db.product.findMany({
       where: { id: { in: ids }, active: true },
-      include: { brand: { select: { name: true } } },
+      include: { brand: { select: { name: true, slug: true } } },
     });
     const map = new Map(products.map((p) => [p.id, p]));
 
@@ -194,6 +195,7 @@ export async function POST(req: NextRequest) {
         zone: d.zone || "",
         slot: d.slot || "Standard dispatch",
         paymentMethod: d.paymentMethod,
+        waOptIn: d.waOptIn ?? true,
         paymentStatus: d.paymentMethod === "CREDIT" ? "PENDING" : "PAID",
         status: "PENDING",
         source: "WEB",
@@ -218,11 +220,14 @@ export async function POST(req: NextRequest) {
       data: { action: "CREATE", entity: "order", entityId: order.id, detail: `Web order ${invoiceNo} placed by ${d.customerName} (₹${grandTotal}) — OTP ${otp}` },
     });
 
-    // Order confirmation (WhatsApp free-first → SMS gateway → demo log)
-    notifyCustomer(d.phone, smsTemplates.orderPlaced(invoiceNo, grandTotal, otp), {
-      templateKey: "wa_order_template",
-      params: [invoiceNo, String(grandTotal), otp],
-    }).catch(() => {});
+    // Order confirmation (WhatsApp free-first → SMS gateway → demo log). Honours the
+    // checkout opt-in: customers who said no get no auto WhatsApp (admin can still send by hand).
+    if (d.waOptIn !== false) {
+      notifyCustomer(d.phone, smsTemplates.orderPlaced(invoiceNo, grandTotal, otp), {
+        templateKey: "wa_order_template",
+        params: [invoiceNo, String(grandTotal), otp],
+      }).catch(() => {});
+    }
 
     return NextResponse.json({
       ok: true, orderId: order.id, invoiceNo, otp,

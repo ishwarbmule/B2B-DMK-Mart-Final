@@ -72,8 +72,10 @@ export async function PATCH(req: NextRequest) {
       data: { action: "UPDATE", entity: "order", entityId: row.id, detail: `Order ${row.invoiceNo} updated (status: ${row.status}, shipping: ${row.shippingStatus}${regenerateOtp ? `, OTP regenerated: ${row.otp}` : ""})` },
     });
 
-    // Notify the customer when the order status changed (WhatsApp free-first → SMS → demo log)
-    if (status && status !== "PENDING") {
+    // Auto-notify the customer when the order status changed — only if they opted in to
+    // WhatsApp updates at checkout (checkout checkbox). Admin can always send manually
+    // via the WhatsApp button in the orders module.
+    if (status && status !== "PENDING" && row.waOptIn) {
       try {
         const cust = row.customerId ? await db.customer.findUnique({ where: { id: row.customerId } }) : null;
         const phone = cust?.phone || row.phone;

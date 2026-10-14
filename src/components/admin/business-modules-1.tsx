@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { BadgePercent, Boxes, CheckCircle2, IndianRupee, RefreshCcw, ShieldCheck, ShoppingCart, Star, RefreshCw, Truck, Users, XCircle } from "lucide-react";
+import { BadgePercent, Boxes, CheckCircle2, IndianRupee, MessageCircle, RefreshCcw, ShieldCheck, ShoppingCart, Star, RefreshCw, Truck, Users, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { api, ModuleHeader, StatCard, StatusBadge, Toggle } from "./ui-bits";
 import { Code39Svg } from "./barcode";
@@ -177,6 +177,12 @@ export function CustomersModule({ token }: { token: string }) {
   const [type, setType] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
+  const [waPanel, setWaPanel] = useState<string | null>(null);
+  const [waMsg, setWaMsg] = useState("");
+  const [waUrl, setWaUrl] = useState("");
+  const [waCode, setWaCode] = useState("");
+  const [waNote, setWaNote] = useState("");
+  const [waBusy, setWaBusy] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -202,6 +208,58 @@ export function CustomersModule({ token }: { token: string }) {
       load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed");
+    }
+  };
+
+  const openWa = (c: Record<string, unknown>) => {
+    if (waPanel === String(c.id)) { setWaPanel(null); return; }
+    setWaPanel(String(c.id));
+    setWaCode("");
+    setWaNote("");
+    setWaUrl("");
+    setWaMsg(`Namaste ${String(c.shopName || c.name)}! Greetings from DMK Mart B2B Wholesale.`);
+  };
+
+  const sendCustomerOtp = async (c: Record<string, unknown>, purpose: "LOGIN" | "RESET") => {
+    setWaBusy(true);
+    setWaNote("");
+    setWaCode("");
+    try {
+      const d = await call("/api/admin/whatsapp", { method: "POST", body: JSON.stringify({ action: "CUSTOMER_OTP", customerId: c.id, purpose }) });
+      setWaCode(String(d.code ?? ""));
+      setWaUrl(String(d.waUrl ?? ""));
+      if (d.mode === "GATEWAY") {
+        setWaNote(`Delivered via gateway ✓ (code ${d.code})`);
+        toast.success(`${purpose === "RESET" ? "Reset" : "Login"} code sent via WhatsApp gateway`);
+      } else {
+        setWaNote(`Code ${d.code} generated — click “Open WhatsApp” to send it free (valid 10 min)`);
+        toast.info("OTP generated — ready for WhatsApp");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "OTP failed");
+    } finally {
+      setWaBusy(false);
+    }
+  };
+
+  const sendCustomerCustom = async (c: Record<string, unknown>) => {
+    if (!waMsg.trim()) return toast.error("Type a message first");
+    setWaBusy(true);
+    setWaNote("");
+    try {
+      const d = await call("/api/admin/whatsapp", { method: "POST", body: JSON.stringify({ action: "CUSTOM", phone: String(c.phone), message: waMsg }) });
+      setWaUrl(String(d.waUrl ?? ""));
+      if (d.mode === "GATEWAY") {
+        setWaNote("Delivered via gateway ✓");
+        toast.success("WhatsApp sent via gateway");
+      } else {
+        setWaNote("No gateway configured — click “Open WhatsApp” to send free (you press send)");
+        toast.info("Message ready for WhatsApp");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Send failed");
+    } finally {
+      setWaBusy(false);
     }
   };
 
@@ -250,7 +308,8 @@ export function CustomersModule({ token }: { token: string }) {
             {loading && <tr><td colSpan={7} className="px-4 py-10 text-center text-gray-400">Loading customers…</td></tr>}
             {!loading && filtered.length === 0 && <tr><td colSpan={7} className="px-4 py-10 text-center text-gray-400">No customers found.</td></tr>}
             {filtered.map((c) => (
-              <tr key={String(c.id)} className="border-t hover:bg-gray-50/60">
+              <Fragment key={String(c.id)}>
+              <tr className="border-t hover:bg-gray-50/60">
                 <td className="px-3 py-2.5">
                   <p className="font-bold">{String(c.shopName || c.name)}</p>
                   <p className="text-[10px] text-gray-400">{String(c.city || "—")} {c.gstin ? `· GSTIN ${String(c.gstin)}` : ""}</p>
@@ -278,9 +337,62 @@ export function CustomersModule({ token }: { token: string }) {
                         <XCircle className="h-3 w-3" /> Suspend
                       </button>
                     )}
+                    <button
+                      onClick={() => openWa(c)}
+                      title="Send WhatsApp (OTP / message)"
+                      className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold ${waPanel === String(c.id) ? "bg-emerald-600 text-white" : "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"}`}
+                    >
+                      <MessageCircle className="h-3 w-3" /> WhatsApp
+                    </button>
                   </div>
                 </td>
               </tr>
+              {waPanel === String(c.id) && (
+                <tr className="bg-emerald-50/50">
+                  <td colSpan={7} className="px-4 pb-4 pt-1">
+                    <div className="rounded-xl border border-emerald-200 bg-white p-3">
+                      <p className="mb-2 flex items-center gap-2 text-xs font-black text-gray-900">
+                        <MessageCircle className="h-4 w-4 text-emerald-600" /> Send WhatsApp to {String(c.shopName || c.name)}
+                        <span className="ml-auto rounded-full bg-gray-100 px-2 py-0.5 text-[9px] font-bold text-gray-500">{String(c.phone)}</span>
+                      </p>
+                      <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                        <button onClick={() => sendCustomerOtp(c, "RESET")} disabled={waBusy} className="rounded-lg bg-black px-3 py-1.5 text-[10px] font-bold text-yellow-400 hover:bg-gray-900 disabled:opacity-50">
+                          Forgot-password OTP
+                        </button>
+                        <button onClick={() => sendCustomerOtp(c, "LOGIN")} disabled={waBusy} className="rounded-lg border px-3 py-1.5 text-[10px] font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+                          Login OTP
+                        </button>
+                        {waCode && <span className="rounded-md bg-yellow-100 px-2 py-1 font-mono text-[11px] font-black tracking-widest text-black">CODE {waCode}</span>}
+                        {waNote && <span className="text-[10px] font-semibold text-emerald-700">{waNote}</span>}
+                      </div>
+                      <textarea
+                        value={waMsg}
+                        onChange={(e) => setWaMsg(e.target.value)}
+                        rows={3}
+                        placeholder="Custom message…"
+                        className="w-full rounded-lg border p-2.5 text-xs leading-relaxed outline-none focus:border-emerald-400"
+                      />
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <a
+                          href={waCode && waUrl ? waUrl : `https://wa.me/91${String(c.phone).replace(/\D/g, "").slice(-10)}?text=${encodeURIComponent(waMsg)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 rounded-lg bg-[#25D366] px-3.5 py-2 text-xs font-bold text-white hover:bg-[#1fb958]"
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" /> Open WhatsApp (free)
+                        </a>
+                        <button onClick={() => sendCustomerCustom(c)} disabled={waBusy} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50">
+                          {waBusy ? "Sending…" : "Send via gateway"}
+                        </button>
+                      </div>
+                      <p className="mt-1.5 text-[10px] text-gray-400">
+                        Forgot-password / Login OTP generates a 6-digit code (valid 10 min) and either pushes it through the WhatsApp gateway (if configured in Settings) or hands you the message to send free via WhatsApp. After entering the code on the login screen the customer sets a new password.
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             ))}
           </tbody>
         </table>
