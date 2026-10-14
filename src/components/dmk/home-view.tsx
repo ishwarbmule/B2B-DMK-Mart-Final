@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, BadgePercent, Building2, Clock3, Handshake, PackageCheck, PhoneCall, Star, Truck, Zap, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight, BadgePercent, Building2, Clock3, Handshake, Megaphone, PackageCheck, PhoneCall, Star, Truck, Zap, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCatalog } from "./site-header-v2";
 import { ProductCard, ProductCardMini } from "./product-card";
 import type { DProduct } from "@/lib/types";
@@ -266,6 +266,40 @@ function TabbedShowcase() {
   );
 }
 
+/* ─────────────── Brand Ads showcase (uniform cards below the product list) ─────────────── */
+type AdRow = { id: string; title: string; image: string; link: string; brand?: { name: string; slug: string } | null };
+
+function AdsStrip() {
+  const catalog = useCatalog();
+  const ads = ((catalog?.ads ?? []) as AdRow[]).filter((a) => a.image).slice(0, 4);
+  if (!ads.length) return null;
+  return (
+    <section>
+      <h2 className="mb-3 flex items-center gap-2 text-lg font-black text-gray-900">
+        <Megaphone className="h-5 w-5 text-yellow-500" /> Brand Showcase
+      </h2>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {ads.map((a) => (
+          <Link
+            key={a.id}
+            href={a.brand?.slug ? `/brand/${a.brand.slug}` : a.link || "#"}
+            className="group relative block overflow-hidden rounded-2xl border bg-white transition hover:shadow-md"
+            aria-label={a.title}
+          >
+            <div className="relative aspect-square w-full">
+              <Image src={a.image} alt={a.title} fill sizes="(max-width: 768px) 50vw, 25vw" className="object-cover transition duration-300 group-hover:scale-[1.03]" unoptimized />
+            </div>
+            <span className="absolute left-2 top-2 rounded bg-black/70 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-yellow-400">Ad</span>
+            {a.brand?.name && (
+              <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent px-3 pb-2.5 pt-8 text-xs font-black text-white">{a.brand.name}</span>
+            )}
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 /* ─────────────── Departments ─────────────── */
 function DeptCards() {
   const catalog = useCatalog();
@@ -362,6 +396,7 @@ export function HomeView() {
       <CouponStrip />
       <DealsRail deals={rows.deals} />
       <TabbedShowcase />
+      <AdsStrip />
       <DeptCards />
       <TrustStrip />
       <HowItWorks />

@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { normalizeIdentifier, maskIdentifier } from "@/lib/customer-auth";
+import { sendSms, smsTemplates } from "@/lib/sms";
 
 export const dynamic = "force-dynamic";
 
@@ -46,13 +47,20 @@ export async function POST(req: NextRequest) {
     data: { identifier: norm.value, code, purpose: cleanPurpose, expiresAt: new Date(Date.now() + OTP_TTL_MS) },
   });
 
-  // NOTE: SMS/WhatsApp gateway is not configured yet — the code is returned for the
-  // demo banner. Once a provider (MSG91 / Twilio / Gupshup) is wired in, remove devOtp.
+  // Deliver via SMS gateway when configured (phone identifiers only); otherwise demo-mode:
+  // the code is returned for the on-screen banner so flows stay testable. Once the gateway
+  // is connected, real customers receive the SMS and devOtp is no longer exposed.
+  let devOtp: string | null = code;
+  if (norm.kind === "phone") {
+    const sms = await sendSms(norm.value, smsTemplates.otp(code));
+    if (sms.ok && !sms.demo) devOtp = null; // delivered for real — don't show on screen
+  }
+
   return NextResponse.json({
     ok: true,
     masked: maskIdentifier(norm.kind, norm.value),
     kind: norm.kind,
-    devOtp: code,
+    devOtp,
     expiresInSec: OTP_TTL_MS / 1000,
     cooldownSec: RESEND_COOLDOWN_MS / 1000,
   });

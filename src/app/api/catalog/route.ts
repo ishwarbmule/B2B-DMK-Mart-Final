@@ -17,7 +17,7 @@ export async function GET() {
       include: { _count: { select: { products: { where: { active: true } } } } },
     }),
     db.slider.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
-    db.ad.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
+    db.ad.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" }, include: { brand: { select: { name: true, slug: true } } } }),
     db.setting.findMany(),
     db.offer.findFirst({
       where: { active: true, heroSlot: true, startAt: { lte: now }, endAt: { gte: now } },

@@ -67,6 +67,7 @@ export interface AdRow {
   title: string;
   link: string;
   image: string;
+  brand?: { name: string; slug: string } | null;
 }
 
 export interface CatalogPayload {

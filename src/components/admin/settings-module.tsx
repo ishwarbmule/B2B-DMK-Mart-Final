@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Save, RefreshCw, Percent, CircleOff } from "lucide-react";
+import { Save, RefreshCw, Percent, CircleOff, SendHorizontal, MessageSquareText } from "lucide-react";
 import { toast } from "sonner";
 import { api, ModuleHeader } from "./ui-bits";
 
@@ -24,6 +24,15 @@ const GROUPS: { title: string; keys: [string, string][] }[] = [
   },
 ];
 
+const PROVIDERS = ["OFF", "TWILIO", "MSG91", "FAST2SMS", "TWOFACTOR"] as const;
+const PROVIDER_HINTS: Record<string, string> = {
+  OFF: "Demo mode — messages are logged in the server console and OTP codes show on screen. Everything works, no SMS is sent.",
+  TWILIO: "International, easiest to start. Free trial ≈ $15 credit — BUT trial can only text up to 5 verified numbers (testing only, not 100 customers).",
+  MSG91: "India transactional route (~₹0.20–0.30/SMS after DLT). Free trial credits on signup. Needs DLT + approved sender.",
+  FAST2SMS: "India, cheapest (~₹0.11–0.22/SMS). Free signup credits for testing. Quick-Transactional route works without DLT templates.",
+  TWOFACTOR: "India OTP specialist (login / reset codes only). Simple key-based API, no template setup.",
+};
+
 export function SettingsModule({ token }: { token: string }) {
   const call = api(token);
   const [settings, setSettings] = useState<Record<string, string>>({});
@@ -32,6 +41,8 @@ export function SettingsModule({ token }: { token: string }) {
   const [saving, setSaving] = useState(false);
   const [syncStatus, setSyncStatus] = useState<{ events: { id: string; direction: string; status: string; message: string; createdAt: string }[]; portal: { name: string; baseUrl: string; webhookUrl: string; status: string; autoSync: boolean; lastSyncAt: string; lastSyncStatus: string; lastSyncMessage: string } | null }>({ events: [], portal: null });
   const [syncing, setSyncing] = useState(false);
+  const [testPhone, setTestPhone] = useState("");
+  const [testing, setTesting] = useState(false);
 
   const load = useCallback(() => {
     call("/api/admin/settings").then((d) => {
@@ -92,6 +103,26 @@ export function SettingsModule({ token }: { token: string }) {
     }
   };
 
+  const sendTestSms = async () => {
+    if (!/^[6-9]\d{9}$/.test(testPhone.trim())) return toast.error("Enter a valid 10-digit mobile number");
+    setTesting(true);
+    try {
+      const res = await fetch("/api/admin/sms/test", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify({ phone: testPhone.trim() }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || "Test failed");
+      if (d.demo) toast.warning("Gateway OFF — message logged in demo mode", { description: d.logged });
+      else toast.success(`SMS sent via ${d.provider}!`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Test SMS failed");
+    } finally {
+      setTesting(false);
+    }
+  };
+
   return (
     <div>
       <ModuleHeader title="Settings" sub="DMK Mart standard settings — firm profile, storefront, ERP integration & legal pages">
@@ -133,6 +164,53 @@ export function SettingsModule({ token }: { token: string }) {
         <p className="mt-2 text-[10px] font-semibold text-gray-400">
           Current: <b className={gstMode === "on" ? "text-emerald-600" : "text-red-600"}>{gstMode === "on" ? "WITH GST" : "WITHOUT GST"}</b>
           {gstSaving && " · saving…"} · applies to new orders &amp; the storefront instantly; each order keeps the mode it was placed under (old invoices reprint correctly).
+        </p>
+      </div>
+
+      {/* SMS GATEWAY */}
+      <div className="mb-4 rounded-xl border bg-white p-4">
+        <p className="mb-1 flex items-center gap-2 text-sm font-black"><MessageSquareText className="h-4 w-4 text-yellow-600" /> SMS Gateway <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-gray-500">OTP · Order Status · Customer Care</span></p>
+        <p className="mb-3 text-[11px] leading-relaxed text-gray-500">
+          Powers: forgot-password &amp; login OTP codes, order-placed confirmation with delivery OTP, order status updates, and the support line shown in every message.
+          <b> Save All</b> first to persist changes, then send a test SMS.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-bold uppercase text-gray-500">Provider</span>
+            <select
+              value={settings.sms_provider ?? "OFF"}
+              onChange={(e) => setSettings((s) => ({ ...s, sms_provider: e.target.value }))}
+              className="h-9 w-full rounded-lg border px-2 text-xs"
+            >
+              {PROVIDERS.map((p) => <option key={p} value={p}>{p === "OFF" ? "OFF — Demo mode (free)" : p}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-bold uppercase text-gray-500">API Key {settings.sms_provider === "TWILIO" ? "(Account SID)" : ""}</span>
+            <input value={settings.sms_api_key ?? ""} onChange={(e) => setSettings((s) => ({ ...s, sms_api_key: e.target.value }))} placeholder="paste key…" className="h-9 w-full rounded-lg border px-3 text-xs" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-bold uppercase text-gray-500">{settings.sms_provider === "TWILIO" ? "Auth Token" : "Sender ID (6-char)"}</span>
+            <input value={settings.sms_provider === "TWILIO" ? (settings.sms_api_secret ?? "") : (settings.sms_sender_id ?? "")} onChange={(e) => setSettings((s) => ({ ...s, [settings.sms_provider === "TWILIO" ? "sms_api_secret" : "sms_sender_id"]: e.target.value }))} placeholder={settings.sms_provider === "TWILIO" ? "paste token…" : "e.g. DMKMRT"} className="h-9 w-full rounded-lg border px-3 text-xs" />
+          </label>
+        </div>
+        <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-[10px] leading-relaxed text-amber-800">{PROVIDER_HINTS[settings.sms_provider ?? "OFF"] ?? PROVIDER_HINTS.OFF}</p>
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-bold uppercase text-gray-500">Test to (your mobile)</span>
+            <input value={testPhone} onChange={(e) => setTestPhone(e.target.value)} placeholder="10-digit mobile" className="h-9 w-44 rounded-lg border px-3 text-xs" />
+          </label>
+          <button onClick={sendTestSms} disabled={testing} className="flex h-9 items-center gap-1.5 rounded-lg bg-black px-3.5 text-xs font-bold text-yellow-400 hover:bg-gray-900 disabled:opacity-50">
+            <SendHorizontal className={`h-3.5 w-3.5 ${testing ? "animate-pulse" : ""}`} /> {testing ? "Sending…" : "Send Test SMS"}
+          </button>
+          <span className="text-[10px] text-gray-400">
+            Status: {settings.sms_enabled === "true" && settings.sms_provider !== "OFF" && settings.sms_api_key
+              ? <b className="text-emerald-600">LIVE via {settings.sms_provider}</b>
+              : <b className="text-gray-500">DEMO MODE</b>}
+          </span>
+        </div>
+        <p className="mt-2 text-[10px] text-gray-400">
+          100-customer tip: Fast2SMS free signup credits cover initial testing; beyond that SMS in India costs ₹0.11–0.30/message (DLT registered) — 100 updates ≈ ₹11–30.
         </p>
       </div>
 
