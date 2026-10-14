@@ -5,6 +5,7 @@ import { SiteHeaderV2 } from "./site-header-v2";
 import { SiteFooter } from "./site-footer";
 import { CartDrawer } from "./cart-drawer";
 import { CheckoutDialog } from "./checkout-dialog";
+import { WhatsAppFloat } from "./whatsapp-float";
 
 /** Shared storefront chrome: header + footer + cart/checkout overlays on every route. */
 export function StoreChrome({ children }: { children: ReactNode }) {
@@ -19,6 +20,7 @@ export function StoreChrome({ children }: { children: ReactNode }) {
       <div className="mt-auto">
         <SiteFooter />
       </div>
+      <WhatsAppFloat />
       <CartDrawer
         onCheckout={(code, disc) => {
           setCouponCode(code || "");

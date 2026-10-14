@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Phone, Mail, MapPin, ShieldCheck, Truck, Store } from "lucide-react";
+import { Phone, Mail, MapPin, ShieldCheck, Truck, Store, MessageCircle } from "lucide-react";
 import { useEffect } from "react";
 import { useCatalog } from "./site-header-v2";
 import { useSiteStore } from "@/lib/store";
+import { waLink } from "./whatsapp-float";
 
 export function SiteFooter() {
   const catalog = useCatalog();
@@ -68,6 +69,15 @@ export function SiteFooter() {
         <div>
           <p className="mb-3 text-xs font-bold uppercase tracking-widest text-yellow-400">Contact</p>
           <ul className="space-y-2.5 text-xs">
+            {(() => {
+              const wa = waLink(settings.support_phone);
+              return wa ? (
+                <li className="flex gap-2">
+                  <MessageCircle className="h-4 w-4 shrink-0 text-emerald-400" />
+                  <a href={wa} target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-400 hover:underline">Chat on WhatsApp</a>
+                </li>
+              ) : null;
+            })()}
             <li className="flex gap-2"><Phone className="h-4 w-4 shrink-0 text-yellow-400" /> {settings.support_phone ?? "+91 98220 12345"} (wholesale desk)</li>
             <li className="flex gap-2"><Mail className="h-4 w-4 shrink-0 text-yellow-400" /> {settings.support_email ?? "dmkmartdata@gmail.com"}</li>
             <li className="flex gap-2"><MapPin className="h-4 w-4 shrink-0 text-yellow-400" /> <span className="text-gray-400">{settings.address ?? "Plot 14, MIDC Industrial Area, Solapur Road, Pune 411019"}</span></li>

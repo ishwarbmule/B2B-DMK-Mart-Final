@@ -2,7 +2,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { normalizeIdentifier, maskIdentifier } from "@/lib/customer-auth";
-import { sendSms, smsTemplates } from "@/lib/sms";
+import { smsTemplates } from "@/lib/sms";
+import { notifyCustomer } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 
@@ -47,13 +48,13 @@ export async function POST(req: NextRequest) {
     data: { identifier: norm.value, code, purpose: cleanPurpose, expiresAt: new Date(Date.now() + OTP_TTL_MS) },
   });
 
-  // Deliver via SMS gateway when configured (phone identifiers only); otherwise demo-mode:
-  // the code is returned for the on-screen banner so flows stay testable. Once the gateway
-  // is connected, real customers receive the SMS and devOtp is no longer exposed.
+  // Deliver via WhatsApp (free-first) → SMS gateway → demo mode (phone identifiers only):
+  // the code is returned for the on-screen banner so flows stay testable. Once a channel is
+  // connected, real customers receive the code and devOtp is no longer exposed.
   let devOtp: string | null = code;
   if (norm.kind === "phone") {
-    const sms = await sendSms(norm.value, smsTemplates.otp(code));
-    if (sms.ok && !sms.demo) devOtp = null; // delivered for real — don't show on screen
+    const note = await notifyCustomer(norm.value, smsTemplates.otp(code), { useOtpTemplate: true, otpCode: code });
+    if (note.ok && !note.demo) devOtp = null; // delivered for real — don't show on screen
   }
 
   return NextResponse.json({
