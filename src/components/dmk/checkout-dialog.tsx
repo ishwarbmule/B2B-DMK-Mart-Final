@@ -6,6 +6,7 @@ import { CheckCircle2, Package, BadgeCheck, MessageCircle, KeyRound } from "luci
 import { toast } from "sonner";
 import { useCartStore, cartTotals, formatINR, unitPriceFor, piecesPerUnit, useSiteStore } from "@/lib/store";
 import { useHydrated } from "@/hooks/use-hydrated";
+import { getCustomerToken } from "@/lib/customer-session";
 
 const SLOTS = ["Standard dispatch (48h)", "Express 2-day", "Weekly scheduled"];
 const PAYMENTS = [
@@ -54,7 +55,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
   const place = async () => {
     setPlacing(true);
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("dmk-customer-token") : null;
+      const token = getCustomerToken();
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "content-type": "application/json", ...(token ? { "x-customer-token": token } : {}) },

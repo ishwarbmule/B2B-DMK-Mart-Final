@@ -468,3 +468,17 @@ model Color {
   name String @unique
   hex  String @default("#000000")
 }
+
+// ───────────────────────── CUSTOMER LOGIN OTP (Amazon/Flipkart-style flows) ─────────────────────────
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  identifier String  // phone (10-digit) or email (lowercased)
+  code      String   // 6-digit OTP
+  purpose   String   @default("LOGIN") // LOGIN | RESET
+  expiresAt DateTime
+  consumed  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([identifier, purpose])
+}
