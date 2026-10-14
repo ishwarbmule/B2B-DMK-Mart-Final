@@ -25,7 +25,7 @@ const ENTITIES: Record<string, EntityDef> = {
   coupons: { model: "coupon", label: "Coupon", nameField: "code", orderBy: { createdAt: "desc" } },
   offers: { model: "offer", label: "Offer", nameField: "name", orderBy: { createdAt: "desc" } },
   slabs: { model: "priceSlab", label: "Price Slab", nameField: "title", orderBy: { minQty: "asc" } },
-  ads: { model: "ad", label: "Ad", nameField: "title", orderBy: { sortOrder: "asc" } },
+  ads: { model: "ad", label: "Ad", nameField: "title", orderBy: { sortOrder: "asc" }, include: { brand: true } },
   sliders: { model: "slider", label: "Slider", nameField: "heading", orderBy: { sortOrder: "asc" } },
   salespersons: { model: "salesPerson", label: "Salesperson", nameField: "name", orderBy: { createdAt: "desc" } },
   delivery: { model: "deliveryMan", label: "Delivery Man", nameField: "name", orderBy: { createdAt: "desc" } },

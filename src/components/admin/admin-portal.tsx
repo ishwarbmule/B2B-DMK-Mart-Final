@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   LayoutDashboard, Globe, Package, Building2, ShoppingCart,
-  Users, LogOut, Menu, X, Eye, Settings2, ChevronRight,
+  Users, LogOut, Menu, X, Eye, Settings2, ChevronRight, Megaphone,
   Barcode as BarcodeIcon, BadgePercent, IndianRupee, Wallet, FileSpreadsheet,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -49,6 +49,7 @@ const NAV: { group: string; items: { id: ModuleId; label: string; icon: React.Co
       { id: "offers", label: "Offers / Big Sale Days" },
       { id: "coupons", label: "Coupons" },
     ]},
+    { id: "ads", label: "Brand Ads", icon: Megaphone },
   ]},
   { group: "People", items: [
     { id: "customers", label: "Customer Management", icon: Users },
@@ -207,7 +208,7 @@ export function AdminPortal() {
           </button>
           <Image src="/dmk-logo.png" alt="DMK" width={30} height={30} className="h-[30px] w-[30px] rounded-full" unoptimized />
           <p className="text-sm font-black text-white">DMK Mart <span className="hidden text-yellow-400 sm:inline">Super Admin</span></p>
-          <span className="rounded-md bg-yellow-400 px-2 py-0.5 text-[10px] font-black uppercase text-black">13 Modules</span>
+          <span className="rounded-md bg-yellow-400 px-2 py-0.5 text-[10px] font-black uppercase text-black">14 Modules</span>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => router.push("/")} className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-1.5 text-xs font-semibold text-gray-300 hover:bg-gray-900">

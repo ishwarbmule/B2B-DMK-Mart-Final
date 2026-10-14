@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin, jsonError } from "@/lib/admin-auth";
+import { sendSms, smsTemplates } from "@/lib/sms";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +70,18 @@ export async function PATCH(req: NextRequest) {
     await db.activityLog.create({
       data: { action: "UPDATE", entity: "order", entityId: row.id, detail: `Order ${row.invoiceNo} updated (status: ${row.status}, shipping: ${row.shippingStatus}${regenerateOtp ? `, OTP regenerated: ${row.otp}` : ""})` },
     });
+
+    // SMS the customer when the order status changed (real SMS when gateway configured, else demo log)
+    if (status && status !== "PENDING") {
+      try {
+        const cust = row.customerId ? await db.customer.findUnique({ where: { id: row.customerId } }) : null;
+        const phone = cust?.phone || row.phone;
+        if (phone) {
+          sendSms(phone, smsTemplates.orderStatus(row.invoiceNo, status, "")).catch(() => {});
+        }
+      } catch { /* notification must never block the admin update */ }
+    }
+
     return NextResponse.json({ row });
   } catch (e) {
     return jsonError(e instanceof Error ? e.message.slice(0, 300) : "Update failed", 400);

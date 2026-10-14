@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { customerFromReq } from "@/lib/customer-auth";
+import { sendSms, smsTemplates } from "@/lib/sms";
 
 export const dynamic = "force-dynamic";
 
@@ -215,6 +216,9 @@ export async function POST(req: NextRequest) {
     await db.activityLog.create({
       data: { action: "CREATE", entity: "order", entityId: order.id, detail: `Web order ${invoiceNo} placed by ${d.customerName} (₹${grandTotal}) — OTP ${otp}` },
     });
+
+    // SMS confirmation (gateway configured → real SMS; otherwise logged in demo mode)
+    sendSms(d.phone, smsTemplates.orderPlaced(invoiceNo, grandTotal, otp)).catch(() => {});
 
     return NextResponse.json({
       ok: true, orderId: order.id, invoiceNo, otp,

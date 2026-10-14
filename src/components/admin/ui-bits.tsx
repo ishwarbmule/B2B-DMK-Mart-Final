@@ -1,9 +1,57 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Search, Plus, Pencil, Trash2, X, Loader2, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Search, Plus, Pencil, Trash2, X, Loader2, RefreshCw, ChevronLeft, ChevronRight, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
+
+/** Image URL field with one-click Cloudinary upload (used by every CRUD module with type:"image"). */
+function ImageField({ value, onChange, token }: { value: string; onChange: (v: string) => void; token: string }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const pick = async (file: File | undefined) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/admin/upload", { method: "POST", body: fd, headers: { authorization: `Bearer ${token}` } });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || `Upload failed (${res.status})`);
+      onChange(d.url);
+      toast.success("Image uploaded to Cloudinary");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="/cms/slider-0.svg or upload →"
+        className="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-yellow-400"
+      />
+      <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        disabled={uploading}
+        title="Upload image to Cloudinary"
+        className="flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 text-[11px] font-bold text-gray-600 hover:border-yellow-400 hover:text-black disabled:opacity-50"
+      >
+        {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
+        {uploading ? "Uploading…" : "Upload"}
+      </button>
+      {value ? <Image src={value} alt="" width={40} height={40} className="h-10 w-10 shrink-0 rounded-md object-cover" unoptimized /> : null}
+    </div>
+  );
+}
 
 export function api(token: string) {
   return async (path: string, init?: RequestInit) => {
@@ -311,10 +359,7 @@ export function CrudModule({
                   ) : f.type === "textarea" ? (
                     <textarea value={String(form[f.key] ?? "")} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} rows={3} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-yellow-400" />
                   ) : f.type === "image" ? (
-                    <div className="flex items-center gap-2">
-                      <input value={String(form[f.key] ?? "")} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} placeholder="/cms/slider-0.svg" className="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-yellow-400" />
-                      {form[f.key] ? <Image src={String(form[f.key])} alt="" width={40} height={40} className="h-10 w-10 rounded-md object-cover" unoptimized /> : null}
-                    </div>
+                    <ImageField value={String(form[f.key] ?? "")} onChange={(v) => setForm({ ...form, [f.key]: v })} token={token} />
                   ) : (
                     <input
                       type={f.type === "number" ? "number" : f.type === "password" ? "password" : "text"}
