@@ -6,6 +6,14 @@ export const metadata = { title: "DMK Mart — Homepage Design Gallery" };
 
 const DESIGNS = [
   {
+    href: "/home-2",
+    name: "Home-2 · Everyday Essentials",
+    tag: "Bright Retail",
+    desc: "The approved demo homepage — warm Everyday Essentials hero with USP chips, category circles, price-band cards, sponsored ad banners, top-seller grid and a company logo wall.",
+    points: ["Everyday Essentials hero", "Shop by Category circles", "Shop by Price bands", "Sponsored ads + logo wall"],
+    accent: "bg-amber-300",
+  },
+  {
     href: "/home/dmart",
     name: "DMart style",
     tag: "Value Bazaar",
@@ -47,7 +55,7 @@ export default function HomeIndex() {
           <Image src="/dmk-logo.png" alt="DMK Mart" width={44} height={44} className="h-11 w-11 rounded-full" unoptimized />
           <div>
             <h1 className="text-2xl font-black tracking-tight">Homepage Design Gallery</h1>
-            <p className="text-xs text-gray-400">Four store-grade homepage layouts built on the live DMK Mart catalog</p>
+            <p className="text-xs text-gray-400">Five store-grade homepage layouts built on the live DMK Mart catalog</p>
           </div>
         </div>
 
