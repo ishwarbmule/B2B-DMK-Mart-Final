@@ -142,7 +142,7 @@ export function ProductCardMini({ p }: { p: DProduct }) {
   const disc = discountPct(p.mrp, p.dealerPrice);
   return (
     <div className="flex w-[240px] shrink-0 flex-col overflow-hidden rounded-xl border bg-white transition hover:shadow-md">
-      <Link href={p.slug ? `/product/${p.slug}` : "#"} className="relative block aspect-[4/3] overflow-hidden bg-gray-50">
+      <Link href={p.slug ? `/product/${p.slug}` : "#"} className="relative block aspect-square w-full overflow-hidden bg-gray-50">
         <Image src={p.image || "/dmk-logo.png"} alt={p.name} fill sizes="240px" className="object-cover" unoptimized />
         {disc > 0 && (
           <span className="absolute left-2 top-2 rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white">
