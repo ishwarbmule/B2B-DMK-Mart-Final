@@ -154,10 +154,11 @@ export function SiteHeaderV2() {
             <Link
               key={t.id}
               href={`/catalog?top=${t.id}`}
-              onMouseEnter={() => setMega(null)}
-              className="whitespace-nowrap px-3 py-2.5 text-xs font-medium text-gray-200 transition hover:text-yellow-400"
+              onMouseEnter={() => setMega(t.id)}
+              onClick={() => setMega(mobileOpen ? mega === t.id ? null : t.id : null)}
+              className={`flex items-center gap-1 whitespace-nowrap px-3 py-2.5 text-xs font-medium transition ${mega === t.id ? "rounded-t bg-white text-yellow-600" : "text-gray-200 hover:text-yellow-400"}`}
             >
-              {t.emoji} {t.name}
+              {t.emoji} {t.name} <ChevronDown className="h-3 w-3 opacity-60" />
             </Link>
           ))}
           <Link href="/page/contact-us" className="ml-auto whitespace-nowrap px-3 py-2.5 text-xs font-medium text-gray-200 hover:text-yellow-400">
@@ -165,33 +166,75 @@ export function SiteHeaderV2() {
           </Link>
         </div>
 
-        {/* departments mega */}
+        {/* departments mega — image cards */}
         {mega === "depts" && (
-          <div onMouseLeave={() => setMega(null)} className="absolute inset-x-0 top-full z-50 max-h-[70vh] overflow-y-auto border-t-2 border-yellow-400 bg-white shadow-xl">
-            <div className="mx-auto grid max-w-[1400px] grid-cols-2 gap-6 p-6 md:grid-cols-4 lg:grid-cols-5">
+          <div onMouseLeave={() => setMega(null)} className="absolute inset-x-0 top-full z-50 max-h-[75vh] overflow-y-auto border-t-2 border-yellow-400 bg-white shadow-xl">
+            <div className="mx-auto grid max-w-[1400px] grid-cols-2 gap-4 p-6 sm:grid-cols-3 lg:grid-cols-5">
               {tops.map((t) => (
-                <div key={t.id}>
-                  <Link
-                    href={`/catalog?top=${t.id}`}
-                    onClick={() => setMega(null)}
-                    className="mb-2 flex items-center gap-2 text-sm font-bold text-black hover:text-yellow-600"
-                  >
-                    <span>{t.emoji}</span> {t.name} <ChevronRight className="h-3.5 w-3.5" />
+                <div key={t.id} className="group overflow-hidden rounded-xl border border-gray-100 bg-white transition hover:border-yellow-400 hover:shadow-md">
+                  <Link href={`/catalog?top=${t.id}`} onClick={() => setMega(null)} className="relative block aspect-[16/10] w-full overflow-hidden bg-gray-50">
+                    {t.image ? (
+                      <Image src={t.image} alt={t.name} fill sizes="260px" className="object-cover transition duration-300 group-hover:scale-105" unoptimized />
+                    ) : (
+                      <span className="flex h-full items-center justify-center text-4xl">{t.emoji}</span>
+                    )}
+                    <span className="absolute right-1.5 top-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-yellow-400">{t.productCount ?? 0} SKUs</span>
                   </Link>
-                  <p className="text-[10px] text-gray-400">{t.productCount ?? 0} SKUs</p>
-                  <ul className="mt-1 space-y-1">
-                    {t.mids.slice(0, 5).map((m) => (
-                      <li key={m.id} className="truncate text-xs text-gray-600">
-                        {m.name}
-                      </li>
-                    ))}
-                    {t.mids.length > 5 && <li className="text-[11px] font-semibold text-yellow-600">+{t.mids.length - 5} more</li>}
-                  </ul>
+                  <div className="p-3">
+                    <Link href={`/catalog?top=${t.id}`} onClick={() => setMega(null)} className="line-clamp-1 text-[13px] font-bold text-black hover:text-yellow-600">
+                      {t.name}
+                    </Link>
+                    <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5">
+                      {t.mids.slice(0, 3).map((m) => (
+                        <Link key={m.id} href={`/catalog?top=${t.id}`} onClick={() => setMega(null)} className="line-clamp-1 text-[11px] text-gray-500 hover:text-yellow-600">
+                          {m.name}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         )}
+
+        {/* per-department mega panel (hover a top-level category) */}
+        {tops.filter((t) => t.id === mega).map((t) => (
+          <div key={t.id} onMouseLeave={() => setMega(null)} className="absolute inset-x-0 top-full z-50 border-t-2 border-yellow-400 bg-white shadow-xl">
+            <div className="mx-auto flex max-w-[1400px] gap-6 p-6">
+              <div className="hidden w-60 shrink-0 md:block">
+                <Link href={`/catalog?top=${t.id}`} onClick={() => setMega(null)} className="group relative block overflow-hidden rounded-xl border border-gray-100 bg-gray-50" aria-label={`Shop all ${t.name}`}>
+                  <div className="relative aspect-[4/5] w-full">
+                    {t.image ? (
+                      <Image src={t.image} alt={t.name} fill sizes="240px" className="object-cover transition duration-300 group-hover:scale-105" unoptimized />
+                    ) : (
+                      <span className="flex h-full items-center justify-center text-5xl">{t.emoji}</span>
+                    )}
+                    <span className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pb-2.5 pt-8 text-xs font-bold text-white">
+                      Shop all {t.productCount ?? 0} SKUs <ChevronRight className="h-3.5 w-3.5" />
+                    </span>
+                  </div>
+                </Link>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-black text-black">{t.emoji} {t.name}</h3>
+                  <Link href={`/catalog?top=${t.id}`} onClick={() => setMega(null)} className="text-xs font-bold text-yellow-600 hover:underline">
+                    View department →
+                  </Link>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1.5 lg:grid-cols-3">
+                  {t.mids.map((m) => (
+                    <Link key={m.id} href={`/catalog?top=${t.id}`} onClick={() => setMega(null)} className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-yellow-50 hover:text-black">
+                      <ChevronRight className="h-3 w-3 shrink-0 text-yellow-500" />
+                      <span className="truncate">{m.name}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
 
         {/* brands mega */}
         {mega === "brands" && (

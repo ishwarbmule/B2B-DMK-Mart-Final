@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  ArrowRight, Heart, Minus, Plus, ShoppingCart,
+  ArrowRight, Heart, Megaphone, Minus, Plus, ShoppingCart,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useCatalog } from "./site-header-v2";
@@ -21,7 +21,7 @@ import { useCartStore, formatINR, lineKey } from "@/lib/store";
 import { discountPct, type DProduct } from "@/lib/types";
 import { useHydrated } from "@/hooks/use-hydrated";
 
-type AdRow = { id: string; title: string; image: string; link: string; brand?: { name: string; slug: string } | null };
+type AdRow = { id: string; title: string; image: string; link: string; active: boolean; brand?: { name: string; slug: string } | null };
 
 /* --------------------------------- shared bits --------------------------------- */
 
@@ -139,27 +139,35 @@ function ShopByPrice() {
 
 function SponsoredAds() {
   const catalog = useCatalog();
-  const ads = ((catalog?.ads ?? []) as AdRow[]).filter((a) => a.image).slice(0, 3);
+  const ads = ((catalog?.ads ?? []) as AdRow[]).filter((a) => a.active).slice(0, 4);
   if (!ads.length) return null;
   return (
     <section>
       <SectionHead pre="Sponsored" amber="Ads" href="/brands" />
-      <div className="grid gap-3 md:grid-cols-3">
+      {/* 4 well-formatted ad slots in 16:9 frames — content comes from admin Ad inputs */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {ads.map((a) => (
           <Link
             key={a.id}
             href={a.brand?.slug ? `/brand/${a.brand.slug}` : a.link || "#"}
-            className="group relative block aspect-[2.35/1] overflow-hidden rounded-xl border bg-white"
+            className="group relative block aspect-video w-full overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm"
             aria-label={a.title}
           >
-            <Image
-              src={a.image}
-              alt={a.title}
-              fill
-              sizes="(max-width: 768px) 100vw, 33vw"
-              className="object-cover transition duration-300 group-hover:scale-[1.02]"
-              unoptimized
-            />
+            {a.image ? (
+              <Image
+                src={a.image}
+                alt={a.title}
+                fill
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                className="object-cover transition duration-300 group-hover:scale-[1.03]"
+                unoptimized
+              />
+            ) : (
+              <span className="flex h-full w-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-[#FFF6E0] to-[#FBE8B4] text-center">
+                <Megaphone className="h-6 w-6 text-yellow-500" />
+                <span className="px-3 text-xs font-bold text-gray-800">{a.title}</span>
+              </span>
+            )}
             <span className="absolute right-2 top-2 rounded bg-white/85 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-gray-600">
               Ad
             </span>
