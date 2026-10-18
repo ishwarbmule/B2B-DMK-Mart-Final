@@ -3,31 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, BadgePercent, Building2, Clock3, Handshake, Megaphone, PackageCheck, PhoneCall, Star, Truck, Zap, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight, BadgePercent, Building2, Megaphone, PackageCheck, PhoneCall, Star, Truck, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCatalog } from "./site-header-v2";
+import { HeroBanner } from "./hero-banner";
 import { ProductCard, ProductCardMini } from "./product-card";
 import type { DProduct } from "@/lib/types";
 import { formatINR } from "@/lib/store";
-
-function useCountdown(target?: string | null) {
-  const [left, setLeft] = useState("");
-  useEffect(() => {
-    if (!target) return;
-    const tick = () => {
-      const diff = new Date(target).getTime() - Date.now();
-      if (diff <= 0) return setLeft("Ending now");
-      const d = Math.floor(diff / 86400000);
-      const h = Math.floor((diff % 86400000) / 3600000);
-      const m = Math.floor((diff % 3600000) / 60000);
-      const s = Math.floor((diff % 60000) / 1000);
-      setLeft(`${d ? d + "d " : ""}${h}h ${m}m ${s}s`);
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [target]);
-  return left;
-}
 
 /* ─────────────── Homepage section config (Website Management → Homepage Editor) ─────────────── */
 export type HomeSectionCfg = { id: string; visible: boolean; title?: string; sub?: string };
@@ -60,92 +41,18 @@ function parseSections(raw: string | undefined): HomeSectionCfg[] {
   }
 }
 
-/* ─────────────── Offer Hero (auto from admin Offers) ─────────────── */
+/* ─────────────── Hero banner + live stats (artwork: upload IMG-20261014-ART0003) ─────────────── */
 function OfferHero() {
-  const catalog = useCatalog();
-  const offer = catalog?.activeOffer ?? null;
-  const sliders = catalog?.sliders ?? [];
-  const [idx, setIdx] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setIdx((i) => (i + 1) % Math.max(1, sliders.length)), 5000);
-    return () => clearInterval(id);
-  }, [sliders.length]);
-  const left = useCountdown(offer?.endAt ?? null);
-  const stat = catalog?.stats;
+  const stat = useCatalog()?.stats;
 
   return (
-    <section
-      className="relative overflow-hidden rounded-2xl border border-gray-800"
-      style={{ background: offer?.bgColor || "#0a0a0a", color: offer?.textColor || "#facc15" }}
-    >
-      <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full opacity-20 blur-3xl" style={{ background: offer?.textColor || "#facc15" }} />
-      <div className="relative grid gap-6 p-6 md:grid-cols-[1.2fr_1fr] md:p-10">
-        <div>
-          {offer ? (
-            <>
-              <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wider" style={{ borderColor: offer.textColor, color: offer.textColor }}>
-                <Zap className="h-3.5 w-3.5" /> {offer.type.replace("_", " ")} · Live
-              </span>
-              <h1 className="mt-4 text-3xl font-black leading-tight tracking-tight md:text-5xl">{offer.headline}</h1>
-              <p className="mt-3 max-w-md text-sm opacity-90 md:text-base">{offer.subText}</p>
-              <div className="mt-5 flex flex-wrap items-center gap-3">
-                <Link
-                  href={offer.ctaUrl || "/catalog?flag=deal"}
-                  className="rounded-xl bg-white px-6 py-3 text-sm font-bold text-black transition hover:scale-[1.02]"
-                  style={{ background: offer.textColor, color: offer.bgColor || "#000" }}
-                >
-                  {offer.ctaText} <ArrowRight className="ml-1 inline h-4 w-4" />
-                </Link>
-                {left && (
-                  <span className="flex items-center gap-2 rounded-xl border border-white/20 bg-black/30 px-4 py-3 text-sm font-bold tabular-nums">
-                    <Clock3 className="h-4 w-4" /> {left}
-                  </span>
-                )}
-              </div>
-            </>
-          ) : (
-            sliders[idx % Math.max(1, sliders.length)] && (
-              <>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-yellow-400 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-yellow-400">
-                  <Handshake className="h-3.5 w-3.5" /> {stat?.brands ?? 39} Brands · B2B Only
-                </span>
-                <h1 className="mt-4 text-3xl font-black leading-tight tracking-tight text-white md:text-5xl">
-                  {sliders[idx % sliders.length].heading}
-                </h1>
-                <p className="mt-3 max-w-md text-sm text-gray-300 md:text-base">{sliders[idx % sliders.length]?.content}</p>
-                <div className="mt-5 flex flex-wrap gap-3">
-                  <Link href={sliders[idx % sliders.length]?.buttonUrl || "/catalog"} className="rounded-xl bg-yellow-400 px-6 py-3 text-sm font-bold text-black transition hover:scale-[1.02]">
-                    {sliders[idx % sliders.length]?.buttonText} <ArrowRight className="ml-1 inline h-4 w-4" />
-                  </Link>
-                </div>
-                <div className="mt-4 flex gap-1.5">
-                  {sliders.map((_, i) => (
-                    <button key={i} onClick={() => setIdx(i)} aria-label={`Slide ${i + 1}`} className={`h-1.5 rounded-full transition-all ${i === idx % sliders.length ? "w-6 bg-yellow-400" : "w-2 bg-gray-600"}`} />
-                  ))}
-                </div>
-              </>
-            )
-          )}
-          <div className="mt-6 flex flex-wrap gap-4 text-[11px] text-gray-300">
-            <span className="rounded-lg bg-white/10 px-3 py-1.5"><b className="text-white">{stat?.products ?? 2272}</b> SKUs live</span>
-            <span className="rounded-lg bg-white/10 px-3 py-1.5"><b className="text-white">{stat?.brands ?? 39}</b> brands</span>
-            <span className="rounded-lg bg-white/10 px-3 py-1.5"><b className="text-white">4</b> price tiers</span>
-            <span className="rounded-lg bg-white/10 px-3 py-1.5"><b className="text-white">OTP</b> safe delivery</span>
-          </div>
-        </div>
-
-        {/* photo collage */}
-        <div className="relative hidden min-h-[280px] md:block">
-          <div className="absolute right-0 top-2 h-44 w-44 rotate-6 overflow-hidden rounded-2xl border-4 border-yellow-400/70 shadow-2xl">
-            <CollageImg seed="a" />
-          </div>
-          <div className="absolute bottom-0 right-28 h-40 w-40 -rotate-3 overflow-hidden rounded-2xl border-4 border-white/80 shadow-2xl">
-            <CollageImg seed="b" />
-          </div>
-          <div className="absolute left-4 top-24 h-36 w-36 rotate-[-8deg] overflow-hidden rounded-2xl border-4 border-yellow-400/50 shadow-2xl">
-            <CollageImg seed="c" />
-          </div>
-        </div>
+    <section>
+      <HeroBanner />
+      <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-gray-600">
+        <span className="rounded-lg bg-black/5 px-3 py-1.5"><b className="text-gray-900">{stat?.products ?? 2272}</b> SKUs live</span>
+        <span className="rounded-lg bg-black/5 px-3 py-1.5"><b className="text-gray-900">{stat?.brands ?? 39}</b> brands</span>
+        <span className="rounded-lg bg-black/5 px-3 py-1.5"><b className="text-gray-900">4</b> price tiers</span>
+        <span className="rounded-lg bg-black/5 px-3 py-1.5"><b className="text-gray-900">OTP</b> safe delivery</span>
       </div>
     </section>
   );
