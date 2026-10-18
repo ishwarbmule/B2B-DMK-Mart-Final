@@ -25,7 +25,8 @@ export function HeroBanner() {
         height={702}
         priority
         unoptimized
-        className="h-[235px] w-full object-cover object-[32%_center] transition duration-300 group-hover:scale-[1.01] sm:h-auto"
+        /* Fit full artwork on every screen: natural aspect (2.74:1), no crop on mobile */
+        className="h-auto w-full transition duration-300 group-hover:scale-[1.01]"
       />
     </Link>
   );
