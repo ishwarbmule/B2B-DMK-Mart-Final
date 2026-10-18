@@ -11,10 +11,11 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  ArrowRight, Boxes, Heart, Minus, Plus, ShieldCheck, ShoppingCart, Users,
+  ArrowRight, Heart, Minus, Plus, ShoppingCart,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useCatalog } from "./site-header-v2";
+import { HeroBanner } from "./hero-banner";
 import { toCartItem } from "./product-card";
 import { useCartStore, formatINR, lineKey } from "@/lib/store";
 import { discountPct, type DProduct } from "@/lib/types";
@@ -43,85 +44,8 @@ function SectionHead({
 
 /* ------------------------------------ hero ------------------------------------- */
 
-function CollageImg({ seed }: { seed: string }) {
-  const [src, setSrc] = useState("/dmk-logo.png");
-  useEffect(() => {
-    fetch(`/api/products?limit=6&flag=featured&page=${seed === "a" ? 1 : seed === "b" ? 2 : 3}`)
-      .then((r) => r.json())
-      .then((d) => {
-        const imgs = ((d.products ?? []) as DProduct[]).map((p) => p.image).filter((i) => i?.startsWith("http"));
-        if (imgs.length) setSrc(imgs[Math.abs(seed.charCodeAt(0) * 7) % imgs.length]);
-      })
-      .catch(() => {});
-  }, [seed]);
-  return <Image src={src} alt="DMK Mart everyday essentials" fill sizes="220px" className="object-cover" unoptimized />;
-}
-
-const USPS = [
-  { icon: Boxes, l1: "Wide", l2: "Product Range" },
-  { icon: ShieldCheck, l1: "Trusted", l2: "Quality" },
-  { icon: Users, l1: "Built for", l2: "Businesses" },
-];
-
 function Hero2() {
-  return (
-    <section className="relative overflow-hidden rounded-2xl border border-amber-100 bg-gradient-to-br from-[#FFF9EA] via-[#FFF3D2] to-[#FBE8B4]">
-      <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-yellow-300/40 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-20 left-1/3 h-56 w-56 rounded-full bg-amber-200/50 blur-3xl" />
-
-      <div className="relative grid gap-6 p-6 md:p-10 lg:grid-cols-[1.08fr_0.92fr] lg:p-12">
-        <div className="flex flex-col justify-center">
-          <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-gray-800">
-            Your Partner in Quality Products
-          </p>
-          <h1 className="mt-3 text-3xl font-black leading-[1.08] tracking-tight text-gray-900 md:text-5xl">
-            Everyday Essentials for a <span className="text-amber-500">Better Tomorrow</span>
-          </h1>
-
-          <div className="mt-6 flex flex-wrap gap-x-7 gap-y-3">
-            {USPS.map((u) => (
-              <span key={u.l2} className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-yellow-400 text-black shadow-sm">
-                  <u.icon className="h-4.5 w-4.5" strokeWidth={2.2} />
-                </span>
-                <span className="text-[11px] font-bold leading-tight text-gray-800">
-                  {u.l1}<br />{u.l2}
-                </span>
-              </span>
-            ))}
-          </div>
-
-          <div className="mt-7">
-            <Link
-              href="/catalog"
-              className="inline-flex items-center gap-2 rounded-full bg-yellow-400 px-8 py-3.5 text-sm font-bold text-black shadow-md transition hover:scale-[1.03] hover:bg-yellow-300"
-            >
-              Shop Now <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-        </div>
-
-        {/* staged products + tagline */}
-        <div className="relative hidden min-h-[300px] lg:block">
-          <p className="absolute right-0 top-0 text-right">
-            <span className="block font-serif text-2xl font-bold italic leading-tight text-gray-800">
-              Homes<br />Shops<br />Businesses
-            </span>
-            <span className="mt-1 block text-[11px] font-semibold text-gray-600">— All in One Place</span>
-          </p>
-          <div className="absolute bottom-2 right-40 h-44 w-44 rotate-6 overflow-hidden rounded-2xl border-4 border-white bg-white shadow-xl">
-            <CollageImg seed="a" />
-          </div>
-          <div className="absolute bottom-0 right-10 h-40 w-40 -rotate-3 overflow-hidden rounded-2xl border-4 border-white bg-white shadow-xl">
-            <CollageImg seed="b" />
-          </div>
-          <div className="absolute bottom-16 left-2 h-36 w-36 -rotate-6 overflow-hidden rounded-2xl border-4 border-white/90 bg-white shadow-xl">
-            <CollageImg seed="c" />
-          </div>
-        </div>
-      </div>
-    </section>
-  );
+  return <HeroBanner />;
 }
 
 /* ------------------------------- category circles ------------------------------ */
