@@ -3,10 +3,12 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  // Dedicated name: the sandbox platform injects its own DATABASE_URL (sqlite),
+  // MySQL — the B2B store now lives on the owner's own MySQL server (no Neon).
+  // Local sandbox preview uses the SQLite twin at prisma/schema.sqlite.prisma.
+  // Dedicated env name: the sandbox platform injects its own DATABASE_URL (sqlite),
   // which would override .env. APP_DATABASE_URL is app-owned everywhere (local + Vercel).
-  url = env("APP_DATABASE_URL")
+  provider = "mysql"
+  url      = env("APP_DATABASE_URL")
 }
 
 // ───────────────────────── BRANDS (DMK Mart sells many brands) ─────────────────────────
@@ -72,7 +74,7 @@ model Product {
   id                String      @id @default(cuid())
   sku               String      @unique // canonical SKU (ERP SKU for synced items)
   legacySku         String      @default("")
-  erpId             String      @default("") // Neon Product.id
+  erpId             String      @default("") // ERP MySQL row id
   slug              String      @unique
   name              String
   brandId           String
@@ -312,7 +314,7 @@ model SeoMeta {
   extraHead       String  @default("")
 }
 
-// ───────────────────────── ERP SYNC (Neon <-> ecommerce) ─────────────────────────
+// ───────────────────────── ERP SYNC (owner's ERP MySQL <-> ecommerce) ─────────────────────────
 
 model SyncEvent {
   id           String   @id @default(cuid())
