@@ -1,11 +1,11 @@
 /**
  * Applies ERP product payloads into the local catalog mirror.
  * Used by: POST /api/inventory/webhook (ERP auto-push) and POST /api/admin/sync/pull (manual).
- * Only touches local SQLite — Neon stays read-only.
+ * Only touches the B2B app database — the owner's ERP MySQL stays read-only.
  */
 import { db } from "@/lib/db";
 import type { NormalizedErpProduct } from "@/lib/erp";
-import { normalizeErpProduct } from "@/lib/erp";
+import { normalizeErpProduct, resolveErpImage, pullErpProducts, getSetting, setSetting, erpProductsTable, assertReadOnly, assertIdentifier } from "@/lib/erp";
 
 const slugify = (s: string) =>
   s.normalize("NFKD").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase().slice(0, 70) || "item";
@@ -132,19 +132,20 @@ export async function applyErpProducts(payload: unknown): Promise<ApplyResult> {
 
       if (existing) {
         const update: Record<string, unknown> = { ...data };
-        if (item.image) update.image = item.image; // keep local image if ERP sends none
+        if (item.image) update.image = await resolveErpImage(item.image); // keep local image if ERP sends none
         await db.product.update({ where: { id: existing.id }, data: update });
         result.updated++;
       } else {
         let slug = slugify(`${item.company || item.brand || "dmk"}-${item.name}`);
         if (await db.product.findUnique({ where: { slug } })) slug = `${slug}-${item.sku.slice(-6).toLowerCase()}`;
+        const img = await resolveErpImage(item.image);
         await db.product.create({
           data: {
             ...data,
             sku: item.sku,
             slug,
-            image: item.image,
-            gallery: item.image ? JSON.stringify([item.image]) : "[]",
+            image: img,
+            gallery: img ? JSON.stringify([img]) : "[]",
             description: `${item.name} — synced from DMK Mart ERP.`,
             seoTitle: `${item.name} | DMK Mart B2B`,
             seoDesc: `Buy ${item.name} at wholesale price on DMK Mart.`,
@@ -176,4 +177,122 @@ export async function logSyncEvent(data: { direction: string; action: string; st
       durationMs: data.durationMs ?? 0,
     },
   });
+}
+
+// ───────── PUSH (B2B → ERP) — LOCKED BY DEFAULT ─────────
+//
+// The owner's ERP MySQL is the live business core. Writes are blocked unless
+// the Setting "erp_write_enabled" is explicitly "true" (Admin → Data Sync toggle).
+// Even when unlocked, only the whitelisted numeric columns below may change,
+// matched strictly by SKU — identifiers, names, orders etc. are NEVER pushed.
+
+const PUSHABLE_FIELDS = ["stock", "tier1", "tier2", "tier3", "tier4", "tier5", "purchaseCost"] as const;
+type PushableField = (typeof PUSHABLE_FIELDS)[number];
+
+const DEFAULT_ERP_COLUMNS: Record<PushableField | "sku", string> = {
+  sku: "sku",
+  stock: "stock_quantity",
+  tier1: "tier1_distributor",
+  tier2: "tier2_wholesale",
+  tier3: "tier3_semiwholesale",
+  tier4: "tier4_retailer",
+  tier5: "tier5_mrp",
+  purchaseCost: "purchase_cost",
+};
+
+async function erpColumnMap(): Promise<Record<string, string>> {
+  let aliases: Record<string, string> = {};
+  try { aliases = JSON.parse(await getSetting("erp_product_aliases", "{}")) as Record<string, string>; } catch { /* ignore */ }
+  return { ...DEFAULT_ERP_COLUMNS, ...aliases };
+}
+
+export type PushFieldDiff = { field: PushableField; erpColumn: string; erpValue: number; webValue: number };
+export type PushRowDiff = { sku: string; name: string; diffs: PushFieldDiff[] };
+
+export type PushPreview = {
+  writeEnabled: boolean;
+  writeUnlockedAt: string;
+  checkedErpRows: number;
+  matchedSkus: number;
+  rowsWithChanges: number;
+  sample: PushRowDiff[];
+  columns: Record<string, string>;
+};
+
+async function computePushDiff(limit: number): Promise<{ rows: PushRowDiff[]; checkedErpRows: number; matchedSkus: number; columns: Record<string, string> }> {
+  const raw = await pullErpProducts(limit);
+  const erpRows = raw.map((r) => normalizeErpProduct(r)).filter((x): x is NormalizedErpProduct => Boolean(x));
+  const bySku = new Map(erpRows.map((r) => [r.sku, r]));
+
+  const locals = await db.product.findMany({
+    select: { sku: true, name: true, stock: true, tier1: true, tier2: true, tier3: true, tier4: true, tier5: true, purchaseCost: true },
+  });
+  const columns = await erpColumnMap();
+
+  const rows: PushRowDiff[] = [];
+  let matchedSkus = 0;
+  for (const p of locals) {
+    const erp = bySku.get(p.sku);
+    if (!erp) continue;
+    matchedSkus++;
+    const diffs: PushFieldDiff[] = [];
+    for (const field of PUSHABLE_FIELDS) {
+      const webValue = Number(p[field] ?? 0);
+      const erpValue = Number(erp[field] ?? 0);
+      if (webValue !== erpValue) diffs.push({ field, erpColumn: columns[field] || DEFAULT_ERP_COLUMNS[field], erpValue, webValue });
+    }
+    if (diffs.length) rows.push({ sku: p.sku, name: p.name, diffs });
+  }
+  return { rows, checkedErpRows: raw.length, matchedSkus, columns };
+}
+
+/** Dry-run: what WOULD be written to the ERP if pushes were unlocked. Read-only. */
+export async function previewPushToErp(limit = 5000): Promise<PushPreview> {
+  const { rows, checkedErpRows, matchedSkus, columns } = await computePushDiff(limit);
+  const writeEnabled = (await getSetting("erp_write_enabled", "false")) === "true";
+  const writeUnlockedAt = await getSetting("erp_write_unlocked_at", "");
+  return {
+    writeEnabled,
+    writeUnlockedAt,
+    checkedErpRows,
+    matchedSkus,
+    rowsWithChanges: rows.length,
+    sample: rows.slice(0, 50),
+    columns,
+  };
+}
+
+/** Execute the push. Throws unless "erp_write_enabled" === "true". */
+export async function executePushToErp(limit = 5000): Promise<{ updated: number; skipped: number; errors: string[] }> {
+  const writeEnabled = (await getSetting("erp_write_enabled", "false")) === "true";
+  if (!writeEnabled) {
+    throw new Error("ERP writes are LOCKED (safety). The ERP database was NOT modified. Unlock the toggle in Admin → Data Sync first.");
+  }
+  const { rows } = await computePushDiff(limit);
+  const { erpPool } = await import("@/lib/erp");
+  const pool = await erpPool();
+  const table = await erpProductsTable();
+  const columns = await erpColumnMap();
+  const skuCol = assertIdentifier(columns.sku || DEFAULT_ERP_COLUMNS.sku);
+
+  let updated = 0;
+  let skipped = 0;
+  const errors: string[] = [];
+  for (const row of rows) {
+    try {
+      const sets: string[] = [];
+      const vals: unknown[] = [];
+      for (const d of row.diffs) {
+        sets.push(`\`${assertIdentifier(d.erpColumn)}\` = ?`);
+        vals.push(d.webValue);
+      }
+      if (!sets.length) { skipped++; continue; }
+      vals.push(row.sku);
+      await pool.query(`UPDATE \`${table}\` SET ${sets.join(", ")} WHERE \`${skuCol}\` = ? LIMIT 1`, vals);
+      updated++;
+    } catch (e) {
+      errors.push(`${row.sku}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  return { updated, skipped, errors };
 }

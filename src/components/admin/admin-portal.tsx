@@ -7,6 +7,7 @@ import {
   LayoutDashboard, Globe, Package, Building2, ShoppingCart,
   Users, LogOut, Menu, X, Eye, Settings2, ChevronRight, Megaphone,
   Barcode as BarcodeIcon, BadgePercent, IndianRupee, Wallet, FileSpreadsheet,
+  Database,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardModule, CustomersModule, PricingModule, BrandProductsModule } from "./business-modules-1";
@@ -14,6 +15,7 @@ import { FinancialModule, ReportsModule, WebsiteModule, StorefrontsModule, HomeE
 import { ProductsModule } from "./products-module";
 import { OrdersModule } from "./orders-module";
 import { SettingsModule } from "./settings-module";
+import { SyncModule } from "./sync-module";
 import { BarcodeStudio } from "./barcode-studio";
 import { CrudModule } from "./ui-bits";
 import { CONFIGS } from "./crud-configs";
@@ -60,6 +62,7 @@ const NAV: { group: string; items: { id: ModuleId; label: string; icon: React.Co
       { id: "homeEditor", label: "Homepage Editor (v2)" },
       { id: "seoMeta", label: "SEO Manager" },
     ]},
+    { id: "sync", label: "Data Sync (ERP MySQL)", icon: Database },
     { id: "settings", label: "Settings", icon: Settings2 },
   ]},
 ];
@@ -176,6 +179,7 @@ export function AdminPortal() {
       case "website": return <WebsiteModule token={token} />;
       case "homeEditor": return <HomeEditorModule token={token} />;
       case "storefronts": return <StorefrontsModule token={token} />;
+      case "sync": return <SyncModule token={token} />;
       case "settings": return <SettingsModule token={token} />;
       case "brand-products": return <BrandProductsModule token={token} />;
       default: {
