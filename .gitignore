@@ -61,3 +61,4 @@ scripts/pull_neon.py
 scripts/upload_brand_logos.py
 scripts/upload_missing_logos.py
 worklog.md
+.golive-token
