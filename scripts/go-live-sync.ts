@@ -1,0 +1,117 @@
+/**
+ * GO-LIVE: connect the PRODUCTION B2B site (dmkmartb2b.space-z.ai) to the owner's
+ * ERP MySQL and run the first real pull — via the site's own admin APIs, using the
+ * production server's unrestricted network (this sandbox cannot reach arbitrary hosts).
+ *
+ * Usage:
+ *   npx tsx scripts/go-live-sync.ts login
+ *   npx tsx scripts/go-live-sync.ts setup           # save credentials, test connection
+ *   npx tsx scripts/go-live-sync.ts status
+ *   npx tsx scripts/go-live-sync.ts tables
+ *   npx tsx scripts/go-live-sync.ts describe <table>
+ *   npx tsx scripts/go-live-sync.ts aliases '<json>'
+ *   npx tsx scripts/go-live-sync.ts imagebase <url|''>
+ *   npx tsx scripts/go-live-sync.ts pull
+ *   npx tsx scripts/go-live-sync.ts verify
+ */
+const BASE = process.env.PROD_BASE || "https://dmkmartb2b.space-z.ai";
+const LOGIN_ID = process.env.ADMIN_LOGIN_ID || "B2B DMK Mart";
+const PASSWORD = process.env.ADMIN_PASSWORD || "1234";
+
+const ERP = {
+  erp_db_host: "srv844.hstgr.io",
+  erp_db_port: "3306",
+  erp_db_user: "u671486929_dmkmarterp",
+  erp_db_password: "DMKMart@26",
+  erp_db_name: "u671486929_dmkmarterpdata",
+};
+
+const TOKEN_FILE = "/home/z/my-project/.golive-token";
+
+async function api(path: string, init?: RequestInit): Promise<{ status: number; body: unknown }> {
+  const token = (await import("fs")).existsSync(TOKEN_FILE)
+    ? (await import("fs")).readFileSync(TOKEN_FILE, "utf8").trim()
+    : "";
+  const res = await fetch(`${BASE}${path}`, {
+    ...init,
+    headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}), ...(init?.headers || {}) },
+  });
+  let body: unknown = null;
+  try { body = await res.json(); } catch { body = `<non-json ${res.status}>`; }
+  return { status: res.status, body };
+}
+
+async function main() {
+  const cmd = process.argv[2] || "status";
+  const arg = process.argv[3];
+
+  if (cmd === "login") {
+    const { status, body } = await api("/api/admin/login", { method: "POST", body: JSON.stringify({ loginId: LOGIN_ID, password: PASSWORD }) });
+    const token = (body as { token?: string })?.token;
+    if (status === 200 && token) {
+      (await import("fs")).writeFileSync(TOKEN_FILE, token);
+      console.log(`login OK — token saved (${token.slice(0, 12)}...)`);
+    } else {
+      console.log(`login FAILED ${status}`, JSON.stringify(body));
+      process.exit(1);
+    }
+    return;
+  }
+
+  if (cmd === "setup") {
+    const { status, body } = await api("/api/admin/sync/settings", {
+      method: "POST",
+      body: JSON.stringify({ ...ERP, erp_products_table: arg || "products" }),
+    });
+    console.log(`setup → ${status}`, JSON.stringify(body, null, 2).replace(/DMKMart@26/g, "***"));
+    return;
+  }
+
+  if (cmd === "status") {
+    const { status, body } = await api("/api/admin/sync/status");
+    console.log(`status → ${status}`, JSON.stringify(body, null, 2));
+    return;
+  }
+
+  if (cmd === "tables") {
+    const { status, body } = await api("/api/admin/sync/explorer");
+    console.log(`tables → ${status}`, JSON.stringify(body, null, 2));
+    return;
+  }
+
+  if (cmd === "describe") {
+    const { status, body } = await api(`/api/admin/sync/explorer?table=${encodeURIComponent(arg || "products")}`);
+    console.log(`describe ${arg} → ${status}`, JSON.stringify(body, null, 2));
+    return;
+  }
+
+  if (cmd === "aliases") {
+    const { status, body } = await api("/api/admin/sync/settings", { method: "POST", body: JSON.stringify({ erp_product_aliases: arg || "{}" }) });
+    console.log(`aliases → ${status}`, JSON.stringify(body));
+    return;
+  }
+
+  if (cmd === "imagebase") {
+    const { status, body } = await api("/api/admin/sync/settings", { method: "POST", body: JSON.stringify({ erp_image_base_url: arg || "" }) });
+    console.log(`imagebase → ${status}`, JSON.stringify(body));
+    return;
+  }
+
+  if (cmd === "pull") {
+    console.log("Pulling from ERP MySQL via production ...");
+    const { status, body } = await api("/api/admin/sync/pull", { method: "POST" });
+    console.log(`pull → ${status}`, JSON.stringify(body, null, 2));
+    return;
+  }
+
+  if (cmd === "verify") {
+    const pub = await api("/api/products?limit=1000");
+    console.log(`public products api → ${pub.status}`, JSON.stringify(pub.body).slice(0, 400));
+    return;
+  }
+
+  console.log("unknown command");
+  process.exit(1);
+}
+
+main().catch((e) => { console.error("ERROR:", e.message); process.exit(1); });
