@@ -250,10 +250,70 @@ function coerceActive(v: unknown): boolean {
   return true; // "1", "true", "y", "yes", "active", "enabled", "on", anything else
 }
 
+const IMAGE_KEY_RE = /(image|img|photo|pic|thumb|picture)/i;
+const NUMERIC_RE = /^\d+(\.\d+)?$/;
+
+/**
+ * Last-resort image finder: the owner's ERP keeps an image URL on every product
+ * row, but the column name is unknown until the first live DESCRIBE. Scan the row
+ * for any image-ish column holding a URL/path; URL-looking values win.
+ * An explicit alias (Setting "erp_product_aliases") always overrides this.
+ */
+function autoDetectImage(raw: Record<string, unknown>): string {
+  let fallback = "";
+  for (const [k, v] of Object.entries(raw)) {
+    if (v === null || v === undefined) continue;
+    const s = String(v).trim();
+    if (!s || s.length > 2048 || NUMERIC_RE.test(s)) continue;
+    if (!IMAGE_KEY_RE.test(k)) continue;
+    if (/^(https?:)?\/\//i.test(s) || s.startsWith("data:")) return s;
+    if (!fallback) fallback = s;
+  }
+  return fallback;
+}
+
+/**
+ * Last-resort active-flag finder: after the well-known columns, look for any
+ * column named like a status/active flag whose VALUE looks like a flag
+ * (0/1, y/n, yes/no, true/false, active/inactive, ...). Never matches dates,
+ * free text or foreign keys. Returns undefined when nothing qualifies.
+ */
+function findActiveValue(raw: Record<string, unknown>): unknown {
+  const direct = raw.isActive ?? raw.is_active ?? raw.active ?? raw.status ?? raw.productStatus ?? raw.product_status;
+  if (direct !== undefined && direct !== null && direct !== "") return direct;
+  for (const [k, v] of Object.entries(raw)) {
+    if (v === null || v === undefined) continue;
+    if (!/status|active/i.test(k)) continue;
+    if (typeof v === "number") { if (v === 0 || v === 1) return v; continue; }
+    if (typeof v === "boolean") return v;
+    const s = String(v).trim();
+    if (!s || s.length > 20) continue;
+    if (/^(0|1)$/.test(s) || /^(y|n|yes|no|true|false|active|inactive|enabled|disabled|on|off|live|draft)$/i.test(s)) return s;
+  }
+  return undefined;
+}
+
+const SKU_KEY_RE = /^(sku|item_?codes?|product_?codes?|items?_?codes?|ref_?nos?|part_?(no|number|code)s?|article_?(no|code)s?|items?_?ids?)$/i;
+const NAME_KEY_RE = /^(names?|items?_?names?|products?_?names?|titles?)$/i;
+const DESC_KEY_RE = /^(items?_?(desc|description)s?|products?_?(desc|description)s?|descriptions?)$/i;
+
+/** Find the first column whose name matches one of the regexes (in priority order) with a usable short string value. */
+function findValue(raw: Record<string, unknown>, regexes: RegExp[]): string {
+  for (const re of regexes) {
+    for (const [k, v] of Object.entries(raw)) {
+      if (v === null || v === undefined) continue;
+      const s = String(v).trim();
+      if (!s || s.length > 300) continue;
+      if (re.test(k)) return s;
+    }
+  }
+  return "";
+}
+
 /** Accepts the ERP's product row shape (snake or camel, partial) and normalizes it. */
 export function normalizeErpProduct(raw: Record<string, unknown>): NormalizedErpProduct | null {
-  const sku = str(raw.sku ?? raw.SKU ?? raw.itemCode ?? raw.item_code ?? raw.productCode ?? raw.product_code);
-  const name = str(raw.name ?? raw.productName ?? raw.product_name ?? raw.itemName ?? raw.item_name);
+  const sku = str(raw.sku ?? raw.SKU ?? raw.itemCode ?? raw.item_code ?? raw.productCode ?? raw.product_code) || findValue(raw, [SKU_KEY_RE]);
+  const name = str(raw.name ?? raw.productName ?? raw.product_name ?? raw.itemName ?? raw.item_name) || findValue(raw, [NAME_KEY_RE, DESC_KEY_RE]);
   if (!sku || !name) return null;
   return {
     erpId: str(raw.id ?? raw.erpId ?? raw.item_id ?? raw.itemId),
@@ -280,8 +340,8 @@ export function normalizeErpProduct(raw: Record<string, unknown>): NormalizedErp
     weightGrams: num(raw.weightGrams ?? raw.weight_grams),
     piecesPerBox: Math.round(num(raw.piecesPerBox ?? raw.pieces_per_box)),
     barcode: str(raw.barcode),
-    image: str(raw.photoUrl ?? raw.image ?? raw.imageUrl ?? raw.photo_url ?? raw.image_url ?? raw.productImage ?? raw.product_image),
-    active: coerceActive(raw.isActive ?? raw.is_active ?? raw.active ?? raw.status ?? raw.productStatus ?? raw.product_status),
+    image: str(raw.photoUrl ?? raw.image ?? raw.imageUrl ?? raw.photo_url ?? raw.image_url ?? raw.productImage ?? raw.product_image) || autoDetectImage(raw),
+    active: coerceActive(findActiveValue(raw)),
   };
 }
 
