@@ -121,7 +121,6 @@ export async function applyErpProducts(payload: unknown): Promise<ApplyResult> {
         stock: Math.round(item.stock), damagedStock: Math.round(item.damaged), reservedQty: Math.round(item.reserved),
         lowStockThreshold: item.lowStockThreshold,
         barcode: item.barcode, hsn: item.hsn, gst: item.gst, weightGrams: item.weightGrams,
-        active: item.active,
         syncSource: "ERP",
         lastSyncedAt: new Date(),
       };
@@ -133,6 +132,13 @@ export async function applyErpProducts(payload: unknown): Promise<ApplyResult> {
       if (existing) {
         const update: Record<string, unknown> = { ...data };
         if (item.image) update.image = await resolveErpImage(item.image); // keep local image if ERP sends none
+        // Active flag — last writer wins: admin decisions are never silently reverted by a pull.
+        // ERP active=true always re-lists an ERP-controlled product; ERP active=false de-lists it
+        // UNLESS an admin manually toggled it (activeSource="ADMIN").
+        if (existing.activeSource !== "ADMIN") {
+          update.active = item.active;
+          update.activeSource = "ERP";
+        }
         await db.product.update({ where: { id: existing.id }, data: update });
         result.updated++;
       } else {
@@ -144,6 +150,8 @@ export async function applyErpProducts(payload: unknown): Promise<ApplyResult> {
             ...data,
             sku: item.sku,
             slug,
+            active: item.active,
+            activeSource: "ERP",
             image: img,
             gallery: img ? JSON.stringify([img]) : "[]",
             description: `${item.name} — synced from DMK Mart ERP.`,

@@ -240,9 +240,19 @@ export type NormalizedErpProduct = {
 const num = (v: unknown, d = 0) => (v === null || v === undefined || v === "" ? d : Number(v) || d);
 const str = (v: unknown, d = "") => (v === null || v === undefined ? d : String(v)).trim();
 
+/** Coerce ERP active flags in any style: 1/0, "1"/"0", true/false, "Y"/"N", "Yes"/"No", "Active"/"Inactive". */
+function coerceActive(v: unknown): boolean {
+  if (v === undefined || v === null || v === "") return true;
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return v !== 0;
+  const s = String(v).trim().toLowerCase();
+  if (["0", "false", "n", "no", "inactive", "disabled", "off", "draft"].includes(s)) return false;
+  return true; // "1", "true", "y", "yes", "active", "enabled", "on", anything else
+}
+
 /** Accepts the ERP's product row shape (snake or camel, partial) and normalizes it. */
 export function normalizeErpProduct(raw: Record<string, unknown>): NormalizedErpProduct | null {
-  const sku = str(raw.sku ?? raw.SKU);
+  const sku = str(raw.sku ?? raw.SKU ?? raw.itemCode ?? raw.item_code ?? raw.productCode ?? raw.product_code);
   const name = str(raw.name ?? raw.productName ?? raw.product_name ?? raw.itemName ?? raw.item_name);
   if (!sku || !name) return null;
   return {
@@ -270,8 +280,8 @@ export function normalizeErpProduct(raw: Record<string, unknown>): NormalizedErp
     weightGrams: num(raw.weightGrams ?? raw.weight_grams),
     piecesPerBox: Math.round(num(raw.piecesPerBox ?? raw.pieces_per_box)),
     barcode: str(raw.barcode),
-    image: str(raw.photoUrl ?? raw.image ?? raw.imageUrl ?? raw.photo_url ?? raw.image_url),
-    active: raw.isActive === undefined ? true : Boolean(raw.isActive),
+    image: str(raw.photoUrl ?? raw.image ?? raw.imageUrl ?? raw.photo_url ?? raw.image_url ?? raw.productImage ?? raw.product_image),
+    active: coerceActive(raw.isActive ?? raw.is_active ?? raw.active ?? raw.status ?? raw.productStatus ?? raw.product_status),
   };
 }
 

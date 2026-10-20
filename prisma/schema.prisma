@@ -136,6 +136,7 @@ model Product {
   isDeal            Boolean     @default(false)
 
   active            Boolean     @default(true)
+  activeSource      String      @default("ERP") // ERP = pull controls it | ADMIN = admin manually set it (pull never overrides)
   syncSource        String      @default("LOCAL") // ERP | LOCAL | LEGACY
   lastSyncedAt      DateTime?
   createdAt         DateTime    @default(now())

@@ -112,6 +112,8 @@ export async function PATCH(req: NextRequest) {
     for (const k of strFields) if (k in data) clean[k] = data[k];
     for (const k of numFields) if (k in data) clean[k] = Number(data[k]) || 0;
     for (const k of boolFields) if (k in data) clean[k] = !!data[k];
+    // Manual admin activation/deactivation is recorded so ERP pulls never undo it (last-writer-wins).
+    if ("active" in clean) clean.activeSource = "ADMIN";
     const row = await db.product.update({
       where: { id: String(id) },
       data: clean,

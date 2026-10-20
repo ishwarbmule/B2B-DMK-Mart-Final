@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
-import { ChevronLeft, ChevronRight, Download, Flame, Plus, RefreshCcw, Search, ShoppingCart, Star, Trash2, TrendingUp, Upload, X, Zap } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Flame, Plus, Power, RefreshCcw, Search, ShoppingCart, Star, Trash2, TrendingUp, Upload, X, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { api, ModuleHeader, Toggle } from "./ui-bits";
 import { formatINR } from "@/lib/store";
@@ -19,6 +19,7 @@ type Brand = { id: string; name: string };
 type Top = { id: string; name: string };
 
 const FLAGS = [
+  { key: "active", label: "Active", icon: Power, cls: "bg-blue-600" },
   { key: "isTop", label: "Top Selling", icon: TrendingUp, cls: "bg-emerald-600" },
   { key: "isFeatured", label: "Featured", icon: Star, cls: "bg-yellow-400 text-black" },
   { key: "isHot", label: "Hot Products", icon: Flame, cls: "bg-orange-500" },
