@@ -29,9 +29,13 @@ export function extractToken(header: string | null): string | null {
   return header;
 }
 
-/** Require a valid admin token; returns null if OK, else a 401 NextResponse. */
+/** Require a valid admin token; returns null if OK, else a 401 NextResponse.
+ *  Accepts the token from either the `authorization` header (Bearer, /admin portal)
+ *  or the `x-admin-token` header (legacy dmart admin dashboard). */
 export function requireAdmin(req: Request): Response | null {
-  const token = extractToken(req.headers.get("authorization"));
+  const token =
+    extractToken(req.headers.get("authorization")) ??
+    req.headers.get("x-admin-token");
   if (!verifyToken(token)) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
