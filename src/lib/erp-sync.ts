@@ -23,12 +23,21 @@ async function loadCatCache(): Promise<CatCache> {
     db.midCategory.findMany({ select: { id: true, name: true } }),
     db.endCategory.findMany({ select: { id: true, name: true } }),
   ]);
-  const fallbackTop = tops.find((t) => t.name === "HouseHold Unbreakable") ?? tops[0];
-  const fallbackMid = mids.find((m) => m.name === "General") ?? mids[0];
-  let fallbackEnd = ends.find((e) => e.name === "General") ?? ends[0];
-  if (!fallbackEnd && fallbackMid) {
-    fallbackEnd = await db.endCategory.create({ data: { name: "General", midId: fallbackMid.id } });
-  }
+  // Fresh/empty database safety: create the full fallback chain (Top → Mid → End).
+  // Previously only the End level was auto-created, so the first pull on a brand-new
+  // DB crashed with "Cannot read properties of undefined (reading 'id')".
+  let fallbackTop = tops.find((t) => t.name === "HouseHold Unbreakable") ?? tops[0];
+  if (!fallbackTop) fallbackTop = await db.topCategory.create({ data: { name: "General" } });
+  let fallbackMid = mids.find((m) => m.name === "General" && m.topId === fallbackTop.id)
+    ?? mids.find((m) => m.name === "General")
+    ?? mids.find((m) => m.topId === fallbackTop.id)
+    ?? mids[0];
+  if (!fallbackMid) fallbackMid = await db.midCategory.create({ data: { name: "General", topId: fallbackTop.id } });
+  let fallbackEnd = ends.find((e) => e.name === "General" && e.midId === fallbackMid.id)
+    ?? ends.find((e) => e.name === "General")
+    ?? ends.find((e) => e.midId === fallbackMid.id)
+    ?? ends[0];
+  if (!fallbackEnd) fallbackEnd = await db.endCategory.create({ data: { name: "General", midId: fallbackMid.id } });
   return { tops, mids, ends, fallback: { topId: fallbackTop.id, midId: fallbackMid.id, endId: fallbackEnd.id } };
 }
 
