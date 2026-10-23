@@ -53,13 +53,17 @@ async function log(action: string, entity: string, detail: string) {
 export async function GET(req: NextRequest, ctx: { params: Promise<{ entity: string }> }) {
   const unauthorized = requireAdmin(req);
   if (unauthorized) return unauthorized;
-  const { entity } = await ctx.params;
-  const d = def(entity);
-  const rows = await (db as never as AnyRec)[d.model].findMany({
-    include: d.include,
-    orderBy: d.orderBy ?? { createdAt: "desc" },
-  });
-  return NextResponse.json({ rows });
+  try {
+    const { entity } = await ctx.params;
+    const d = def(entity);
+    const rows = await (db as never as AnyRec)[d.model].findMany({
+      include: d.include,
+      orderBy: d.orderBy ?? { createdAt: "desc" },
+    });
+    return NextResponse.json({ rows });
+  } catch (e) {
+    return jsonError(e instanceof Error ? e.message.slice(0, 300) : "List failed", 400);
+  }
 }
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ entity: string }> }) {
