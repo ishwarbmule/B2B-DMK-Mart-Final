@@ -34,6 +34,7 @@ async function api(path: string, init?: RequestInit): Promise<{ status: number; 
     : "";
   const res = await fetch(`${BASE}${path}`, {
     ...init,
+    signal: AbortSignal.timeout(90_000),
     headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}), ...(init?.headers || {}) },
   });
   let body: unknown = null;
@@ -107,10 +108,11 @@ async function main() {
   if (cmd === "pullall") {
     // Chunked full pull: loop ?limit=&offset= until a short chunk comes back.
     // Each call stays far below the serverless timeout; apply is idempotent per SKU.
-    const CHUNK = Math.max(10, Number(arg) || 50);
+    // Usage: pullall <chunk=20> [startOffset] — resume support for multi-session pulls.
+    const CHUNK = Math.max(10, Number(arg) || 20);
+    let offset = Math.max(0, Number(process.argv[4]) || 0);
     const t0 = Date.now();
     const total = { seen: 0, created: 0, updated: 0, skipped: 0, errors: 0 };
-    let offset = 0;
     for (let i = 0; ; i++) {
       const { status, body } = await api(`/api/admin/sync/pull?limit=${CHUNK}&offset=${offset}`, { method: "POST" });
       const b = body as { ok?: boolean; fetched?: number; seen?: number; created?: number; updated?: number; skipped?: number; errors?: string[]; durationMs?: number };
