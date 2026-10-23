@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const now = new Date();
-  const [tops, brands, sliders, ads, settingsRaw, activeOffer, homeCoupons, pages, topCounts] = await Promise.all([
+  const [tops, brands, sliders, ads, settingsRaw, activeOffer, homeCoupons, pages, topCounts, approvedStores] = await Promise.all([
     db.topCategory.findMany({
       orderBy: { sortOrder: "asc" },
       include: { mids: { orderBy: { name: "asc" }, include: { ends: { orderBy: { name: "asc" } } } } },
@@ -30,6 +30,7 @@ export async function GET() {
     }),
     db.page.findMany({ where: { active: true, inFooter: true }, orderBy: { sortOrder: "asc" }, select: { slug: true, title: true, type: true } }),
     db.product.groupBy({ by: ["topId"], _count: { _all: true }, where: { active: true } }),
+    db.store.count({ where: { status: "APPROVED" } }),
   ]);
 
   const settings: Record<string, string> = {};
@@ -40,11 +41,11 @@ export async function GET() {
 
   const stats = {
     products: topCounts.reduce((acc, r) => acc + r._count._all, 0),
-    stores: await db.store.count({ where: { status: "APPROVED" } }),
+    stores: approvedStores,
     brands: brands.length,
   };
 
-  return NextResponse.json({
+  const res = NextResponse.json({
     tops: topsWithCounts,
     brands,
     sliders,
@@ -55,4 +56,8 @@ export async function GET() {
     homeCoupons,
     footerPages: pages,
   });
+  // Storefront bootstrap changes rarely — serve from Vercel edge CDN for instant loads.
+  // Fresh data still lands within ~1 min (s-maxage) while SWR refreshes in the background.
+  res.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
+  return res;
 }

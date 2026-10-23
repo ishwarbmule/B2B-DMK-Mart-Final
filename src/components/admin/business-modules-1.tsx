@@ -63,7 +63,7 @@ export function DashboardModule({ token }: { token: string }) {
       {/* ERP sync strip */}
       <div className={`flex flex-wrap items-center gap-3 rounded-xl border p-3 text-xs ${data.lastSync?.status === "OK" ? "border-emerald-200 bg-emerald-50" : "border-orange-200 bg-orange-50"}`}>
         <ShieldCheck className="h-4 w-4 shrink-0" />
-        <span className="font-bold">ERP Sync (Neon):</span>
+        <span className="font-bold">ERP Sync (MySQL):</span>
         <span className="text-gray-600">{data.lastSync ? `${data.lastSync.direction} · ${data.lastSync.status} · ${data.lastSync.message} · ${new Date(data.lastSync.createdAt).toLocaleString("en-IN")}` : "No sync yet"}</span>
         <Link href="/admin" className="ml-auto text-[11px] font-bold text-gray-500 underline">ERP pushes arrive at /api/inventory/webhook automatically every 30 min</Link>
       </div>

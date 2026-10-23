@@ -66,10 +66,18 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
-  return NextResponse.json({
+  const res = NextResponse.json({
     products,
     total,
     page,
     pages: Math.max(1, Math.ceil(total / limit)),
   });
+  // Cacheable browsing (category/brand/flag pages) → served from Vercel edge CDN in ~100ms.
+  // Admin (all=1) and live search stay uncached so results are always fresh.
+  if (!includeInactive && !q) {
+    res.headers.set("Cache-Control", "public, s-maxage=30, stale-while-revalidate=120");
+  } else {
+    res.headers.set("Cache-Control", "private, no-store");
+  }
+  return res;
 }
