@@ -122,6 +122,7 @@ export const CONFIGS: Record<
     title: "Offers & Campaigns", sub: "Big Million Days engine — hero banners auto-appear on homepage", nameField: "name",
     fields: [
       { key: "name", label: "Campaign Name", type: "text", placeholder: "Diwali Stocking Carnival" },
+      { key: "slug", label: "Slug (URL, optional — auto from name)", type: "text", required: false, placeholder: "diwali-stock-carnival" },
       { key: "type", label: "Campaign Type", type: "select", options: ["MEGA_SALE", "FESTIVAL", "SEASON", "CLEARANCE"], default: "MEGA_SALE" },
       { key: "headline", label: "Hero Headline", type: "text", placeholder: "Big Wholesale Days" },
       { key: "subText", label: "Hero Sub-text", type: "textarea", required: false },
