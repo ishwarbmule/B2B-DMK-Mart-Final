@@ -44,6 +44,42 @@ function def(entity: string): EntityDef {
   return d;
 }
 
+/** DateTime fields used across crud-managed models (Offer/Coupon windows, etc.).
+ *  The admin forms submit plain text ("" or "YYYY-MM-DD") — convert to what Prisma expects. */
+function sanitizeDates(data: AnyRec): AnyRec {
+  const out: AnyRec = { ...data };
+  for (const key of ["startAt", "endAt"]) {
+    if (!(key in out)) continue;
+    const v = out[key];
+    if (v === "" || v === undefined || v === null) {
+      out[key] = null;
+    } else if (typeof v === "string") {
+      const d = new Date(v);
+      out[key] = Number.isNaN(d.getTime()) ? null : d;
+    }
+  }
+  return out;
+}
+
+/** Turn raw Prisma errors into short, human-readable messages for admin toasts. */
+function friendlyError(e: unknown): string {
+  if (!(e instanceof Error)) return "Operation failed";
+  const msg = e.message;
+  const codeMatch = msg.match(/code:\s*"(P\d{4})"/);
+  const code = codeMatch?.[1];
+  if (code === "P2002") {
+    const field = msg.match(/target:[\s\S]*?"(\w+)"/)?.[1] ?? "value";
+    return `"${field}" already exists — use a different one`;
+  }
+  if (code === "P2025") return "Record not found (it may have been deleted)";
+  if (code === "P2003") return "Linked record missing — check the selected reference";
+  // Extract "Argument xyz: ..." lines from Prisma invocation dumps
+  const arg = msg.match(/Argument `?(\w+)`?:\s*([^{\n]+)/);
+  if (arg) return `Invalid value for "${arg[1]}" — ${arg[2].trim().slice(0, 120)}`;
+  const firstLine = msg.split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("{") && !l.startsWith("}") && !l.includes("invocation") && !l.startsWith("Invalid `prisma"))[0];
+  return (firstLine || "Operation failed").slice(0, 200);
+}
+
 async function log(action: string, entity: string, detail: string) {
   try {
     await db.activityLog.create({ data: { action, entity, detail, user: "Super Admin" } });
@@ -72,14 +108,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ entity: st
   const { entity } = await ctx.params;
   const d = def(entity);
   try {
-    const body = (await req.json()) as AnyRec;
+    const body = sanitizeDates(((await req.json()) as AnyRec) ?? {});
     delete body.id;
     delete body.createdAt;
     const row = await (db as never as AnyRec)[d.model].create({ data: body, include: d.include });
     await log("CREATE", entity, `${d.label} "${String(body[d.nameField] ?? "")}" created`);
     return NextResponse.json({ row });
   } catch (e) {
-    return jsonError(e instanceof Error ? e.message.slice(0, 300) : "Create failed", 400);
+    return jsonError(friendlyError(e), 400);
   }
 }
 
@@ -89,7 +125,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ entity: s
   const { entity } = await ctx.params;
   const d = def(entity);
   try {
-    const body = (await req.json()) as AnyRec;
+    const body = sanitizeDates(((await req.json()) as AnyRec) ?? {});
     const { id, ...data } = body;
     if (!id) return jsonError("Missing id");
     delete data.createdAt;
@@ -97,7 +133,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ entity: s
     await log("UPDATE", entity, `${d.label} "${String(row[d.nameField] ?? id)}" updated`);
     return NextResponse.json({ row });
   } catch (e) {
-    return jsonError(e instanceof Error ? e.message.slice(0, 300) : "Update failed", 400);
+    return jsonError(friendlyError(e), 400);
   }
 }
 
@@ -113,6 +149,6 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ entity: 
     await log("DELETE", entity, `${d.label} "${String(row[d.nameField] ?? id)}" deleted`);
     return NextResponse.json({ ok: true });
   } catch (e) {
-    return jsonError(e instanceof Error ? e.message.slice(0, 300) : "Delete failed", 400);
+    return jsonError(friendlyError(e), 400);
   }
 }
