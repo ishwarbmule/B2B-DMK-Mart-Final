@@ -158,10 +158,11 @@ export async function testErpConnection(): Promise<ErpStatus> {
 export async function listErpTables(): Promise<{ name: string; rows: number | null }[]> {
   const p = await erpPool();
   const [rows] = await p.query<mysql.RowDataPacket[]>(
-    `SELECT table_name AS name, table_rows AS rows FROM information_schema.tables
+    `SELECT table_name AS name, table_rows AS row_count FROM information_schema.tables
      WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE' ORDER BY table_name`
   );
-  return rows.map((r) => ({ name: String(r.name), rows: r.rows === null ? null : Number(r.rows) }));
+  // NOTE: alias must NOT be `rows` — reserved keyword in MariaDB (Hostinger ERP runs MariaDB).
+  return rows.map((r) => ({ name: String(r.name), rows: r.row_count === null ? null : Number(r.row_count) }));
 }
 
 export async function describeErpTable(table: string): Promise<{ field: string; type: string; null: string; key: string }[]> {
