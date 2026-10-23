@@ -104,6 +104,31 @@ async function main() {
     return;
   }
 
+  if (cmd === "pullall") {
+    // Chunked full pull: loop ?limit=&offset= until a short chunk comes back.
+    // Each call stays far below the serverless timeout; apply is idempotent per SKU.
+    const CHUNK = Math.max(10, Number(arg) || 50);
+    const t0 = Date.now();
+    const total = { seen: 0, created: 0, updated: 0, skipped: 0, errors: 0 };
+    let offset = 0;
+    for (let i = 0; ; i++) {
+      const { status, body } = await api(`/api/admin/sync/pull?limit=${CHUNK}&offset=${offset}`, { method: "POST" });
+      const b = body as { ok?: boolean; fetched?: number; seen?: number; created?: number; updated?: number; skipped?: number; errors?: string[]; durationMs?: number };
+      if (status !== 200 || !b?.ok) {
+        console.log(`chunk@${offset} FAILED ${status}`, JSON.stringify(body).slice(0, 300));
+        process.exit(1);
+      }
+      total.seen += b.seen || 0; total.created += b.created || 0; total.updated += b.updated || 0;
+      total.skipped += b.skipped || 0; total.errors += (b.errors || []).length;
+      console.log(`chunk ${i}: offset=${offset} fetched=${b.fetched} created=${b.created} updated=${b.updated} skipped=${b.skipped} errors=${(b.errors || []).length} (${b.durationMs}ms)`);
+      if ((b.errors || []).length) console.log("  first errors:", JSON.stringify((b.errors || []).slice(0, 3)));
+      if ((b.fetched || 0) < CHUNK) break;
+      offset += CHUNK;
+    }
+    console.log(`PULL DONE in ${Math.round((Date.now() - t0) / 1000)}s —`, JSON.stringify(total));
+    return;
+  }
+
   if (cmd === "verify") {
     const pub = await api("/api/products?limit=1000");
     console.log(`public products api → ${pub.status}`, JSON.stringify(pub.body).slice(0, 400));

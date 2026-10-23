@@ -210,13 +210,13 @@ function applyAliases(row: Record<string, unknown>, aliases: Record<string, stri
   return out;
 }
 
-/** Pull the full product catalog from the ERP (read-only). */
-export async function pullErpProducts(limit = 5000): Promise<Record<string, unknown>[]> {
+/** Pull products from the ERP (read-only). Supports chunked pulls: limit+offset (large catalogs exceed serverless timeouts in one call). */
+export async function pullErpProducts(limit = 5000, offset = 0): Promise<Record<string, unknown>[]> {
   const p = await erpPool();
   const table = await erpProductsTable();
   let aliases: Record<string, string> = {};
   try { aliases = JSON.parse(await getSetting("erp_product_aliases", "{}")) as Record<string, string>; } catch { /* ignore */ }
-  const [rows] = await p.query<mysql.RowDataPacket[]>(`SELECT * FROM \`${table}\` LIMIT ?`, [limit]);
+  const [rows] = await p.query<mysql.RowDataPacket[]>(`SELECT * FROM \`${table}\` ORDER BY \`id\` LIMIT ? OFFSET ?`, [limit, offset]);
   return (rows as unknown as Record<string, unknown>[]).map((r) => applyAliases(r, aliases));
 }
 
