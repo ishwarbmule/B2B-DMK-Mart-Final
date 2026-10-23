@@ -349,11 +349,15 @@ export function normalizeErpProduct(raw: Record<string, unknown>): NormalizedErp
 /**
  * Build the final image URL for the B2B site: absolute/http(s)/Cloudinary URLs
  * pass through untouched; relative paths get the configured ERP image base.
+ * With NO base configured, a relative path would 404 on the site (the ERP's
+ * unverified imageFileName guesses) — store empty instead so the UI shows a
+ * clean placeholder. When the ERP team verifies images (full URLs in photoUrl),
+ * the next pull picks them up automatically.
  */
 export async function resolveErpImage(image: string): Promise<string> {
   const img = image.trim();
   if (!img) return "";
   if (/^(https?:)?\/\//i.test(img) || img.startsWith("data:")) return img;
   const base = await erpImageBase();
-  return base ? `${base}/${img.replace(/^\/+/, "")}` : img;
+  return base ? `${base}/${img.replace(/^\/+/, "")}` : "";
 }
