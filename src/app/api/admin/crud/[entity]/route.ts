@@ -63,21 +63,37 @@ function sanitizeDates(data: AnyRec): AnyRec {
 
 /** Turn raw Prisma errors into short, human-readable messages for admin toasts. */
 function friendlyError(e: unknown): string {
-  if (!(e instanceof Error)) return "Operation failed";
-  const msg = e.message;
-  const codeMatch = msg.match(/code:\s*"(P\d{4})"/);
-  const code = codeMatch?.[1];
-  if (code === "P2002") {
-    const field = msg.match(/target:[\s\S]*?"(\w+)"/)?.[1] ?? "value";
+  const code = (e as { code?: string } | null)?.code;
+  const msg = e instanceof Error ? e.message : String(e);
+  if (code === "P2002" || /Unique constraint/i.test(msg)) {
+    const field = msg.match(/fields?:\s*\(?`?(\w+)`?/)?.[1] ?? msg.match(/constraint: `?(\w+)/)?.[1] ?? "value";
     return `"${field}" already exists — use a different one`;
   }
-  if (code === "P2025") return "Record not found (it may have been deleted)";
+  if (code === "P2025" || /Record to (update|delete) not found/i.test(msg)) return "Record not found (it may have been deleted)";
   if (code === "P2003") return "Linked record missing — check the selected reference";
   // Extract "Argument xyz: ..." lines from Prisma invocation dumps
   const arg = msg.match(/Argument `?(\w+)`?:\s*([^{\n]+)/);
   if (arg) return `Invalid value for "${arg[1]}" — ${arg[2].trim().slice(0, 120)}`;
-  const firstLine = msg.split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("{") && !l.startsWith("}") && !l.includes("invocation") && !l.startsWith("Invalid `prisma"))[0];
+  const firstLine = msg.split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("{") && !l.startsWith("}") && !l.startsWith("data:") && !l.includes("invocation") && !l.startsWith("Invalid `prisma"))[0];
   return (firstLine || "Operation failed").slice(0, 200);
+}
+
+function slugify(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "offer";
+}
+
+/** Offer.slug is @unique but the admin form historically had no slug field —
+ *  every admin-created offer collided on slug="". Auto-generate a unique one. */
+async function ensureOfferSlug(data: AnyRec): Promise<void> {
+  if (typeof data.slug !== "string" || !data.slug.trim()) {
+    const base = slugify(String(data.name ?? "offer"));
+    let slug = base;
+    let n = 2;
+    while (await db.offer.findUnique({ where: { slug }, select: { id: true } })) {
+      slug = `${base}-${n++}`;
+    }
+    data.slug = slug;
+  }
 }
 
 async function log(action: string, entity: string, detail: string) {
@@ -111,6 +127,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ entity: st
     const body = sanitizeDates(((await req.json()) as AnyRec) ?? {});
     delete body.id;
     delete body.createdAt;
+    if (entity === "offers") await ensureOfferSlug(body);
     const row = await (db as never as AnyRec)[d.model].create({ data: body, include: d.include });
     await log("CREATE", entity, `${d.label} "${String(body[d.nameField] ?? "")}" created`);
     return NextResponse.json({ row });
