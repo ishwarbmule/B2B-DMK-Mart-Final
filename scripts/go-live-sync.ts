@@ -140,6 +140,12 @@ async function main() {
     return;
   }
 
+  if (cmd === "fix-images") {
+    const { status, body } = await api("/api/admin/sync/fix-images", { method: "POST" });
+    console.log(`fix-images → ${status}`, JSON.stringify(body, null, 2));
+    return;
+  }
+
   if (cmd === "verify") {
     const pub = await api("/api/products?limit=1000");
     console.log(`public products api → ${pub.status}`, JSON.stringify(pub.body).slice(0, 400));
