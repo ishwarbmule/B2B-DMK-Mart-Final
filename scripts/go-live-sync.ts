@@ -114,7 +114,16 @@ async function main() {
     const t0 = Date.now();
     const total = { seen: 0, created: 0, updated: 0, skipped: 0, errors: 0 };
     for (let i = 0; ; i++) {
-      const { status, body } = await api(`/api/admin/sync/pull?limit=${CHUNK}&offset=${offset}`, { method: "POST" });
+      let status = 0, body: unknown = null, attempt = 0;
+      // retry a chunk up to 3 attempts (transient serverless 504s under load)
+      for (; attempt < 3; attempt++) {
+        const r = await api(`/api/admin/sync/pull?limit=${CHUNK}&offset=${offset}`, { method: "POST" });
+        status = r.status; body = r.body;
+        const okBody = body as { ok?: boolean };
+        if (status === 200 && okBody?.ok) break;
+        console.log(`  chunk@${offset} attempt ${attempt + 1} failed (${status}), retrying...`);
+        await new Promise((res) => setTimeout(res, 10_000));
+      }
       const b = body as { ok?: boolean; fetched?: number; seen?: number; created?: number; updated?: number; skipped?: number; errors?: string[]; durationMs?: number };
       if (status !== 200 || !b?.ok) {
         console.log(`chunk@${offset} FAILED ${status}`, JSON.stringify(body).slice(0, 300));
