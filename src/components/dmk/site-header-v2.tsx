@@ -152,7 +152,8 @@ export function SiteHeaderV2() {
             <Zap className="h-3.5 w-3.5" /> Deals of the Day
           </Link>
           <span className="h-4 w-px shrink-0 bg-gray-700" aria-hidden />
-          {tops.map((t) => (
+          {/* direct links only for categories with live inventory — everything stays under All Departments */}
+          {tops.filter((t) => (t.productCount ?? 0) > 0).map((t) => (
             <Link
               key={t.id}
               href={`/catalog?top=${t.id}`}
