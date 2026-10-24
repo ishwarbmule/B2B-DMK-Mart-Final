@@ -7,6 +7,7 @@ import type { DProduct } from "@/lib/types";
 
 // ISR: brand storefronts re-render at most every 5 min; ERP sync refreshes on
 // its own 15–30 min cycle, so this stays fresh while serving from the edge
+export const dynamic = "force-static";
 export const revalidate = 300;
 
 async function getBrand(slug: string) {

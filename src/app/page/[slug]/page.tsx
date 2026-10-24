@@ -10,6 +10,7 @@ import {
 
 // ISR with short revalidation: legal/company pages are DB-backed but rarely
 // change; 60s keeps admin edits visible quickly while skipping DB per view
+export const dynamic = "force-static";
 export const revalidate = 60;
 
 async function getPage(slug: string) {
