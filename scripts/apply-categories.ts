@@ -130,15 +130,19 @@ async function main() {
     { name: "General", emoji: "🧺", color: "#6b7280", sortOrder: 1000, ...(imgUrls["General"] ? { image: imgUrls["General"] } : {}) },
   ];
 
+  // assignments must travel WITH tops (server resolves top names -> ids per request)
+  const chunks = [
+    payload.assignments.slice(0, Math.ceil(payload.assignments.length / 2)),
+    payload.assignments.slice(Math.ceil(payload.assignments.length / 2)),
+  ];
+
   console.log(`${dry ? "DRY" : "APPLY"}: tops...`);
   const r1 = await api("/api/admin/catalog/apply-categories", { method: "POST", body: JSON.stringify({ dryRun: dry, tops }) });
   console.log(JSON.stringify(r1.body));
 
-  // assignments in 2 chunks to stay under serverless timeout
-  const chunks = [payload.assignments.slice(0, Math.ceil(payload.assignments.length / 2)), payload.assignments.slice(Math.ceil(payload.assignments.length / 2))];
   for (let i = 0; i < chunks.length; i++) {
     console.log(`${dry ? "DRY" : "APPLY"}: assignments chunk ${i + 1}/${chunks.length} (${chunks[i].length})...`);
-    const r = await api("/api/admin/catalog/apply-categories", { method: "POST", body: JSON.stringify({ dryRun: dry, assignments: chunks[i] }) });
+    const r = await api("/api/admin/catalog/apply-categories", { method: "POST", body: JSON.stringify({ dryRun: dry, tops, assignments: chunks[i] }) });
     console.log(JSON.stringify(r.body));
     if (r.status !== 200) throw new Error(`chunk ${i + 1} failed`);
   }
