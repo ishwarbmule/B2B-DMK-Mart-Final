@@ -12,17 +12,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runErpTick, getErpSyncStatus } from "@/lib/erp-tick";
 import { requireAdmin } from "@/lib/admin-auth";
+import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 async function authorize(req: NextRequest): Promise<boolean> {
+  // CRON_SECRET env (Vercel Cron sends "Authorization: Bearer $CRON_SECRET")…
   const secret = process.env.CRON_SECRET || "";
-  const key = req.nextUrl.searchParams.get("key");
-  if (secret && key === secret) return true;
+  const key = req.nextUrl.searchParams.get("key") || "";
   const auth = req.headers.get("authorization") || "";
-  if (secret && auth === `Bearer ${secret}`) return true;
-  if (secret && req.headers.get("x-cron-secret") === secret) return true;
+  if (secret && (key === secret || auth === `Bearer ${secret}` || req.headers.get("x-cron-secret") === secret)) return true;
+  // …or the admin-manageable `cron_secret` Setting (Admin → Data Sync) — lets a free
+  // external scheduler (cron-job.org etc.) call this endpoint without Vercel env access.
+  if (key || auth === "Bearer x") {
+    try {
+      const s = await db.setting.findUnique({ where: { key: "cron_secret" } });
+      const dbSecret = s?.value?.trim() || "";
+      if (dbSecret && (key === dbSecret || auth === `Bearer ${dbSecret}`)) return true;
+    } catch { /* ignore */ }
+  }
   return requireAdmin(req) === null; // fall back to admin session token
 }
 
