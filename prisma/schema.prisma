@@ -143,6 +143,7 @@ model Product {
   updatedAt         DateTime    @updatedAt
 
   orderItems        OrderItem[]
+  warehouseStocks   WarehouseStock[]
 
   @@index([name])
   @@index([brandId])
@@ -164,10 +165,13 @@ model Customer {
   address      String   @default("") @db.Text
   city         String   @default("")
   pincode      String   @default("")
-  customerType String   @default("RETAILER") // RETAILER | WHOLESALE | DISTRIBUTOR
+  customerType String   @default("RETAILER") // RETAILER | WHOLESALE | SEMI_WHOLESALE | DISTRIBUTOR
   tier         String   @default("tier4") // tier1..tier4 price tier
   creditLimit  Float    @default(0)
+  creditBalance Float  @default(0) // money credited back (out-of-stock lines) — admin-visible only
   status       String   @default("PENDING") // PENDING | APPROVED | SUSPENDED
+  approvedAt   DateTime?
+  approvedBy   String   @default("")
   source       String   @default("WEB") // WEB | ERP
   erpId        String   @default("")
   orders       Int      @default(0)
@@ -207,6 +211,9 @@ model Order {
   paymentMethod  String      @default("UPI")
   paymentStatus  String      @default("PENDING")
   waOptIn        Boolean     @default(false) // customer consented to WhatsApp order updates at checkout
+  confirmedAt    DateTime?   // set when admin confirms the order (stock checked here)
+  confirmedBy    String      @default("")
+  nextDeliveryAt String      @default("") // planned next delivery date for out-of-stock lines
   shippingStatus String      @default("PENDING")
   status         String      @default("PENDING")
   source         String      @default("WEB")
@@ -236,6 +243,39 @@ model OrderItem {
   hsn       String  @default("")
   total     Float
   barcode   String  @default("")
+  serialNo  Int     @default(0) // per-order serial (1..n) assigned at admin confirm
+  lineStatus String @default("OK") // OK = ships now | NEXT_PLAN = out of stock, next delivery + credited
+  plannedNote String @default("") // e.g. "Next delivery 05 Nov 2026 — amount credited"
+}
+
+// ───────────────────────── WAREHOUSES (multi-godown stock) ─────────────────────────
+
+model Warehouse {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @default("")
+  address   String   @default("") @db.Text
+  city      String   @default("")
+  phone     String   @default("")
+  isDefault Boolean  @default(false)
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  stocks    WarehouseStock[]
+}
+
+model WarehouseStock {
+  id          String   @id @default(cuid())
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  qty         Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([warehouseId, productId])
+  @@index([productId])
 }
 
 // ───────────────────────── OFFERS & COUPONS (Big Million Days engine) ─────────────────────────

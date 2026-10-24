@@ -206,12 +206,11 @@ export async function POST(req: NextRequest) {
       await db.orderItem.create({ data: { ...l, orderId: order.id } });
     }
 
-    // customer stats + stock decrement + coupon usage
+    // customer stats + coupon usage (stock is NOT touched here — buyers can order freely;
+    // stock is checked & decremented by admin at order confirmation, with out-of-stock
+    // lines going to the next delivery plan + buyer credit)
     if (customerId) {
       await db.customer.update({ where: { id: customerId }, data: { orders: { increment: 1 }, totalSpent: { increment: grandTotal } } }).catch(() => {});
-    }
-    for (const l of lines) {
-      await db.product.update({ where: { id: l.productId }, data: { stock: { decrement: l.pieces } } }).catch(() => {});
     }
     if (appliedCoupon) {
       await db.coupon.updateMany({ where: { code: appliedCoupon }, data: { usedCount: { increment: 1 } } });

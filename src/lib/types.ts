@@ -126,6 +126,9 @@ export interface OrderItemRow {
   hsn: string;
   total: number;
   barcode: string;
+  serialNo?: number;
+  lineStatus?: string; // OK | NEXT_PLAN
+  plannedNote?: string;
 }
 
 export interface OrderRow {
@@ -133,6 +136,7 @@ export interface OrderRow {
   invoiceNo: string;
   otp?: string;
   items?: OrderItemRow[];
+  customerId?: string;
   totalPieces?: number;
   itemTotal: number;
   gstAmount: number;
@@ -157,6 +161,8 @@ export interface OrderRow {
   status: string;
   source: string;
   note?: string;
+  confirmedAt?: string;
+  nextDeliveryAt?: string;
   createdAt: string;
 }
 

@@ -139,6 +139,7 @@ model Product {
   updatedAt         DateTime    @updatedAt
 
   orderItems        OrderItem[]
+  warehouseStocks   WarehouseStock[]
 
   @@index([name])
   @@index([brandId])
@@ -160,10 +161,13 @@ model Customer {
   address      String   @default("")
   city         String   @default("")
   pincode      String   @default("")
-  customerType String   @default("RETAILER") // RETAILER | WHOLESALE | DISTRIBUTOR
+  customerType String   @default("RETAILER") // RETAILER | WHOLESALE | SEMI_WHOLESALE | DISTRIBUTOR
   tier         String   @default("tier4") // tier1..tier4 price tier
   creditLimit  Float    @default(0)
+  creditBalance Float  @default(0)
   status       String   @default("PENDING") // PENDING | APPROVED | SUSPENDED
+  approvedAt   DateTime?
+  approvedBy   String   @default("")
   source       String   @default("WEB") // WEB | ERP
   erpId        String   @default("")
   orders       Int      @default(0)
@@ -203,6 +207,9 @@ model Order {
   paymentMethod  String      @default("UPI")
   paymentStatus  String      @default("PENDING")
   waOptIn        Boolean     @default(false) // customer consented to WhatsApp order updates at checkout
+  confirmedAt    DateTime?
+  confirmedBy    String      @default("")
+  nextDeliveryAt String      @default("")
   shippingStatus String      @default("PENDING")
   status         String      @default("PENDING")
   source         String      @default("WEB")
@@ -232,6 +239,36 @@ model OrderItem {
   hsn       String  @default("")
   total     Float
   barcode   String  @default("")
+  serialNo  Int     @default(0)
+  lineStatus String @default("OK")
+  plannedNote String @default("")
+}
+
+model Warehouse {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @default("")
+  address   String   @default("")
+  city      String   @default("")
+  phone     String   @default("")
+  isDefault Boolean  @default(false)
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  stocks    WarehouseStock[]
+}
+
+model WarehouseStock {
+  id          String   @id @default(cuid())
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  qty         Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([warehouseId, productId])
 }
 
 // ───────────────────────── OFFERS & COUPONS (Big Million Days engine) ─────────────────────────
