@@ -5,7 +5,9 @@ import { StoreChrome } from "@/components/dmk/store-chrome";
 import { BrandStorefront, type BrandData } from "@/components/dmk/brand-storefront";
 import type { DProduct } from "@/lib/types";
 
-export const dynamic = "force-dynamic";
+// ISR: brand storefronts re-render at most every 5 min; ERP sync refreshes on
+// its own 15–30 min cycle, so this stays fresh while serving from the edge
+export const revalidate = 300;
 
 async function getBrand(slug: string) {
   const brand = await db.brand.findUnique({

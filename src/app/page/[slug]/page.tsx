@@ -8,7 +8,9 @@ import {
   AlertTriangle, CheckCircle2, FileText,
 } from "lucide-react";
 
-export const dynamic = "force-dynamic";
+// ISR with short revalidation: legal/company pages are DB-backed but rarely
+// change; 60s keeps admin edits visible quickly while skipping DB per view
+export const revalidate = 60;
 
 async function getPage(slug: string) {
   return db.page.findFirst({ where: { slug, active: true } });

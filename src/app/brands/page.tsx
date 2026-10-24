@@ -5,7 +5,8 @@ import { db } from "@/lib/db";
 import { StoreChrome } from "@/components/dmk/store-chrome";
 import { Star } from "lucide-react";
 
-export const dynamic = "force-dynamic";
+// ISR: brand list changes rarely; 5-min edge cache removes the DB hit per view
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "All Brands — 39 Brand Stores | DMK Mart B2B",
@@ -14,11 +15,19 @@ export const metadata: Metadata = {
 };
 
 export default async function BrandsPage() {
-  const brands = await db.brand.findMany({
-    where: { active: true },
-    orderBy: [{ isFeatured: "desc" }, { sortOrder: "asc" }],
-    include: { _count: { select: { products: { where: { active: true } } } } },
-  });
+  // Build-resilient: if the DB is unreachable during prerender (e.g. local build
+  // without APP_DATABASE_URL), render an empty shell — ISR re-renders with real
+  // data on the first production request.
+  let brands: Awaited<ReturnType<typeof db.brand.findMany>> = [];
+  try {
+    brands = await db.brand.findMany({
+      where: { active: true },
+      orderBy: [{ isFeatured: "desc" }, { sortOrder: "asc" }],
+      include: { _count: { select: { products: { where: { active: true } } } } },
+    });
+  } catch {
+    // swallow — prerender fallback
+  }
 
   return (
     <StoreChrome>
