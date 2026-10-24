@@ -2,13 +2,16 @@
  *  Body: { dryRun?: boolean, tops?: TopInput[], assignments?: AssignInput[] }
  *  - tops: upsert TopCategory by name (name/emoji/color/sortOrder/image)
  *  - assignments: { sku, top, mid, end } — ensures Mid (topId+name) and End (midId+name)
- *    chains exist, then re-points products (topId/midId/endId) in grouped updateMany batches.
+ *    chains exist (batched createMany), then re-points products via ONE temp-table
+ *    UPDATE..JOIN per request (Hostinger shared MySQL: ~1.5s per round trip, so the
+ *    number of queries matters far more than the data volume).
  *  Idempotent: safe to re-run / chunk.
  *  GET: current top->mid tree with product counts (verification).
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, jsonError } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -64,11 +67,7 @@ export async function POST(req: NextRequest) {
         ...(t.image !== undefined ? { image: clean(t.image) } : {}),
       };
       if (dryRun) { topIdByName.set(name, `dry:${name}`); topsUpserted++; continue; }
-      const row = await db.topCategory.upsert({
-        where: { name },
-        create: data,
-        update: data,
-      });
+      const row = await db.topCategory.upsert({ where: { name }, create: data, update: data });
       topIdByName.set(name, row.id);
       topsUpserted++;
     }
@@ -84,61 +83,83 @@ export async function POST(req: NextRequest) {
       groups.get(key)!.skus.push(sku);
     }
 
-    // ── 3. Ensure mid/end chains + update products ──
-    const midIdByKey = new Map<string, string>();
-    const endIdByKey = new Map<string, string>();
     let midsCreated = 0, endsCreated = 0, productsUpdated = 0;
 
-    if (!dryRun) {
-      const topIds = [...new Set([...topIdByName.values()])];
-      if (topIds.length) {
-        const existingMids = await db.midCategory.findMany({
-          where: { topId: { in: topIds } },
+    if (!dryRun && groups.size > 0) {
+      // ── 3a. Batch-create missing mids (one createMany + one findMany) ──
+      const midWanted = new Map<string, { topId: string; name: string }>(); // key: topId||midName
+      for (const g of groups.values()) {
+        const topId = topIdByName.get(g.top)!;
+        midWanted.set(`${topId}||${g.mid}`, { topId, name: g.mid });
+      }
+      if (midWanted.size) {
+        await db.midCategory.createMany({
+          data: [...midWanted.values()].map((m) => ({ topId: m.topId, name: m.name })),
+          skipDuplicates: true,
+        });
+        const midRows = await db.midCategory.findMany({
+          where: { OR: [...midWanted.values()].map((m) => ({ topId: m.topId, name: m.name })) },
           select: { id: true, topId: true, name: true },
         });
-        for (const m of existingMids) midIdByKey.set(`${m.topId}||${m.name}`, m.id);
-      }
-    }
+        const midIdByKey = new Map<string, string>();
+        for (const m of midRows) midIdByKey.set(`${m.topId}||${m.name}`, m.id);
+        midsCreated = [...midWanted.keys()].filter((k) => midIdByKey.has(k)).length;
 
-    for (const g of groups.values()) {
-      const topId = topIdByName.get(g.top)!;
-      if (dryRun) { productsUpdated += g.skus.length; continue; }
+        // ── 3b. Batch-create missing ends (one createMany + one findMany) ──
+        const endWanted = new Map<string, { midId: string; name: string }>(); // key: midId||endName
+        for (const g of groups.values()) {
+          const topId = topIdByName.get(g.top)!;
+          const midId = midIdByKey.get(`${topId}||${g.mid}`);
+          if (!midId) continue;
+          endWanted.set(`${midId}||${g.end}`, { midId, name: g.end });
+        }
+        if (endWanted.size) {
+          await db.endCategory.createMany({
+            data: [...endWanted.values()].map((e) => ({ midId: e.midId, name: e.name })),
+            skipDuplicates: true,
+          });
+          const endRows = await db.endCategory.findMany({
+            where: { OR: [...endWanted.values()].map((e) => ({ midId: e.midId, name: e.name })) },
+            select: { id: true, midId: true, name: true },
+          });
+          const endIdByKey = new Map<string, string>();
+          for (const e of endRows) endIdByKey.set(`${e.midId}||${e.name}`, e.id);
+          endsCreated = [...endWanted.keys()].filter((k) => endIdByKey.has(k)).length;
 
-      const midKey = `${topId}||${g.mid}`;
-      let midId = midIdByKey.get(midKey);
-      if (!midId) {
-        const mid = await db.midCategory.upsert({
-          where: { topId_name: { topId, name: g.mid } },
-          create: { topId, name: g.mid },
-          update: {},
-        });
-        midId = mid.id;
-        midIdByKey.set(midKey, midId);
-        midsCreated++;
-      }
+          // ── 3c. Re-point products: temp table + ONE UPDATE..JOIN ──
+          type Row = { sku: string; topId: string; midId: string; endId: string };
+          const rows: Row[] = [];
+          const missing: string[] = [];
+          for (const g of groups.values()) {
+            const topId = topIdByName.get(g.top)!;
+            const midId = midIdByKey.get(`${topId}||${g.mid}`);
+            const endId = midId ? endIdByKey.get(`${midId}||${g.end}`) : undefined;
+            if (!midId || !endId) { missing.push(...g.skus); continue; }
+            for (const sku of g.skus) rows.push({ sku, topId, midId, endId });
+          }
 
-      const endKey = `${midId}||${g.end}`;
-      let endId = endIdByKey.get(endKey);
-      if (!endId) {
-        const end = await db.endCategory.upsert({
-          where: { midId_name: { midId, name: g.end } },
-          create: { midId, name: g.end },
-          update: {},
-        });
-        endId = end.id;
-        endIdByKey.set(endKey, endId);
-        endsCreated++;
+          await db.$executeRawUnsafe(`CREATE TEMPORARY TABLE _cat_tmp (sku VARCHAR(64) PRIMARY KEY, topId VARCHAR(64), midId VARCHAR(64), endId VARCHAR(64))`);
+          try {
+            for (let i = 0; i < rows.length; i += 400) {
+              const batch = rows.slice(i, i + 400);
+              const values = Prisma.join(
+                batch.map((r) => Prisma.sql`(${r.sku}, ${r.topId}, ${r.midId}, ${r.endId})`),
+                ", "
+              );
+              await db.$executeRawUnsafe(`INSERT INTO _cat_tmp (sku, topId, midId, endId) VALUES ${values}`);
+            }
+            const res: any = await db.$executeRawUnsafe(
+              `UPDATE Product p JOIN _cat_tmp t ON p.sku = t.sku SET p.topId = t.topId, p.midId = t.midId, p.endId = t.endId, p.updatedAt = NOW()`
+            );
+            productsUpdated = Number(res ?? 0);
+          } finally {
+            await db.$executeRawUnsafe(`DROP TEMPORARY TABLE IF EXISTS _cat_tmp`).catch(() => {});
+          }
+          if (missing.length) skipped.push(...missing);
+        }
       }
-
-      // update in sku batches of 300 (MySQL IN-list size guard)
-      for (let i = 0; i < g.skus.length; i += 300) {
-        const batch = g.skus.slice(i, i + 300);
-        const res = await db.product.updateMany({
-          where: { sku: { in: batch } },
-          data: { topId, midId, endId },
-        });
-        productsUpdated += res.count;
-      }
+    } else if (dryRun) {
+      for (const g of groups.values()) productsUpdated += g.skus.length;
     }
 
     return NextResponse.json({
@@ -146,8 +167,8 @@ export async function POST(req: NextRequest) {
       dryRun,
       topsUpserted,
       groups: groups.size,
-      midsCreated,
-      endsCreated,
+      midsEnsured: midsCreated,
+      endsEnsured: endsCreated,
       productsUpdated,
       skipped: skipped.length,
       durationMs: Date.now() - started,
