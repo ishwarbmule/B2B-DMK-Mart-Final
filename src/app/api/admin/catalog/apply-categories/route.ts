@@ -138,23 +138,28 @@ export async function POST(req: NextRequest) {
             for (const sku of g.skus) rows.push({ sku, topId, midId, endId });
           }
 
-          await db.$executeRawUnsafe(`CREATE TEMPORARY TABLE _cat_tmp (sku VARCHAR(64) PRIMARY KEY, topId VARCHAR(64), midId VARCHAR(64), endId VARCHAR(64))`);
-          try {
-            for (let i = 0; i < rows.length; i += 400) {
-              const batch = rows.slice(i, i + 400);
-              const values = Prisma.join(
-                batch.map((r) => Prisma.sql`(${r.sku}, ${r.topId}, ${r.midId}, ${r.endId})`),
-                ", "
+          await db.$transaction(
+            async (tx) => {
+              // temp tables are connection-scoped — everything must run on ONE pooled
+              // connection, hence the interactive transaction
+              await tx.$executeRawUnsafe(`DROP TEMPORARY TABLE IF EXISTS _cat_tmp`);
+              await tx.$executeRawUnsafe(`CREATE TEMPORARY TABLE _cat_tmp (sku VARCHAR(64) PRIMARY KEY, topId VARCHAR(64), midId VARCHAR(64), endId VARCHAR(64))`);
+              for (let i = 0; i < rows.length; i += 800) {
+                const batch = rows.slice(i, i + 800);
+                const values = Prisma.join(
+                  batch.map((r) => Prisma.sql`(${r.sku}, ${r.topId}, ${r.midId}, ${r.endId})`),
+                  ", "
+                );
+                await tx.$executeRaw(Prisma.sql`INSERT INTO _cat_tmp (sku, topId, midId, endId) VALUES ${values}`);
+              }
+              const res: any = await tx.$executeRawUnsafe(
+                `UPDATE Product p JOIN _cat_tmp t ON p.sku = t.sku SET p.topId = t.topId, p.midId = t.midId, p.endId = t.endId, p.updatedAt = NOW()`
               );
-              await db.$executeRawUnsafe(`INSERT INTO _cat_tmp (sku, topId, midId, endId) VALUES ${values}`);
-            }
-            const res: any = await db.$executeRawUnsafe(
-              `UPDATE Product p JOIN _cat_tmp t ON p.sku = t.sku SET p.topId = t.topId, p.midId = t.midId, p.endId = t.endId, p.updatedAt = NOW()`
-            );
-            productsUpdated = Number(res ?? 0);
-          } finally {
-            await db.$executeRawUnsafe(`DROP TEMPORARY TABLE IF EXISTS _cat_tmp`).catch(() => {});
-          }
+              productsUpdated = Number(res ?? 0);
+              await tx.$executeRawUnsafe(`DROP TEMPORARY TABLE IF EXISTS _cat_tmp`);
+            },
+            { timeout: 50_000, maxWait: 15_000 }
+          );
           if (missing.length) skipped.push(...missing);
         }
       }
