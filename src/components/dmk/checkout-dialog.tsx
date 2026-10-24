@@ -168,6 +168,13 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
                 ))}
               </select>
             </div>
+            <p className="-mt-1 text-center text-[10px] leading-relaxed text-gray-500">
+              By placing this order you agree to our{" "}
+              <a href="/page/terms-and-conditions" className="font-semibold text-gray-700 underline decoration-yellow-400 underline-offset-2 hover:text-black">Terms &amp; Conditions</a>,{" "}
+              <a href="/page/refund-returns-policy" className="font-semibold text-gray-700 underline decoration-yellow-400 underline-offset-2 hover:text-black">Refund &amp; Returns</a>,{" "}
+              <a href="/page/shipping-delivery-policy" className="font-semibold text-gray-700 underline decoration-yellow-400 underline-offset-2 hover:text-black">Shipping</a> and{" "}
+              <a href="/page/privacy-policy" className="font-semibold text-gray-700 underline decoration-yellow-400 underline-offset-2 hover:text-black">Privacy Policy</a>.
+            </p>
             <div className="flex gap-2">
               <button onClick={() => setStep(0)} className="rounded-xl border px-4 py-3 text-sm font-semibold text-gray-600 hover:bg-gray-50">
                 Back

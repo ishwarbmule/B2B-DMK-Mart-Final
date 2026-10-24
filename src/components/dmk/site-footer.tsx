@@ -96,6 +96,29 @@ export function SiteFooter() {
           )}
         </div>
       </div>
+      {/* Legal links row */}
+      <div className="border-t border-gray-900">
+        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-center gap-x-1 gap-y-2 px-4 py-4 md:px-8">
+          <span className="mr-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-gray-500">
+            <ShieldCheck className="h-3.5 w-3.5 text-yellow-400" /> Legal
+          </span>
+          {[
+            ["/page/terms-and-conditions", "Terms & Conditions"],
+            ["/page/privacy-policy", "Privacy Policy"],
+            ["/page/refund-returns-policy", "Refund & Returns"],
+            ["/page/shipping-delivery-policy", "Shipping & Delivery"],
+            ["/page/cancellation-policy", "Cancellation Policy"],
+            ["/page/pricing-payment-policy", "Pricing & Payment"],
+            ["/page/about-us", "About Us"],
+            ["/page/contact-us", "Contact Us"],
+          ].map(([href, label], i) => (
+            <span key={href} className="flex items-center text-[11px]">
+              {i > 0 && <span className="mx-1.5 text-gray-700">·</span>}
+              <Link href={href} className="text-gray-400 transition-colors hover:text-yellow-400">{label}</Link>
+            </span>
+          ))}
+        </div>
+      </div>
       <div className="border-t border-gray-900 py-4 text-center text-[11px] text-gray-600">
         © 2026 DMK Mart · All rights reserved · {gst ? "Prices exclusive of GST unless stated" : "Prices as marked · no additional taxes"}
       </div>
