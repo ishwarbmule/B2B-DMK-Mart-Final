@@ -28,9 +28,10 @@ type Identity = { identifier: string; kind: "phone" | "email"; masked: string; n
 type Step = "identify" | "password" | "otp" | "newpass" | "create" | "registered";
 
 const TYPES = [
-  { key: "RETAILER", label: "Retailer", hint: "Shop counter — tier 4 pricing", icon: User },
-  { key: "WHOLESALE", label: "Wholesaler", hint: "Bulk resale — tier 2 pricing", icon: Building2 },
-  { key: "DISTRIBUTOR", label: "Distributor", hint: "Territory distribution — tier 1 pricing", icon: Package },
+  { key: "RETAILER", label: "Retailer", hint: "Shop counter resale", icon: User },
+  { key: "SEMI_WHOLESALE", label: "Semi-Wholesaler", hint: "Sub-distribution resale", icon: Package },
+  { key: "WHOLESALE", label: "Wholesaler", hint: "Bulk resale", icon: Building2 },
+  { key: "DISTRIBUTOR", label: "Distributor", hint: "Territory distribution", icon: Package },
 ];
 
 const BTN_PRIMARY = "h-11 w-full rounded-full bg-black text-sm font-bold uppercase tracking-wide text-yellow-400 transition hover:bg-gray-900 disabled:cursor-not-allowed disabled:opacity-50";
@@ -327,7 +328,7 @@ function AccountInner() {
                   <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" />
                   <div>
                     <p className="font-bold">Account pending approval</p>
-                    <p className="text-xs">You can browse &amp; order at retailer (tier 4) rates. Wholesale tier pricing unlocks once DMK Mart approves your business account.</p>
+                    <p className="text-xs">Your account is under verification by the DMK Mart team. You will receive a WhatsApp message the moment it is approved.</p>
                   </div>
                 </div>
               )}
@@ -512,10 +513,10 @@ function AccountInner() {
                     <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
                   </button>
                   <h1 className="text-2xl font-black text-gray-900">Create B2B account</h1>
-                  <p className="mb-4 mt-1 text-[13px] text-gray-500">Tell us about your business to unlock tier pricing.</p>
+                  <p className="mb-4 mt-1 text-[13px] text-gray-500">Tell us about your business — our team verifies every buyer before the account opens.</p>
                   {error && <div className="mb-3"><AlertBox>{error}</AlertBox></div>}
                   <label className={LABEL}>Business type</label>
-                  <div className="mb-3 grid grid-cols-3 gap-2">
+                  <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {TYPES.map((t) => (
                       <button
                         key={t.key}
@@ -563,7 +564,7 @@ function AccountInner() {
                   <button onClick={doRegister} disabled={busy} className={`${BTN_PRIMARY} mt-2`}>
                     {busy ? "Creating…" : "Create account"}
                   </button>
-                  <p className="mt-3 text-center text-[11px] text-gray-400">Accounts are verified by the DMK Mart team to activate wholesale tier pricing.</p>
+                  <p className="mt-3 text-center text-[11px] text-gray-400">Every B2B account is verified by the DMK Mart team before it opens. No pricing is shown at signup — your price tier is assigned privately at approval.</p>
                 </>
               )}
 
@@ -575,7 +576,7 @@ function AccountInner() {
                       <h1 className="text-lg font-black text-emerald-900">Account created!</h1>
                       <p className="mt-1 text-[13px] leading-relaxed text-emerald-800">
                         What happens next: our team verifies your business details, usually within 1 working day.
-                        Until approval you can browse and order at retailer (tier 4) rates — wholesale tier pricing unlocks automatically once approved.
+                        Your account opens as soon as it is approved — you will get a WhatsApp message from us the moment it is ready.
                       </p>
                     </div>
                   </div>

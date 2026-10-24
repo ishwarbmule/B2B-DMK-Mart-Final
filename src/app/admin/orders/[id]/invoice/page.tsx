@@ -37,6 +37,7 @@ export default async function InvoicePage({
   const gstOn = order.gstAmount > 0;
   const cgst = gstOn ? Math.round((order.gstAmount / 2) * 100) / 100 : 0;
   const sgst = cgst;
+  const credited = order.items.filter((it) => it.lineStatus === "NEXT_PLAN").reduce((s, it) => s + it.total, 0);
 
   return (
     <div className="mx-auto max-w-[820px] bg-white p-6 print:p-0">
@@ -99,7 +100,7 @@ export default async function InvoicePage({
       <table className="mt-3 w-full border-collapse text-[10.5px]">
         <thead>
           <tr className="bg-black text-white">
-            <th className="border border-black px-1.5 py-1.5 text-left">#</th>
+            <th className="border border-black px-1.5 py-1.5 text-left">Sr</th>
             <th className="border border-black px-1.5 py-1.5 text-left">SKU</th>
             <th className="border border-black px-1.5 py-1.5 text-left">Product</th>
             {gstOn && <th className="border border-black px-1.5 py-1.5 text-left">HSN</th>}
@@ -108,12 +109,13 @@ export default async function InvoicePage({
             <th className="border border-black px-1.5 py-1.5 text-right">Pcs</th>
             <th className="border border-black px-1.5 py-1.5 text-right">Rate</th>
             <th className="border border-black px-1.5 py-1.5 text-right">Amount</th>
+            <th className="border border-black px-1.5 py-1.5 text-left">Status</th>
           </tr>
         </thead>
         <tbody>
           {order.items.map((it, i) => (
             <tr key={it.id} className={i % 2 ? "bg-gray-50" : ""}>
-              <td className="border border-gray-300 px-1.5 py-1">{i + 1}</td>
+              <td className="border border-gray-300 px-1.5 py-1 font-mono font-bold">{it.serialNo || i + 1}</td>
               <td className="border border-gray-300 px-1.5 py-1 font-mono">{it.sku}</td>
               <td className="border border-gray-300 px-1.5 py-1">{it.name}</td>
               {gstOn && <td className="border border-gray-300 px-1.5 py-1">{it.hsn || "—"}</td>}
@@ -122,10 +124,30 @@ export default async function InvoicePage({
               <td className="border border-gray-300 px-1.5 py-1 text-right">{it.pieces}</td>
               <td className="border border-gray-300 px-1.5 py-1 text-right">{inr(it.unitPrice)}</td>
               <td className="border border-gray-300 px-1.5 py-1 text-right font-semibold">{inr(it.total)}</td>
+              <td className="border border-gray-300 px-1.5 py-1 text-[9px] font-bold">{it.lineStatus === "NEXT_PLAN" ? "NEXT DELIVERY" : "IN STOCK"}</td>
             </tr>
           ))}
         </tbody>
       </table>
+
+      {/* next-delivery plan (out-of-stock lines → credited) */}
+      {order.items.some((it) => it.lineStatus === "NEXT_PLAN") && (
+        <div className="mt-3 border-2 border-dashed border-black p-2.5 text-[10.5px]">
+          <p className="font-black uppercase tracking-wide">⚠ Next Delivery Plan{order.nextDeliveryAt ? ` — ${order.nextDeliveryAt}` : ""}</p>
+          <p className="mt-1 leading-relaxed">
+            The following items are currently out of stock and will be delivered in the NEXT delivery:
+            {order.items.filter((it) => it.lineStatus === "NEXT_PLAN").map((it) => ` ${it.name} ×${it.qty} (${inr(it.total)})`).join(";")}.
+          </p>
+          {credited > 0 && (
+            <p className="mt-1 font-bold leading-relaxed">
+              Till then, {inr(credited)} for these items has been CREDITED to {order.customerName}&apos;s DMK Mart credit balance (adjustable against future orders).
+            </p>
+          )}
+          {credited === 0 && (
+            <p className="mt-1 leading-relaxed">The amount for these items will be credited to the buyer&apos;s DMK Mart credit balance.</p>
+          )}
+        </div>
+      )}
 
       {/* totals */}
       <div className="mt-3 flex justify-end">

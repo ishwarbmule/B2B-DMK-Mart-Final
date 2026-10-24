@@ -14,6 +14,8 @@ import { DashboardModule, CustomersModule, PricingModule, BrandProductsModule } 
 import { FinancialModule, ReportsModule, WebsiteModule, StorefrontsModule, HomeEditorModule } from "./business-modules-2";
 import { ProductsModule } from "./products-module";
 import { OrdersModule } from "./orders-module";
+import { ApprovalsModule } from "./approvals-module";
+import { WarehouseStockModule } from "./warehouse-stock-module";
 import { SettingsModule } from "./settings-module";
 import { SyncModule } from "./sync-module";
 import { BarcodeStudio } from "./barcode-studio";
@@ -46,6 +48,10 @@ const NAV: { group: string; items: { id: ModuleId; label: string; icon: React.Co
     { id: "orders", label: "Orders & Invoices", icon: ShoppingCart },
     { id: "barcodes", label: "Barcode Printing", icon: BarcodeIcon },
   ]},
+  { group: "Inventory & Warehouses", items: [
+    { id: "warehouses", label: "Warehouses", icon: LayoutDashboard },
+    { id: "warehouseStock", label: "Warehouse Stock", icon: Package },
+  ]},
   { group: "Growth", items: [
     { id: "offers", label: "Offers & Coupons", icon: BadgePercent, sub: [
       { id: "offers", label: "Offers / Big Sale Days" },
@@ -54,6 +60,7 @@ const NAV: { group: string; items: { id: ModuleId; label: string; icon: React.Co
     { id: "ads", label: "Brand Ads", icon: Megaphone },
   ]},
   { group: "People", items: [
+    { id: "approvals", label: "Buyer Approvals", icon: Users },
     { id: "customers", label: "Customer Management", icon: Users },
   ]},
   { group: "Website & System", items: [
@@ -171,6 +178,8 @@ export function AdminPortal() {
       case "dashboard": return <DashboardModule token={token} />;
       case "products": return <ProductsModule token={token} />;
       case "orders": return <OrdersModule token={token} />;
+      case "approvals": return <ApprovalsModule token={token} />;
+      case "warehouseStock": return <WarehouseStockModule token={token} />;
       case "barcodes": return <BarcodeStudio token={token} />;
       case "customers": return <CustomersModule token={token} />;
       case "pricing": return <PricingModule token={token} />;

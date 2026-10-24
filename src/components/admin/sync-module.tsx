@@ -37,6 +37,17 @@ export function SyncModule({ token }: { token: string }) {
   const [tableCount, setTableCount] = useState<number | null>(null);
   const [exploring, setExploring] = useState(false);
 
+  // auto-sync state
+  const [autoStatus, setAutoStatus] = useState<{ minutes: number; lastRunAt: string; nextDueAt: string; state?: Record<string, unknown> }>({ minutes: 30, lastRunAt: "", nextDueAt: "" });
+  const [autoMinutes, setAutoMinutes] = useState("30");
+  const [autoBusy, setAutoBusy] = useState(false);
+  const loadAuto = useCallback(() => {
+    call("/api/admin/sync/auto-status").then((d) => {
+      setAutoStatus({ minutes: d.minutes ?? 30, lastRunAt: d.lastRunAt ?? "", nextDueAt: d.nextDueAt ?? "", state: d.state });
+      if (d.minutes) setAutoMinutes(String(d.minutes));
+    }).catch(() => {});
+  }, [call]);
+
   const load = useCallback(() => {
     call("/api/admin/sync/status").then((d) => {
       setStatus(d.status ?? { configured: false, connected: false });
@@ -50,6 +61,7 @@ export function SyncModule({ token }: { token: string }) {
   }, [call]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { loadAuto(); }, [loadAuto]);
 
   const saveConn = async () => {
     setSaving(true);
@@ -142,7 +154,63 @@ export function SyncModule({ token }: { token: string }) {
 
   return (
     <div>
-      <ModuleHeader title="Data Sync (ERP MySQL)" sub="Pull catalog from your ERP · Push website updates back · ERP is strictly READ-ONLY until you unlock writes" />
+      <ModuleHeader title="Data Sync (ERP MySQL)" sub="Auto-sync every 15/30/60 min · Pull catalog from your ERP · Push website updates back · ERP is strictly READ-ONLY until you unlock writes" />
+
+      {/* ── AUTO SYNC (ERP → B2B scheduled inventory scan) ── */}
+      <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/70 p-4">
+        <p className="flex items-center gap-2 text-sm font-black text-gray-900">
+          <RefreshCw className="h-4 w-4 text-blue-600" /> Auto Sync — ERP → B2B inventory scan
+          <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-black ${autoStatus.lastRunAt ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
+            {autoStatus.lastRunAt ? `last run ${new Date(autoStatus.lastRunAt).toLocaleString("en-IN")}` : "never run"}
+          </span>
+        </p>
+        <p className="mt-1 text-[11px] leading-relaxed text-gray-600">
+          Every {autoStatus.minutes} minute{autoStatus.minutes === 1 ? "" : "s"} the whole ERP inventory is scanned and the B2B mirror is updated automatically: stock, all tier prices, MRP, purchase cost, names, pack data, new SKUs and de-listed SKUs.
+          {autoStatus.state && typeof autoStatus.state === "object" && "updated" in autoStatus.state ? ` Last scan: ${String(autoStatus.state.updated)} updated · ${String(autoStatus.state.created ?? 0)} created · ${String(autoStatus.state.deactivated ?? 0)} de-listed (${String(autoStatus.state.durationMs ?? 0)} ms).` : ""}
+          {autoStatus.nextDueAt ? ` Next due: ${new Date(autoStatus.nextDueAt).toLocaleTimeString("en-IN")}.` : ""}
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <select
+            value={autoMinutes}
+            onChange={(e) => setAutoMinutes(e.target.value)}
+            className="h-8 rounded-lg border px-2 text-xs font-semibold"
+          >
+            <option value="15">Every 15 minutes</option>
+            <option value="30">Every 30 minutes</option>
+            <option value="60">Every 60 minutes</option>
+          </select>
+          <button
+            onClick={async () => {
+              setAutoBusy(true);
+              try { await call("/api/admin/sync/settings", { method: "POST", body: JSON.stringify({ erp_auto_sync_minutes: autoMinutes }) }); toast.success(`Auto-sync interval set to ${autoMinutes} min`); }
+              catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
+              finally { setAutoBusy(false); }
+            }}
+            disabled={autoBusy}
+            className="flex h-8 items-center gap-1.5 rounded-lg bg-blue-600 px-3 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            <Save className="h-3.5 w-3.5" /> Save interval
+          </button>
+          <button
+            onClick={async () => {
+              setAutoBusy(true);
+              try {
+                const d = await call("/api/cron/erp-sync?force=1", { method: "POST" });
+                if (d.ok) toast.success(`Scan done: ${d.updated} updated · ${d.created} created · ${d.deactivated} de-listed (${d.durationMs} ms)`);
+                else toast.error(d.error || "Scan failed");
+                load(); loadAuto();
+              } catch (e) { toast.error(e instanceof Error ? e.message : "Scan failed"); }
+              finally { setAutoBusy(false); }
+            }}
+            disabled={autoBusy || !status.connected}
+            className="flex h-8 items-center gap-1.5 rounded-lg border border-blue-300 bg-white px-3 text-xs font-bold text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+            title="Run the inventory scan right now"
+          >
+            <ArrowDownToLine className="h-3.5 w-3.5" /> {autoBusy ? "Scanning…" : "Scan now"}
+          </button>
+          <span className="text-[10px] text-gray-500">Scheduler: Vercel Cron every 15 min (vercel.json) + CRON_SECRET — the scan self-gates to the interval above.</span>
+        </div>
+      </div>
 
       {/* connection status */}
       <div className="mb-4 rounded-xl border-2 border-gray-900 bg-gradient-to-r from-gray-900 to-gray-800 p-4 text-white">

@@ -70,6 +70,13 @@ export async function POST(req: NextRequest) {
     }
     if (typeof body.erp_image_base_url === "string") await setSetting("erp_image_base_url", body.erp_image_base_url.trim());
 
+    // auto-sync interval — lightweight standalone save (no ERP connection test needed)
+    if (typeof body.erp_auto_sync_minutes === "string" || typeof body.erp_auto_sync_minutes === "number") {
+      const n = Math.max(5, Math.min(720, parseInt(String(body.erp_auto_sync_minutes), 10) || 30));
+      await setSetting("erp_auto_sync_minutes", String(n));
+      return NextResponse.json({ ok: true, erp_auto_sync_minutes: n });
+    }
+
     // ERP write lock toggle — explicit and audited
     if (typeof body.erp_write_enabled === "boolean") {
       const enabling = body.erp_write_enabled && body.confirmUnlock === "UNLOCK ERP WRITES";

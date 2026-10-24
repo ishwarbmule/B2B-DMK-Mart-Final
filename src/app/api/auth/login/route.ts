@@ -25,6 +25,9 @@ export async function POST(req: NextRequest) {
   if (!customer || customer.password !== sha(password)) {
     return NextResponse.json({ error: "The password you entered is incorrect. Please try again." }, { status: 401 });
   }
+  if (customer.status === "PENDING") {
+    return NextResponse.json({ error: "Your account is awaiting admin approval. The DMK Mart team verifies every B2B buyer — you will get a WhatsApp message as soon as it is approved." }, { status: 403 });
+  }
   if (customer.status === "SUSPENDED") {
     return NextResponse.json({ error: "Account suspended. Contact DMK Mart support." }, { status: 403 });
   }

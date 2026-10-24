@@ -1,4 +1,6 @@
-/** POST /api/auth/register — B2B account signup (RETAILER / WHOLESALE / DISTRIBUTOR). */
+/** POST /api/auth/register — B2B account signup. Tier/pricing is NEVER self-selected:
+ *  the buyer only declares a business type (no pricing shown); DMK Mart assigns the
+ *  price tier at approval time from the admin panel. */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createHash } from "crypto";
@@ -6,15 +8,13 @@ import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-const TIER_BY_TYPE: Record<string, string> = { RETAILER: "tier4", WHOLESALE: "tier2", DISTRIBUTOR: "tier1" };
-
 const schema = z.object({
   name: z.string().min(2),
   shopName: z.string().min(2),
   phone: z.string().regex(/^[6-9]\d{9}$/),
   email: z.string().email().optional().or(z.literal("")),
   password: z.string().min(6),
-  customerType: z.enum(["RETAILER", "WHOLESALE", "DISTRIBUTOR"]),
+  customerType: z.enum(["RETAILER", "WHOLESALE", "SEMI_WHOLESALE", "DISTRIBUTOR"]),
   gstin: z.string().optional().or(z.literal("")),
   city: z.string().optional().or(z.literal("")),
   address: z.string().optional().or(z.literal("")),
@@ -38,18 +38,18 @@ export async function POST(req: NextRequest) {
       email: d.email || "",
       password: sha(d.password),
       customerType: d.customerType,
-      tier: TIER_BY_TYPE[d.customerType] ?? "tier4",
+      tier: "tier4", // assigned by admin at approval — never self-selected
       gstin: d.gstin || "",
       city: d.city || "",
       address: d.address || "",
       status: "PENDING",
       source: "WEB",
-      creditLimit: d.customerType === "DISTRIBUTOR" ? 500000 : d.customerType === "WHOLESALE" ? 200000 : 50000,
+      creditLimit: 0, // assigned by admin at approval
     },
   });
   return NextResponse.json({
     ok: true,
-    message: "Account created! It will be active once the DMK Mart team approves your business account.",
+    message: "Account created! It will open as soon as the DMK Mart team verifies your business — you'll get a WhatsApp message once approved.",
     customer: { id: customer.id, name: customer.name, customerType: customer.customerType, status: customer.status },
   });
 }

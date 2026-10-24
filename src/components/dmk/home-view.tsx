@@ -146,54 +146,36 @@ function CategoryGrid({ title, sub }: { title?: string; sub?: string }) {
           <h2 className="flex items-center gap-2 text-lg font-black text-gray-900">
             <LayoutGrid className="h-5 w-5 text-yellow-500" /> {title || "Shop by Category"}
           </h2>
-          <p className="text-[11px] text-gray-500">{sub || "Wholesale departments built for repeat bulk buying"}</p>
+          <p className="text-[11px] text-gray-500">{sub || "All wholesale departments in one row — tap to browse"}</p>
         </div>
         <Link href="/catalog" className="text-xs font-bold text-yellow-600 hover:underline">Browse all products →</Link>
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
-        {tops.map((t, i) => (
+      {/* single scrollable row — small image cards, one per top category */}
+      <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2 md:gap-4 [scrollbar-width:thin]">
+        {tops.map((t) => (
           <Link
             key={t.id}
             href={`/catalog?top=${t.id}`}
-            className="group relative block overflow-hidden rounded-2xl border bg-white shadow-sm transition hover:border-yellow-400 hover:shadow-lg"
+            className="group w-[108px] shrink-0 snap-start md:w-[132px]"
           >
-            <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100">
+            <div className="relative aspect-square w-full overflow-hidden rounded-2xl border bg-white shadow-sm transition group-hover:border-yellow-400 group-hover:shadow-md">
               {t.image ? (
                 <Image
                   src={t.image}
                   alt={t.name}
                   fill
-                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                  sizes="132px"
                   className="object-cover transition duration-300 group-hover:scale-105"
                   unoptimized
                 />
               ) : (
                 <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#FFF6E0] to-[#FBE8B4] text-4xl">{t.emoji}</span>
               )}
-              <span
-                className="absolute left-2 top-2 flex h-7 min-w-7 items-center justify-center rounded-lg px-1.5 text-sm"
-                style={{ backgroundColor: `${t.color || "#facc15"}22` }}
-              >
-                {t.emoji}
-              </span>
-              <span className="absolute right-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-yellow-400">
-                {t.productCount ?? 0} SKUs
+              <span className="absolute right-1.5 top-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[8px] font-bold text-yellow-400">
+                {t.productCount ?? 0}
               </span>
             </div>
-            <div className="flex items-center justify-between gap-2 p-3">
-              <div className="min-w-0">
-                <p className="truncate text-[13px] font-black text-gray-900">{t.name}</p>
-                <p className="text-[10px] text-gray-400">
-                  {t.mids.length > 0 ? `${t.mids.length} sub-categories` : "Wholesale range"}
-                </p>
-              </div>
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-yellow-400/90 text-black transition group-hover:translate-x-0.5">
-                <ChevronRight className="h-4 w-4" />
-              </span>
-            </div>
-            {i === 0 && (
-              <span className="pointer-events-none absolute inset-0 rounded-2xl ring-2 ring-yellow-400/0 transition group-hover:ring-yellow-400/60" />
-            )}
+            <p className="mt-1.5 truncate text-center text-[11px] font-bold text-gray-900 md:text-xs">{t.name}</p>
           </Link>
         ))}
       </div>
