@@ -136,7 +136,8 @@ function CouponStrip({ title }: { title?: string }) {
 /* ─────────────── Shop by Category (image cards, before Deals of the Day) ─────────────── */
 function CategoryGrid({ title, sub }: { title?: string; sub?: string }) {
   const catalog = useCatalog();
-  const tops = (catalog?.tops ?? []).filter((t) => (t.productCount ?? 0) > 0 || t.name !== "General");
+  // only categories with live (active) inventory — 0-SKU tops stay visible in the All Departments menu
+  const tops = (catalog?.tops ?? []).filter((t) => (t.productCount ?? 0) > 0);
   if (!tops.length) return null;
   return (
     <section>
