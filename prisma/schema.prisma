@@ -19,10 +19,10 @@ model Brand {
   slug             String    @unique
   logo             String    @default("") // Cloudinary brand-logos URL
   banner           String    @default("")
-  description      String    @default("")
-  tagline          String    @default("")
+  description      String    @default("") @db.Text
+  tagline          String    @default("") @db.Text
   color            String    @default("#111111")
-  erpNames         String    @default("[]") // JSON: aliases of ERP company/brand strings
+  erpNames         String    @default("[]") @db.Text // JSON: aliases of ERP company/brand strings
   storefrontLayout Int       @default(1) // 1..10 template id
   storefrontConfig String    @default("{}") // JSON layout config (hero text, colors, sections)
   isFeatured       Boolean   @default(false)
@@ -120,7 +120,7 @@ model Product {
   // media + content
   image             String      @default("")
   gallery           String      @default("[]")
-  description       String      @default("")
+  description       String      @default("") @db.Text
 
   // SEO
   seoTitle          String      @default("")
@@ -161,7 +161,7 @@ model Customer {
   email        String   @default("")
   password     String   @default("")
   gstin        String   @default("")
-  address      String   @default("")
+  address      String   @default("") @db.Text
   city         String   @default("")
   pincode      String   @default("")
   customerType String   @default("RETAILER") // RETAILER | WHOLESALE | DISTRIBUTOR
@@ -199,7 +199,7 @@ model Order {
   priceTier      String      @default("tier4")
   phone          String
   email          String      @default("")
-  addressLine    String
+  addressLine    String @db.Text
   city           String
   pincode        String
   zone           String      @default("")
@@ -245,8 +245,8 @@ model Offer {
   name          String
   slug          String   @unique
   type          String   @default("MEGA_SALE") // FESTIVAL | SEASON | MEGA_SALE | CLEARANCE
-  headline      String   @default("")
-  subText       String   @default("")
+  headline      String   @default("") @db.Text
+  subText       String   @default("") @db.Text
   ctaText       String   @default("Shop Now")
   ctaUrl        String   @default("#deals")
   bannerImage   String   @default("")
@@ -256,7 +256,7 @@ model Offer {
   startAt       DateTime?
   endAt         DateTime?
   scopeType     String   @default("ALL") // ALL | BRAND | CATEGORY | PRODUCT
-  scopeIds      String   @default("[]") // JSON id list
+  scopeIds      String   @default("[]") @db.Text // JSON id list
   discountType  String   @default("PERCENT") // PERCENT | AMOUNT
   discountValue Float    @default(0)
   minOrder      Float    @default(0)
@@ -267,8 +267,8 @@ model Offer {
 model Coupon {
   id          String    @id @default(cuid())
   code        String    @unique
-  headline    String    @default("") // creative text shown on homepage card
-  subText     String    @default("")
+  headline    String    @default("") @db.Text // creative text shown on homepage card
+  subText     String    @default("") @db.Text
   type        String    @default("PERCENT") // PERCENT | AMOUNT
   value       Float
   minOrder    Float     @default(0)
@@ -276,7 +276,7 @@ model Coupon {
   bgColor     String    @default("#111111")
   textColor   String    @default("#facc15")
   scopeType   String    @default("ALL") // ALL | BRAND | CATEGORY | PRODUCT
-  scopeIds    String    @default("[]")
+  scopeIds    String    @default("[]") @db.Text
   usageLimit  Int       @default(0) // 0 = unlimited
   usedCount   Int       @default(0)
   showOnHome  Boolean   @default(true)
@@ -293,9 +293,9 @@ model Page {
   slug            String   @unique
   title           String
   type            String   @default("CUSTOM") // SYSTEM | CUSTOM | LEGAL
-  blocks          String   @default("[]") // JSON canvas blocks
+  blocks          String   @default("[]") @db.Text // JSON canvas blocks
   metaTitle       String   @default("")
-  metaDescription String   @default("")
+  metaDescription String   @default("") @db.Text
   keywords        String   @default("")
   ogImage         String   @default("")
   inFooter        Boolean  @default(false)
@@ -308,7 +308,7 @@ model Page {
 model SeoMeta {
   path            String  @id // e.g. "/", "/catalog", "/brands"
   title           String  @default("")
-  description     String  @default("")
+  description     String  @default("") @db.Text
   keywords        String  @default("")
   ogImage         String  @default("")
   noindex         Boolean @default(false)
@@ -378,7 +378,7 @@ model PriceSlab {
 model Slider {
   id         String  @id @default(cuid())
   heading    String
-  content    String  @default("")
+  content    String  @default("") @db.Text
   buttonText String  @default("Shop Now")
   buttonUrl  String  @default("#deals")
   image      String  @default("")
@@ -462,7 +462,7 @@ model ReturnRequest {
 
 model Setting {
   key   String @id
-  value String
+  value String @db.Text
 }
 
 model Size {

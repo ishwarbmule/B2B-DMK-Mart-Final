@@ -584,7 +584,10 @@ export function HomeEditorModule({ token }: { token: string }) {
               for (const def of SECTION_DEFS) if (!known.some((s) => s.id === def.id)) known.push({ id: def.id, visible: true });
               setSections(known);
             }
-          } catch { /* defaults */ }
+          } catch {
+            // Stored layout was corrupt (historically: VARCHAR(191) truncation) — fall back to defaults
+            toast.error("Stored homepage layout was corrupt — loaded defaults. Press Save Layout to repair it.");
+          }
         }
       })
       .catch(() => {});
