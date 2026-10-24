@@ -551,6 +551,7 @@ const SECTION_DEFS: { id: string; label: string; hasTitle: boolean; hasSub: bool
   { id: "offerHero", label: "Offer Hero", hasTitle: false, hasSub: false, hint: "Auto-renders the active Offer / sliders from Offers & Coupons" },
   { id: "brandStrip", label: "Shop by Brand", hasTitle: true, hasSub: false, hint: "16 brand tiles → /brands" },
   { id: "couponStrip", label: "Live Coupons", hasTitle: true, hasSub: false, hint: "Coupon creatives — hidden automatically when none active" },
+  { id: "categoryGrid", label: "Shop by Category", hasTitle: true, hasSub: true, hint: "Top-category image cards (AI photos) — sits above Deals of the Day" },
   { id: "dealsRail", label: "Deals of the Day", hasTitle: true, hasSub: true, hint: "Deal-flagged products rail" },
   { id: "tabbedShowcase", label: "Product Showcase (tabs)", hasTitle: false, hasSub: false, hint: "Featured / Top / Hot tabs — the main products list" },
   { id: "adsStrip", label: "Brand Ads Showcase", hasTitle: true, hasSub: false, hint: "Up to 4 ad cards from Brand Ads module — hidden when none" },
