@@ -1,13 +1,18 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { cache } from "react";
 import { db } from "@/lib/db";
 import { StoreChrome } from "@/components/dmk/store-chrome";
 import { ProductDetail } from "@/components/dmk/product-detail";
 import type { DProduct } from "@/lib/types";
 
-export const dynamic = "force-dynamic";
+// ISR: rendered once per 120s at the edge instead of hitting the Mumbai DB on
+// every view (ERP sync refreshes prices every 15–30 min, so 2 min staleness is
+// acceptable). Buyers see ~edge-speed loads; DB round trips drop ~99.9%.
+export const revalidate = 120;
 
-async function getProduct(slug: string) {
+// React cache(): dedupes the identical query made by generateMetadata + page body
+const getProduct = cache(async function getProduct(slug: string) {
   return db.product.findUnique({
     where: { slug },
     include: {
@@ -17,7 +22,7 @@ async function getProduct(slug: string) {
       end: { select: { name: true } },
     },
   });
-}
+});
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -44,7 +49,8 @@ function toDProduct(p: NonNullable<Awaited<ReturnType<typeof getProduct>>>): DPr
     id: p.id, sku: p.sku, slug: p.slug, name: p.name,
     dealerPrice: p.dealerPrice, basePrice: p.basePrice, mrp: p.mrp,
     packQty: p.packQty, piecesPerBox: p.piecesPerBox, unit: p.unit,
-    stock: p.stock, barcode: p.barcode, gst: p.gst, image: p.image,
+    // Task 12 (g): stock must NEVER reach the buyer payload (network tab included)
+    stock: 0, barcode: p.barcode, gst: p.gst, image: p.image,
     isHot: p.isHot, isTop: p.isTop, isFeatured: p.isFeatured, isDeal: p.isDeal,
     dealPrice: p.dealPrice, active: p.active, rating: p.rating, reviewCount: p.reviewCount,
     brand: p.brand, top: p.top, mid: p.mid, end: p.end,
