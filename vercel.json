@@ -1,8 +1,0 @@
-{
-  "crons": [
-    {
-      "path": "/api/cron/erp-sync",
-      "schedule": "*/15 * * * *"
-    }
-  ]
-}
