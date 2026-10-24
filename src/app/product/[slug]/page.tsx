@@ -9,6 +9,7 @@ import type { DProduct } from "@/lib/types";
 // ISR: rendered once per 120s at the edge instead of hitting the Mumbai DB on
 // every view (ERP sync refreshes prices every 15–30 min, so 2 min staleness is
 // acceptable). Buyers see ~edge-speed loads; DB round trips drop ~99.9%.
+export const dynamic = "force-static";
 export const revalidate = 120;
 
 // React cache(): dedupes the identical query made by generateMetadata + page body
