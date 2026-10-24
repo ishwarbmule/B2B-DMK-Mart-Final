@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, BadgePercent, Building2, Megaphone, PackageCheck, PhoneCall, Star, Truck, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight, BadgePercent, Building2, LayoutGrid, Megaphone, PackageCheck, PhoneCall, Star, Truck, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCatalog } from "./site-header-v2";
 import { HeroBanner } from "./hero-banner";
 import { ProductCard, ProductCardMini } from "./product-card";
@@ -17,6 +17,7 @@ export const HOME_SECTIONS: { id: string; label: string; hasTitle: boolean; hasS
   { id: "offerHero", label: "Offer Hero (auto from Offers)", hasTitle: false, hasSub: false },
   { id: "brandStrip", label: "Shop by Brand", hasTitle: true, hasSub: false },
   { id: "couponStrip", label: "Live Coupons", hasTitle: true, hasSub: false },
+  { id: "categoryGrid", label: "Shop by Category", hasTitle: true, hasSub: true },
   { id: "dealsRail", label: "Deals of the Day", hasTitle: true, hasSub: true },
   { id: "tabbedShowcase", label: "Product Showcase (tabs)", hasTitle: false, hasSub: false },
   { id: "adsStrip", label: "Brand Ads Showcase", hasTitle: true, hasSub: false },
@@ -126,6 +127,73 @@ function CouponStrip({ title }: { title?: string }) {
               <span className="text-[10px] opacity-70">Min {formatINR(c.minOrder)}</span>
             </div>
           </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────── Shop by Category (image cards, before Deals of the Day) ─────────────── */
+function CategoryGrid({ title, sub }: { title?: string; sub?: string }) {
+  const catalog = useCatalog();
+  const tops = (catalog?.tops ?? []).filter((t) => (t.productCount ?? 0) > 0 || t.name !== "General");
+  if (!tops.length) return null;
+  return (
+    <section>
+      <div className="mb-3 flex items-end justify-between">
+        <div>
+          <h2 className="flex items-center gap-2 text-lg font-black text-gray-900">
+            <LayoutGrid className="h-5 w-5 text-yellow-500" /> {title || "Shop by Category"}
+          </h2>
+          <p className="text-[11px] text-gray-500">{sub || "Wholesale departments built for repeat bulk buying"}</p>
+        </div>
+        <Link href="/catalog" className="text-xs font-bold text-yellow-600 hover:underline">Browse all products →</Link>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
+        {tops.map((t, i) => (
+          <Link
+            key={t.id}
+            href={`/catalog?top=${t.id}`}
+            className="group relative block overflow-hidden rounded-2xl border bg-white shadow-sm transition hover:border-yellow-400 hover:shadow-lg"
+          >
+            <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100">
+              {t.image ? (
+                <Image
+                  src={t.image}
+                  alt={t.name}
+                  fill
+                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                  className="object-cover transition duration-300 group-hover:scale-105"
+                  unoptimized
+                />
+              ) : (
+                <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#FFF6E0] to-[#FBE8B4] text-4xl">{t.emoji}</span>
+              )}
+              <span
+                className="absolute left-2 top-2 flex h-7 min-w-7 items-center justify-center rounded-lg px-1.5 text-sm"
+                style={{ backgroundColor: `${t.color || "#facc15"}22` }}
+              >
+                {t.emoji}
+              </span>
+              <span className="absolute right-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-yellow-400">
+                {t.productCount ?? 0} SKUs
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2 p-3">
+              <div className="min-w-0">
+                <p className="truncate text-[13px] font-black text-gray-900">{t.name}</p>
+                <p className="text-[10px] text-gray-400">
+                  {t.mids.length > 0 ? `${t.mids.length} sub-categories` : "Wholesale range"}
+                </p>
+              </div>
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-yellow-400/90 text-black transition group-hover:translate-x-0.5">
+                <ChevronRight className="h-4 w-4" />
+              </span>
+            </div>
+            {i === 0 && (
+              <span className="pointer-events-none absolute inset-0 rounded-2xl ring-2 ring-yellow-400/0 transition group-hover:ring-yellow-400/60" />
+            )}
+          </Link>
         ))}
       </div>
     </section>
@@ -345,6 +413,7 @@ export function HomeView() {
           case "offerHero": return <OfferHero key={s.id} />;
           case "brandStrip": return <BrandStrip key={s.id} title={s.title} />;
           case "couponStrip": return <CouponStrip key={s.id} title={s.title} />;
+          case "categoryGrid": return <CategoryGrid key={s.id} title={s.title} sub={s.sub} />;
           case "dealsRail": return <DealsRail key={s.id} deals={rows.deals} title={s.title} sub={s.sub} />;
           case "tabbedShowcase": return <TabbedShowcase key={s.id} />;
           case "adsStrip": return <AdsStrip key={s.id} title={s.title} />;
