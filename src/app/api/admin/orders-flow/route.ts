@@ -96,10 +96,16 @@ export async function POST(req: NextRequest) {
     if (action === "edit") {
       const order = await loadOrder(body.orderId);
       if (!order) return jsonError("Order not found", 404);
-      if (order.status !== "PENDING") return jsonError("Only PENDING orders can be edited — this one is already confirmed");
+      const wasConfirmed = order.status === "CONFIRMED";
+      if (order.status !== "PENDING" && !wasConfirmed) {
+        return jsonError(`Orders can be edited while PENDING or CONFIRMED — this one is ${order.status}`);
+      }
 
       const edits: Array<{ id: string; qty?: number; unitPrice?: number }> = Array.isArray(body.lines) ? body.lines : [];
       const removeIds: string[] = Array.isArray(body.removeItemIds) ? body.removeItemIds : [];
+
+      // original line map (for stock & credit reconciliation on confirmed orders)
+      const oldById = new Map(order.items.map((it) => [it.id, it]));
 
       let lines = order.items
         .filter((it) => !removeIds.includes(it.id))
@@ -110,6 +116,71 @@ export async function POST(req: NextRequest) {
           return { ...it, qty, unitPrice, pieces: round2(qty * it.packQty), total: round2(qty * unitPrice) };
         });
       if (!lines.length) return jsonError("Order must keep at least one line");
+
+      // ── CONFIRMED orders: reconcile live stock + buyer credit automatically ──
+      let creditedDelta = 0;
+      let stockError = "";
+      if (wasConfirmed) {
+        const warehouses = await db.warehouse.findMany({ where: { active: true }, orderBy: [{ isDefault: "desc" }, { sortOrder: "asc" }], include: { stocks: true } });
+        const productIds = new Set<string>([...lines.map((l) => l.productId), ...order.items.filter((it) => removeIds.includes(it.id)).map((it) => it.productId)]);
+        const products = await db.product.findMany({ where: { id: { in: [...productIds] } }, select: { id: true, stock: true } });
+        const pmap = new Map(products.map((p) => [p.id, p]));
+
+        const decProduct: Array<{ productId: string; pieces: number }> = [];
+        const incProduct: Array<{ productId: string; pieces: number }> = [];
+        const decWarehouse: Array<{ wsId: string; qty: number }> = [];
+        const incWarehouse: Array<{ wsId: string; qty: number }> = [];
+
+        // restored / added pieces for shipped (OK) lines
+        for (const l of lines) {
+          const old = oldById.get(l.id);
+          const shipped = old ? (old.lineStatus !== "NEXT_PLAN") : false;
+          const delta = round2(l.pieces - (old?.pieces ?? 0));
+          if (shipped && delta !== 0) {
+            if (delta > 0) {
+              const live = Math.max(0, Math.round(pmap.get(l.productId)?.stock ?? 0));
+              if (live < delta) { stockError = `Not enough stock for ${l.name} — only ${live} left. Edit rejected, nothing saved.`; break; }
+              decProduct.push({ productId: l.productId, pieces: delta });
+              for (const w of warehouses) {
+                const ws = w.stocks.find((s) => s.productId === l.productId);
+                if (!ws || ws.qty <= 0) continue;
+                const dec = Math.min(ws.qty, delta - decProduct.filter((d) => d.productId === l.productId).reduce((s, d) => s + d.pieces, 0));
+                if (dec > 0) { decWarehouse.push({ wsId: ws.id, qty: Math.ceil(dec) }); }
+              }
+            } else {
+              incProduct.push({ productId: l.productId, pieces: -delta });
+              const defWs = warehouses.flatMap((w) => w.stocks).find((s) => s.productId === l.productId);
+              if (defWs) incWarehouse.push({ wsId: defWs.id, qty: Math.ceil(-delta) });
+            }
+          }
+          // next-plan lines move the buyer credit by the amount change
+          if (!shipped && old) creditedDelta += l.total - old.total;
+        }
+
+        // removed lines: restore stock (OK) or claw back credit (NEXT_PLAN)
+        if (!stockError) {
+          for (const id of removeIds) {
+            const old = oldById.get(id);
+            if (!old) continue;
+            if (old.lineStatus !== "NEXT_PLAN") {
+              incProduct.push({ productId: old.productId, pieces: old.pieces });
+              const defWs = warehouses.flatMap((w) => w.stocks).find((s) => s.productId === old.productId);
+              if (defWs) incWarehouse.push({ wsId: defWs.id, qty: Math.ceil(old.pieces) });
+            } else {
+              creditedDelta -= old.total;
+            }
+          }
+
+          for (const d of decProduct) await db.product.update({ where: { id: d.productId }, data: { stock: { decrement: d.pieces } } }).catch(() => {});
+          for (const d of decWarehouse) await db.warehouseStock.update({ where: { id: d.wsId }, data: { qty: { decrement: d.qty } } }).catch(() => {});
+          for (const i of incProduct) await db.product.update({ where: { id: i.productId }, data: { stock: { increment: i.pieces } } }).catch(() => {});
+          for (const i of incWarehouse) await db.warehouseStock.update({ where: { id: i.wsId }, data: { qty: { increment: i.qty } } }).catch(() => {});
+          if (order.customerId && Math.abs(creditedDelta) >= 0.01) {
+            await db.customer.update({ where: { id: order.customerId }, data: { creditBalance: { increment: round2(creditedDelta) } } }).catch(() => {});
+          }
+        }
+      }
+      if (stockError) return jsonError(stockError, 400);
 
       // persist edited lines
       for (const l of lines) {
@@ -133,7 +204,7 @@ export async function POST(req: NextRequest) {
         },
         include: { items: { orderBy: { id: "asc" } } },
       });
-      await db.activityLog.create({ data: { action: "UPDATE", entity: "order", entityId: order.id, detail: `Order ${order.invoiceNo} edited before confirm — new total ₹${t.grandTotal}` } });
+      await db.activityLog.create({ data: { action: "UPDATE", entity: "order", entityId: order.id, detail: `Order ${order.invoiceNo} edited ${wasConfirmed ? "after confirm (stock & credits reconciled" + (creditedDelta ? ` ${creditedDelta >= 0 ? "+" : ""}₹${round2(creditedDelta)}` : "") + ")" : "before confirm"} — new total ₹${t.grandTotal}` } });
       return NextResponse.json({ ok: true, order: updated });
     }
 

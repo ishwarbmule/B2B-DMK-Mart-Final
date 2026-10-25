@@ -91,21 +91,22 @@ export function OrdersModule({ token }: { token: string }) {
     }
   };
 
-  /** expand → auto stock-check for PENDING orders; credit view for confirmed */
+  /** expand → auto stock-check for PENDING + CONFIRMED orders; credit view for confirmed */
   const toggleOpen = async (o: OrderRow) => {
     if (open === o.id) { setOpen(null); setStock(null); setStockFor(null); return; }
     setOpen(o.id);
     setStock(null);
     setStockFor(null);
-    if (o.status === "PENDING") {
+    if (o.status === "PENDING" || o.status === "CONFIRMED") {
       try {
         const d = await call(`/api/admin/orders-flow?orderId=${o.id}`) as StockCheck;
         setStock(d);
         setStockFor(o.id);
         setEditLines(d.lines.map((l) => ({ id: l.id, qty: l.qty, unitPrice: l.unitPrice, name: l.name })));
-        if (!d.summary.hasCustomerId) toast.info("Guest order — out-of-stock credit needs a buyer account");
+        if (o.status === "PENDING" && !d.summary.hasCustomerId) toast.info("Guest order — out-of-stock credit needs a buyer account");
       } catch { /* detail still renders */ }
-    } else if (o.customerId) {
+    }
+    if (o.status !== "PENDING" && o.customerId) {
       call(`/api/admin/crud/customers`).then((d: { rows: Array<{ id: string; creditBalance?: number }> }) => {
         const c = (d.rows || []).find((x) => x.id === o.customerId);
         if (c) { setCreditAmt(c.creditBalance ?? 0); setCreditShown(o.id); }
@@ -373,31 +374,35 @@ export function OrdersModule({ token }: { token: string }) {
                         <button onClick={() => patch(o.id, { shippingStatus: "DELIVERED", status: "DELIVERED" }, "Marked delivered")} className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 font-semibold text-emerald-700 hover:bg-emerald-100">Mark Delivered</button>
                       </div>
 
-                      {/* ── PENDING: stock check + Edit / Confirm ── */}
-                      {o.status === "PENDING" && stockFor === o.id && stock && (
-                        <div className="mt-2 rounded-xl border-2 border-amber-300 bg-amber-50/60 p-3">
+                      {/* ── PENDING / CONFIRMED: stock check + Edit / Confirm ── */}
+                      {(o.status === "PENDING" || o.status === "CONFIRMED") && stockFor === o.id && stock && (
+                        <div className={`mt-2 rounded-xl border-2 p-3 ${o.status === "PENDING" ? "border-amber-300 bg-amber-50/60" : "border-sky-300 bg-sky-50/60"}`}>
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="flex items-center gap-1.5 text-xs font-black text-gray-900">
-                              <PackageCheck className="h-4 w-4 text-amber-600" /> Automatic stock check
+                              <PackageCheck className={`h-4 w-4 ${o.status === "PENDING" ? "text-amber-600" : "text-sky-600"}`} />
+                              {o.status === "PENDING" ? "Automatic stock check" : "Confirmed order — stock & credit status"}
                             </p>
                             <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">{stock.summary.okCount} in stock</span>
                             {stock.summary.oosCount > 0 && (
                               <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700">
-                                {stock.summary.oosCount} out of stock · {formatINR(stock.summary.oosAmount)} will be credited
+                                {stock.summary.oosCount} out of stock{o.status === "PENDING" ? ` · ${formatINR(stock.summary.oosAmount)} will be credited` : ""}
                               </span>
                             )}
                             <div className="ml-auto flex gap-1.5">
                               <button onClick={startEdit} className="flex items-center gap-1 rounded-lg border-2 border-gray-800 bg-white px-3 py-1.5 text-[11px] font-black hover:bg-gray-50">
                                 <PencilLine className="h-3.5 w-3.5" /> Edit Order
                               </button>
-                              <button onClick={() => { setNextDate(""); setConfirmOpen(true); }} className="flex items-center gap-1 rounded-lg bg-black px-3 py-1.5 text-[11px] font-black text-yellow-400 hover:bg-gray-800">
-                                <CheckCheck className="h-3.5 w-3.5" /> Confirm Order
-                              </button>
+                              {o.status === "PENDING" && (
+                                <button onClick={() => { setNextDate(""); setConfirmOpen(true); }} className="flex items-center gap-1 rounded-lg bg-black px-3 py-1.5 text-[11px] font-black text-yellow-400 hover:bg-gray-800">
+                                  <CheckCheck className="h-3.5 w-3.5" /> Confirm Order
+                                </button>
+                              )}
                             </div>
                           </div>
                           {stock.warehouses.length > 0 && (
                             <p className="mt-1.5 text-[10px] text-gray-500">
                               Warehouses: {stock.warehouses.map((w) => `${w.name}${w.isDefault ? " (default)" : ""}`).join(" · ")} — allocation pulls from the default first.
+                              {o.status === "CONFIRMED" && " Edits to this confirmed order reconcile live stock and buyer credits automatically."}
                             </p>
                           )}
                         </div>
@@ -498,7 +503,10 @@ export function OrdersModule({ token }: { token: string }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setEditOpen(false)}>
           <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <p className="flex items-center gap-2 text-sm font-black text-gray-900"><PencilLine className="h-4 w-4 text-yellow-600" /> Edit Order — pricing, quantity, remove lines</p>
-            <p className="mt-1 text-[11px] text-gray-500">Change qty and rate per line, or remove lines. Totals, slabs, GST and delivery fee recalculate automatically.</p>
+            <p className="mt-1 text-[11px] text-gray-500">
+              Change qty and rate per line, or remove lines. Totals, slabs, GST and delivery fee recalculate automatically.
+              {stock.order.status === "CONFIRMED" && " This order is confirmed — stock changes and buyer credit adjustments reconcile automatically."}
+            </p>
             <div className="mt-3 space-y-2">
               {editLines.map((l, i) => (
                 <div key={l.id} className={`flex items-center gap-2 rounded-lg border p-2 ${l.remove ? "border-red-200 bg-red-50 opacity-60" : ""}`}>
