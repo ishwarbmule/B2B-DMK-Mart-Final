@@ -143,8 +143,8 @@ export function CatalogView({
     <section id="catalog" className="scroll-mt-40">
       <div className="mb-3 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-black text-gray-900 md:text-xl">{title}</h2>
-          <p className="text-xs text-gray-500">{loading ? "Loading…" : `${data.total} SKUs · pieces, packs & bulk cases`}</p>
+          {title ? <h2 className="text-lg font-black text-gray-900 md:text-xl">{title}</h2> : null}
+          <p className={title ? "text-xs text-gray-500" : "text-xs font-bold text-gray-500"}>{loading ? "Loading…" : `${data.total} SKUs · pieces, packs & bulk cases`}</p>
         </div>
         <div className="flex items-center gap-2">
           <select value={filters.sort} onChange={(e) => setF({ sort: e.target.value })} className="hidden h-9 rounded-lg border border-gray-200 bg-white px-2 text-xs md:block" aria-label="Sort products">

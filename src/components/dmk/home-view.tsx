@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, BadgePercent, Building2, LayoutGrid, Megaphone, PackageCheck, PhoneCall, Star, Truck, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight, BadgePercent, Building2, LayoutGrid, ListFilter, Megaphone, PackageCheck, PhoneCall, Star, Truck, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCatalog } from "./site-header-v2";
 import { HeroBanner } from "./hero-banner";
 import { ProductCard, ProductCardMini } from "./product-card";
+import { CatalogView } from "./catalog-view";
 import type { DProduct } from "@/lib/types";
 import { formatINR } from "@/lib/store";
 
@@ -21,6 +22,7 @@ export const HOME_SECTIONS: { id: string; label: string; hasTitle: boolean; hasS
   { id: "dealsRail", label: "Deals of the Day", hasTitle: true, hasSub: true },
   { id: "tabbedShowcase", label: "Product Showcase (tabs)", hasTitle: false, hasSub: false },
   { id: "adsStrip", label: "Brand Ads Showcase", hasTitle: true, hasSub: false },
+  { id: "allProducts", label: "All Products (filters + pagination)", hasTitle: true, hasSub: true },
   { id: "deptCards", label: "Wholesale Departments", hasTitle: true, hasSub: false },
   { id: "trustStrip", label: "Trust Badges", hasTitle: false, hasSub: false },
   { id: "howItWorks", label: "How It Works", hasTitle: true, hasSub: false },
@@ -35,7 +37,12 @@ function parseSections(raw: string | undefined): HomeSectionCfg[] {
     if (!Array.isArray(arr)) throw new Error("bad");
     // keep any new sections the editor doesn't know yet, in editor order
     const known = arr.filter((s) => DEFAULT_ORDER.includes(s.id));
-    for (const id of DEFAULT_ORDER) if (!known.some((s) => s.id === id)) known.push({ id, visible: true });
+    for (const id of DEFAULT_ORDER) if (!known.some((s) => s.id === id)) {
+      // "allProducts" slots in right after the Sponsored Promotions (adsStrip) section
+      const adsIdx = known.findIndex((s) => s.id === "adsStrip");
+      if (id === "allProducts" && adsIdx >= 0) known.splice(adsIdx + 1, 0, { id, visible: true });
+      else known.push({ id, visible: true });
+    }
     return known;
   } catch {
     return DEFAULT_ORDER.map((id) => ({ id, visible: true }));
@@ -150,13 +157,14 @@ function CategoryGrid({ title, sub }: { title?: string; sub?: string }) {
         </div>
         <Link href="/catalog" className="text-xs font-bold text-yellow-600 hover:underline">Browse all products →</Link>
       </div>
-      {/* single scrollable row — small image cards, one per top category */}
-      <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2 md:gap-4 [scrollbar-width:thin]">
+      {/* single aligned row — cards sit inside the page grid (no edge bleed),
+          scrollable on mobile, spread edge-to-edge on desktop */}
+      <div className="flex snap-x items-end justify-start gap-3 overflow-x-auto pb-2 md:gap-4 lg:flex-wrap lg:justify-between lg:overflow-visible [scrollbar-width:thin]">
         {tops.map((t) => (
           <Link
             key={t.id}
             href={`/catalog?top=${t.id}`}
-            className="group w-[108px] shrink-0 snap-start md:w-[132px]"
+            className="group w-[104px] shrink-0 snap-start md:w-[124px] lg:w-[120px] xl:w-[128px]"
           >
             <div className="relative aspect-square w-full overflow-hidden rounded-2xl border bg-white shadow-sm transition group-hover:border-yellow-400 group-hover:shadow-md">
               {t.image ? (
@@ -296,6 +304,27 @@ function AdsStrip({ title }: { title?: string }) {
   );
 }
 
+/* ─────────────── All Products — full catalog with filters, right after Sponsored Promotions ─────────────── */
+function AllProductsSection({ title, sub }: { title?: string; sub?: string }) {
+  const catalog = useCatalog();
+  if (!catalog) return null;
+  return (
+    <section>
+      <div className="mb-3">
+        <h2 className="flex items-center gap-2 text-lg font-black text-gray-900">
+          <ListFilter className="h-5 w-5 text-yellow-500" /> {title || "All Products"}
+        </h2>
+        <p className="text-[11px] text-gray-500">{sub || "Complete wholesale range — filter by department, category, brand, price and sort"}</p>
+      </div>
+      <CatalogView
+        title=""
+        tops={catalog.tops}
+        brands={catalog.brands}
+      />
+    </section>
+  );
+}
+
 /* ─────────────── Departments ─────────────── */
 function DeptCards({ title }: { title?: string }) {
   const catalog = useCatalog();
@@ -400,6 +429,7 @@ export function HomeView() {
           case "dealsRail": return <DealsRail key={s.id} deals={rows.deals} title={s.title} sub={s.sub} />;
           case "tabbedShowcase": return <TabbedShowcase key={s.id} />;
           case "adsStrip": return <AdsStrip key={s.id} title={s.title} />;
+          case "allProducts": return <AllProductsSection key={s.id} title={s.title} sub={s.sub} />;
           case "deptCards": return <DeptCards key={s.id} title={s.title} />;
           case "trustStrip": return <TrustStrip key={s.id} />;
           case "howItWorks": return <HowItWorks key={s.id} title={s.title} />;
