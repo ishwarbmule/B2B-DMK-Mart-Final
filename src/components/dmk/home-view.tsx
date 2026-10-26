@@ -132,7 +132,7 @@ function OfferPromo({ offer }: { offer: OfferNode }) {
             >
               <Link
                 href={offer.ctaUrl || "/catalog"}
-                className="mt-1 flex w-fit items-center gap-2 rounded-full bg-amber-400 px-5 py-2 text-xs font-extrabold text-black shadow-lg shadow-amber-400/30 transition-transform duration-200 hover:scale-[1.04] active:scale-95 sm:px-7 sm:py-3 sm:text-sm"
+                className="mt-1 flex w-fit items-center gap-2 rounded-xl bg-black px-5 py-2.5 text-xs font-extrabold text-yellow-400 shadow-lg shadow-black/25 transition-all duration-200 hover:scale-[1.04] hover:bg-gray-900 active:scale-95 sm:px-7 sm:py-3 sm:text-sm"
               >
                 {offer.ctaText || "Shop Now"}
                 <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" strokeWidth={2.6} />
@@ -400,7 +400,7 @@ function TabbedShowcase() {
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`rounded-full px-4 py-2 text-xs font-bold transition ${
+            className={`rounded-lg px-4 py-2 text-xs font-bold transition ${
               tab === t.key ? "bg-black text-yellow-400" : "border bg-white text-gray-600 hover:border-yellow-400"
             }`}
           >
@@ -477,7 +477,7 @@ function AdsStrip({ cfg, title }: { cfg?: HomeSectionCfg; title?: string }) {
               <span className="text-[9px] font-black uppercase tracking-[0.18em] text-yellow-600">Sponsored</span>
               <span className="line-clamp-2 text-sm font-black leading-tight text-gray-900">{a.title}</span>
               {a.brand?.name && <span className="text-[11px] font-semibold text-gray-500">by {a.brand.name}</span>}
-              <span className="mt-1.5 flex w-fit items-center gap-1 rounded-full bg-black px-3 py-1 text-[10px] font-bold text-yellow-400">
+              <span className="mt-1.5 flex w-fit items-center gap-1 rounded-lg bg-black px-3 py-1 text-[10px] font-bold text-yellow-400">
                 Visit now <ArrowRight className="h-3 w-3" strokeWidth={2.6} />
               </span>
             </span>

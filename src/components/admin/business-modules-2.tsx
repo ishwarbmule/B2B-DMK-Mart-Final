@@ -548,7 +548,7 @@ export function StorefrontsModule({ token }: { token: string }) {
 type SectionCfg = { id: string; visible: boolean; title?: string; sub?: string; color?: string; size?: string; align?: string };
 
 const SECTION_DEFS: { id: string; label: string; hasTitle: boolean; hasSub: boolean; hint: string }[] = [
-  { id: "offerHero", label: "Offer Hero", hasTitle: false, hasSub: false, hint: "Auto-renders the active Offer / sliders from Offers & Coupons" },
+  { id: "offerHero", label: "Offer Hero", hasTitle: false, hasSub: false, hint: "Active Offer banner (edit under Offers & Coupons) + hero slides (edit under Website Management → Hero Section (Sliders))" },
   { id: "brandStrip", label: "Shop by Brand", hasTitle: true, hasSub: false, hint: "16 brand tiles → /brands" },
   { id: "couponStrip", label: "Live Coupons", hasTitle: true, hasSub: false, hint: "Coupon creatives — hidden automatically when none active" },
   { id: "categoryGrid", label: "Shop by Category", hasTitle: true, hasSub: true, hint: "Top-category image cards (AI photos) — sits above Deals of the Day" },

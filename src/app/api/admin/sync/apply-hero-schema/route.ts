@@ -38,6 +38,22 @@ export async function POST(req: NextRequest) {
       ["textColor", "ALTER TABLE `Slider` ADD COLUMN `textColor` VARCHAR(191) NOT NULL DEFAULT 'DARK'"],
       ["headingScale", "ALTER TABLE `Slider` ADD COLUMN `headingScale` VARCHAR(191) NOT NULL DEFAULT 'M'"],
       ["contentPosition", "ALTER TABLE `Offer` ADD COLUMN `contentPosition` VARCHAR(191) NOT NULL DEFAULT 'TOP-LEFT'"],
+      // Hero v5 — per-element styling controls
+      ["kickerColor", "ALTER TABLE `Slider` ADD COLUMN `kickerColor` VARCHAR(191) NOT NULL DEFAULT ''"],
+      ["kickerSize", "ALTER TABLE `Slider` ADD COLUMN `kickerSize` INT NOT NULL DEFAULT 0"],
+      ["headingColor", "ALTER TABLE `Slider` ADD COLUMN `headingColor` VARCHAR(191) NOT NULL DEFAULT ''"],
+      ["headingSize", "ALTER TABLE `Slider` ADD COLUMN `headingSize` INT NOT NULL DEFAULT 0"],
+      ["headingColors", "ALTER TABLE `Slider` ADD COLUMN `headingColors` VARCHAR(191) NOT NULL DEFAULT '[]'"],
+      ["highlightColor", "ALTER TABLE `Slider` ADD COLUMN `highlightColor` VARCHAR(191) NOT NULL DEFAULT ''"],
+      ["contentColor", "ALTER TABLE `Slider` ADD COLUMN `contentColor` VARCHAR(191) NOT NULL DEFAULT ''"],
+      ["contentSize", "ALTER TABLE `Slider` ADD COLUMN `contentSize` INT NOT NULL DEFAULT 0"],
+      ["taglineColor", "ALTER TABLE `Slider` ADD COLUMN `taglineColor` VARCHAR(191) NOT NULL DEFAULT ''"],
+      ["buttonBg", "ALTER TABLE `Slider` ADD COLUMN `buttonBg` VARCHAR(191) NOT NULL DEFAULT ''"],
+      ["buttonTextColor", "ALTER TABLE `Slider` ADD COLUMN `buttonTextColor` VARCHAR(191) NOT NULL DEFAULT ''"],
+      ["padTop", "ALTER TABLE `Slider` ADD COLUMN `padTop` INT NOT NULL DEFAULT 50"],
+      ["padBottom", "ALTER TABLE `Slider` ADD COLUMN `padBottom` INT NOT NULL DEFAULT 50"],
+      ["padLeft", "ALTER TABLE `Slider` ADD COLUMN `padLeft` INT NOT NULL DEFAULT 50"],
+      ["padRight", "ALTER TABLE `Slider` ADD COLUMN `padRight` INT NOT NULL DEFAULT 50"],
     ] as const) {
       const table = ddl.startsWith("ALTER TABLE `Offer`") ? "Offer" : "Slider";
       if (await colExists(table, col)) {

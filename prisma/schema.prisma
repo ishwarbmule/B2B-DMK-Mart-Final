@@ -465,6 +465,22 @@ model Slider {
   mobilePosition String @default("") // 9-zone copy placement on phones, e.g. TOP-LEFT
   textColor   String  @default("DARK") // DARK (light walls) or LIGHT (dark walls) — no scrim is drawn
   headingScale String @default("M") // S / M / L headline size — content must fit the vacant space
+  // Hero v5 — per-element styling controls (Admin → Website Management → Hero Section)
+  kickerColor     String  @default("") // hex; empty = theme ink
+  kickerSize      Int     @default(0)  // px desktop; 0 = auto
+  headingColor    String  @default("") // hex; empty = theme ink
+  headingSize     Int     @default(0)  // px desktop; 0 = auto (headingScale presets)
+  headingColors   String  @default("[]") // JSON palette cycling across *star* words in the heading
+  highlightColor  String  @default("") // hex for the `highlight` words; empty = amber
+  contentColor    String  @default("")
+  contentSize     Int     @default(0)  // px desktop; 0 = auto
+  taglineColor    String  @default("")
+  buttonBg        String  @default("") // hex; empty = brand black
+  buttonTextColor String  @default("") // hex; empty = brand yellow
+  padTop          Int     @default(50) // content+buttons block only — image always stays full-bleed
+  padBottom       Int     @default(50)
+  padLeft         Int     @default(50)
+  padRight        Int     @default(50)
   position    String  @default("LEFT")
   active      Boolean @default(true)
   sortOrder   Int     @default(0)

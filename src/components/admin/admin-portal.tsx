@@ -66,6 +66,7 @@ const NAV: { group: string; items: { id: ModuleId; label: string; icon: React.Co
   { group: "Website & System", items: [
     { id: "website", label: "Website Management", icon: Globe, sub: [
       { id: "website", label: "Pages / SEO / Robots" },
+      { id: "sliders", label: "Hero Section (Sliders)" },
       { id: "homeEditor", label: "Homepage Editor (v2)" },
       { id: "seoMeta", label: "SEO Manager" },
     ]},
