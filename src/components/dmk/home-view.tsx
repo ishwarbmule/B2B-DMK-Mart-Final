@@ -55,11 +55,9 @@ function parseSections(raw: string | undefined): HomeSectionCfg[] {
   }
 }
 
-/* ─────────────── Hero carousel + live stats (slides editable: Admin → Website Management → Manage Sliders) ─────────────── */
+/* ─────────────── Hero carousel (slides editable: Admin → Website Management → Manage Sliders) ─────────────── */
 function OfferHero() {
-  const cat = useCatalog();
-  const stat = cat?.stats;
-  const sliders = cat?.sliders ?? [];
+  const sliders = useCatalog()?.sliders ?? [];
 
   return (
     <section>
@@ -68,12 +66,6 @@ function OfferHero() {
       ) : (
         <HeroBanner />
       )}
-      <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-gray-600">
-        <span className="rounded-lg bg-black/5 px-3 py-1.5"><b className="text-gray-900">{stat?.products ?? 2272}</b> SKUs live</span>
-        <span className="rounded-lg bg-black/5 px-3 py-1.5"><b className="text-gray-900">{stat?.brands ?? 39}</b> brands</span>
-        <span className="rounded-lg bg-black/5 px-3 py-1.5"><b className="text-gray-900">4</b> price tiers</span>
-        <span className="rounded-lg bg-black/5 px-3 py-1.5"><b className="text-gray-900">OTP</b> safe delivery</span>
-      </div>
     </section>
   );
 }
