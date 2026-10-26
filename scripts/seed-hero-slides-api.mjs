@@ -1,48 +1,31 @@
 /**
- * Seed hero slides via the PRODUCTION admin CRUD API
- * (DB credentials live only on Vercel — local env has no APP_DATABASE_URL).
- * Flow: login → list sliders → delete old rows → create 3 new slides.
+ * Hero art-direction seeding via PRODUCTION admin API:
+ *   1. Apply Slider.mobileImage migration (idempotent)
+ *   2. Replace slides with ONE responsive slide:
+ *        image (wide)       → desktop / laptop / tablet
+ *        mobileImage (3:4)  → phones
+ *   3. Point the "Bulk Buy Bonanza" ad at the square artwork (uniform square tile)
  * Run: node scripts/seed-hero-slides-api.mjs [baseUrl]
  */
 const BASE = process.argv[2] || "https://b2b-dmk-mart.vercel.app";
 const LOGIN_ID = process.env.ADMIN_LOGIN_ID || "B2B DMK Mart";
 const PASSWORD = process.env.ADMIN_PASSWORD || "DmkMartB2B!2026";
 
-const slides = [
-  {
-    heading: "Everyday Essentials for a Better Tomorrow",
-    content:
-      "Housewares, kitchenware & storage from 40+ trusted brands — live stock, true wholesale rates, straight from DMK Mart ERP.",
-    buttonText: "Shop Catalog",
-    buttonUrl: "/catalog",
-    image: "/images/hero/hero-1.jpg",
-    position: "LEFT",
-    sortOrder: 0,
-    active: true,
-  },
-  {
-    heading: "Bulk Storage, Bigger Savings",
-    content:
-      "Baskets, bins, buckets & containers at slab pricing. Stock up in bulk — the more cases you take, the more you save.",
-    buttonText: "Explore Storage",
-    buttonUrl: "/catalog",
-    image: "/images/hero/hero-2.jpg",
-    position: "LEFT",
-    sortOrder: 1,
-    active: true,
-  },
-  {
-    heading: "One Mart. Every Business.",
-    content:
-      "Retailer, wholesaler or distributor — get your own price slabs. Pickup at your nearest warehouse or get bulk-case delivery.",
-    buttonText: "Create Account",
-    buttonUrl: "/account",
-    image: "/images/hero/hero-3.jpg",
-    position: "LEFT",
-    sortOrder: 2,
-    active: true,
-  },
-];
+const slide = {
+  heading: "Everyday Essentials for a Better Tomorrow",
+  content:
+    "Housewares, kitchenware & storage from 40+ trusted brands — live stock, true wholesale rates, straight from DMK Mart ERP.",
+  buttonText: "Shop Catalog",
+  buttonUrl: "/catalog",
+  image: "/images/hero/hero-1.jpg",       // horizontal wide → laptop/desktop/tablet
+  mobileImage: "/images/hero/hero-3.jpg", // 3:4 portrait → mobile
+  position: "LEFT",
+  sortOrder: 0,
+  active: true,
+};
+
+const AD_TITLE = "Bulk Buy Bonanza";
+const AD_IMAGE = "/images/hero/hero-2.jpg"; // square → ad/promo tiles
 
 const api = async (path, opts = {}) => {
   const r = await fetch(`${BASE}${path}`, opts);
@@ -60,22 +43,37 @@ const main = async () => {
   const auth = { Authorization: `Bearer ${login.token}`, "Content-Type": "application/json" };
   console.log("✓ admin login ok");
 
+  // 1. Migration (idempotent)
+  const mig = await api("/api/admin/sync/apply-hero-schema", { method: "POST", headers: auth });
+  console.log(`✓ schema: applied=${JSON.stringify(mig.applied)} skipped=${JSON.stringify(mig.skipped)}`);
+
+  // 2. Replace slides with one responsive slide
   const { rows = [] } = await api("/api/admin/crud/sliders", { headers: auth });
-  console.log(`✓ existing sliders: ${rows.length}`);
   for (const r of rows) {
     await api(`/api/admin/crud/sliders?id=${r.id}`, { method: "DELETE", headers: auth });
-    console.log(`  − deleted old: "${r.heading}" (${r.image})`);
+    console.log(`  − deleted old slide: "${r.heading}"`);
   }
+  const { row } = await api("/api/admin/crud/sliders", {
+    method: "POST",
+    headers: auth,
+    body: JSON.stringify(slide),
+  });
+  console.log(`✓ slide: "${row.heading}" desktop=${row.image} mobile=${row.mobileImage}`);
 
-  for (const s of slides) {
-    const { row } = await api("/api/admin/crud/sliders", {
-      method: "POST",
+  // 3. Square artwork → ad tile
+  const ads = await api("/api/admin/crud/ads", { headers: auth });
+  const ad = (ads.rows || []).find((a) => a.title === AD_TITLE);
+  if (ad) {
+    await api("/api/admin/crud/ads", {
+      method: "PATCH",
       headers: auth,
-      body: JSON.stringify(s),
+      body: JSON.stringify({ id: ad.id, image: AD_IMAGE }),
     });
-    console.log(`  + created [${row.sortOrder}] "${row.heading}" → ${row.image}`);
+    console.log(`✓ ad "${AD_TITLE}" image → ${AD_IMAGE} (square)`);
+  } else {
+    console.log(`⚠ ad "${AD_TITLE}" not found — square image not assigned`);
   }
-  console.log("✓ hero slides seeded");
+  console.log("✓ hero art-direction seeded");
 };
 
 main().catch((e) => {

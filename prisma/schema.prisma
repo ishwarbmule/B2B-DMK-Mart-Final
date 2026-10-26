@@ -450,15 +450,16 @@ model PriceSlab {
 }
 
 model Slider {
-  id         String  @id @default(cuid())
-  heading    String
-  content    String  @default("") @db.Text
-  buttonText String  @default("Shop Now")
-  buttonUrl  String  @default("#deals")
-  image      String  @default("")
-  position   String  @default("LEFT")
-  active     Boolean @default(true)
-  sortOrder  Int     @default(0)
+  id          String  @id @default(cuid())
+  heading     String
+  content     String  @default("") @db.Text
+  buttonText  String  @default("Shop Now")
+  buttonUrl   String  @default("#deals")
+  image       String  @default("")
+  mobileImage String  @default("") // 3:4 portrait artwork shown on phones (art direction)
+  position    String  @default("LEFT")
+  active      Boolean @default(true)
+  sortOrder   Int     @default(0)
 }
 
 model Ad {

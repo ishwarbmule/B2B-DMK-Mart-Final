@@ -8,10 +8,12 @@ import type { SliderRow } from "@/lib/types";
 
 /**
  * Hero carousel driven by the DB `Slider` rows (Website Management → Manage Sliders).
- * Every slide's image, headline, paragraph, button text and button URL are
- * admin-editable. Slide copy sits on a gradient scrim; position LEFT/CENTER/RIGHT
- * is honoured per slide. Mixed artwork ratios are handled with object-cover on a
- * responsive aspect box (taller on mobile, wide on desktop).
+ * Art direction per device:
+ *   - Desktop / laptop / tablet (≥640px): slide.image — horizontal wide artwork
+ *   - Mobile (<640px): slide.mobileImage — 3:4 portrait artwork (falls back to image)
+ * Every slide's images, headline, paragraph, button text/URL and copy position
+ * are admin-editable. Copy sits on a scrim: left/center/right gradient on wide
+ * screens, bottom gradient on phones so portrait artwork stays readable.
  */
 export function HeroSlider({ sliders, onCta }: { sliders: SliderRow[]; onCta?: () => void }) {
   const [idx, setIdx] = useState(0);
@@ -27,33 +29,47 @@ export function HeroSlider({ sliders, onCta }: { sliders: SliderRow[]; onCta?: (
   const s = sliders[idx];
   const href = s.buttonUrl && !s.buttonUrl.startsWith("#") ? s.buttonUrl : null;
 
-  const posWrap =
+  /* Copy placement: bottom-anchored on phones (portrait frame), positioned per slide on ≥sm */
+  const posWrapSm =
     s.position === "CENTER"
-      ? "items-center text-center"
+      ? "sm:items-center sm:text-center"
       : s.position === "RIGHT"
-        ? "items-end text-right justify-end"
-        : "items-start text-left";
+        ? "sm:items-end sm:text-right sm:justify-end"
+        : "sm:items-start sm:text-left";
+  const scrim =
+    "absolute inset-0 flex flex-col justify-end items-start text-left gap-2.5 bg-gradient-to-t from-black/80 via-black/25 to-transparent p-5 md:gap-3 md:p-10 sm:justify-center sm:bg-gradient-to-r sm:from-black/70 sm:via-black/25 sm:to-transparent";
 
   return (
     <div className="relative overflow-hidden rounded-2xl bg-black">
-      <div className="relative aspect-[4/3] w-full sm:aspect-[1200/560] lg:aspect-[1200/480] lg:max-h-[440px]">
+      {/* 3:4 portrait frame on phones · wide 2.5:1 frame on tablet/laptop/desktop */}
+      <div className="relative aspect-[3/4] w-full sm:aspect-[1200/480] lg:max-h-[440px]">
+        {/* Desktop / laptop / tablet artwork (horizontal) */}
         <Image
-          key={s.id}
+          key={`d-${s.id}`}
           src={s.image}
           alt={s.heading}
           fill
-          sizes="(max-width: 1024px) 100vw, 1100px"
-          className="object-cover"
+          sizes="(max-width: 640px) 0vw, 100vw"
+          className="hidden object-cover sm:block"
           priority
           unoptimized
         />
-        <div
-          className={`absolute inset-0 flex flex-col justify-center gap-2.5 bg-gradient-to-r from-black/70 via-black/25 to-transparent p-5 md:gap-3 md:p-10 ${posWrap}`}
-        >
+        {/* Mobile artwork (3:4 portrait) */}
+        <Image
+          key={`m-${s.id}`}
+          src={s.mobileImage || s.image}
+          alt={s.heading}
+          fill
+          sizes="100vw"
+          className="object-cover sm:hidden"
+          priority
+          unoptimized
+        />
+        <div className={`${scrim} ${posWrapSm}`}>
           <span className="w-fit rounded-full bg-yellow-400 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-black md:text-[11px]">
             DMK Mart Exclusive
           </span>
-          <h2 className="max-w-md text-xl font-black leading-tight text-white md:text-3xl lg:text-4xl">
+          <h2 className="max-w-md text-xl font-black leading-tight text-white sm:text-2xl md:text-3xl lg:text-4xl">
             {s.heading}
           </h2>
           <p className="max-w-md text-xs text-gray-200 md:text-sm">{s.content}</p>
