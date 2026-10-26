@@ -545,7 +545,7 @@ export function StorefrontsModule({ token }: { token: string }) {
 }
 
 /* ══════════════ HOMEPAGE EDITOR (visual canvas v2) ══════════════ */
-type SectionCfg = { id: string; visible: boolean; title?: string; sub?: string };
+type SectionCfg = { id: string; visible: boolean; title?: string; sub?: string; color?: string; size?: string; align?: string };
 
 const SECTION_DEFS: { id: string; label: string; hasTitle: boolean; hasSub: boolean; hint: string }[] = [
   { id: "offerHero", label: "Offer Hero", hasTitle: false, hasSub: false, hint: "Auto-renders the active Offer / sliders from Offers & Coupons" },
@@ -610,7 +610,7 @@ export function HomeEditorModule({ token }: { token: string }) {
 
   const toggle = (idx: number) => mutate((arr) => { arr[idx] = { ...arr[idx], visible: arr[idx].visible === false }; return arr; });
 
-  const setField = (idx: number, field: "title" | "sub", value: string) =>
+  const setField = (idx: number, field: "title" | "sub" | "color" | "size" | "align", value: string) =>
     mutate((arr) => { arr[idx] = { ...arr[idx], [field]: value }; return arr; });
 
   const save = async () => {
@@ -671,6 +671,20 @@ export function HomeEditorModule({ token }: { token: string }) {
                     )}
                     {def.hasSub && (
                       <input value={s.sub ?? ""} onChange={(e) => setField(i, "sub", e.target.value)} placeholder="Subtitle (default: Extra margin on today's picks…)" className="h-8 w-full rounded-lg border px-2.5 text-xs" />
+                    )}
+                    {def.hasTitle && (
+                      <div className="flex items-center gap-1.5">
+                        <label title="Heading colour" className="flex h-8 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border">
+                          <input type="color" value={s.color || "#111827"} onChange={(e) => setField(i, "color", e.target.value)} className="h-5 w-5 cursor-pointer rounded border-0 bg-transparent p-0" />
+                        </label>
+                        <select value={s.size ?? "M"} onChange={(e) => setField(i, "size", e.target.value)} title="Heading size" className="h-8 rounded-lg border px-1.5 text-[11px] font-semibold text-gray-700">
+                          <option value="S">S</option><option value="M">M</option><option value="L">L</option>
+                        </select>
+                        <select value={s.align ?? "left"} onChange={(e) => setField(i, "align", e.target.value)} title="Heading position" className="h-8 flex-1 rounded-lg border px-1.5 text-[11px] font-semibold text-gray-700">
+                          <option value="left">Left</option><option value="center">Center</option><option value="right">Right</option>
+                        </select>
+                        <button onClick={() => setField(i, "color", "")} title="Reset colour" className="h-8 rounded-lg border px-2 text-[10px] font-bold text-gray-400 hover:bg-gray-50">Reset</button>
+                      </div>
                     )}
                   </div>
                 )}

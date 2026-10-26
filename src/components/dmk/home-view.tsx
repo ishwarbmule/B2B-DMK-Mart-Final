@@ -13,7 +13,12 @@ import type { DProduct } from "@/lib/types";
 import { formatINR } from "@/lib/store";
 
 /* ─────────────── Homepage section config (Website Management → Homepage Editor) ─────────────── */
-export type HomeSectionCfg = { id: string; visible: boolean; title?: string; sub?: string };
+export type HomeSectionCfg = { id: string; visible: boolean; title?: string; sub?: string; color?: string; size?: "S" | "M" | "L"; align?: "left" | "center" | "right" };
+
+/* Per-section style helpers (Website Management → Homepage Editor: colour / size / position) */
+const secSize = (s?: string) => (s === "S" ? "text-base sm:text-lg" : s === "L" ? "text-xl sm:text-2xl" : "text-lg");
+const secAlign = (a?: string) => (a === "center" ? "justify-center text-center" : a === "right" ? "justify-end text-right" : "justify-start text-left");
+const secColor = (c?: string) => (c || undefined) as string | undefined;
 
 export const HOME_SECTIONS: { id: string; label: string; hasTitle: boolean; hasSub: boolean }[] = [
   { id: "offerHero", label: "Offer Hero (auto from Offers)", hasTitle: false, hasSub: false },
@@ -86,13 +91,13 @@ function CollageImg({ seed }: { seed: string }) {
 }
 
 /* ─────────────── Brand strip ─────────────── */
-function BrandStrip({ title }: { title?: string }) {
+function BrandStrip({ cfg, title }: { cfg?: HomeSectionCfg; title?: string }) {
   const catalog = useCatalog();
   const brands = (catalog?.brands ?? []).slice(0, 16);
   return (
     <section>
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-lg font-black text-gray-900">
+      <div className={`mb-3 flex items-center justify-between`}>
+        <h2 className={`flex items-center gap-2 ${secSize(cfg?.size)} font-black`} style={{ color: secColor(cfg?.color) }}>
           <Building2 className="h-5 w-5 text-yellow-500" /> {title || "Shop by Brand"}
         </h2>
         <Link href="/brands" className="text-xs font-bold text-yellow-600 hover:underline">View all brands →</Link>
@@ -117,14 +122,14 @@ function BrandStrip({ title }: { title?: string }) {
 }
 
 /* ─────────────── Coupon creatives (auto from admin) ─────────────── */
-function CouponStrip({ title }: { title?: string }) {
+function CouponStrip({ cfg, title }: { cfg?: HomeSectionCfg; title?: string }) {
   const catalog = useCatalog();
   const coupons = catalog?.homeCoupons ?? [];
   if (!coupons.length) return null;
   return (
     <section>
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-lg font-black text-gray-900">
+      <div className={`mb-3 flex items-center justify-between`}>
+        <h2 className={`flex items-center gap-2 ${secSize(cfg?.size)} font-black`} style={{ color: secColor(cfg?.color) }}>
           <BadgePercent className="h-5 w-5 text-yellow-500" /> {title || "Live Coupons — apply at checkout"}
         </h2>
         <Link href="/catalog" className="text-xs font-bold text-yellow-600 hover:underline">Start ordering →</Link>
@@ -148,19 +153,19 @@ function CouponStrip({ title }: { title?: string }) {
 }
 
 /* ─────────────── Shop by Category (image cards, before Deals of the Day) ─────────────── */
-function CategoryGrid({ title, sub }: { title?: string; sub?: string }) {
+function CategoryGrid({ cfg, title, sub }: { cfg?: HomeSectionCfg; title?: string; sub?: string }) {
   const catalog = useCatalog();
   // only categories with live (active) inventory — 0-SKU tops stay visible in the All Departments menu
   const tops = (catalog?.tops ?? []).filter((t) => (t.productCount ?? 0) > 0);
   if (!tops.length) return null;
   return (
     <section>
-      <div className="mb-3 flex items-end justify-between">
-        <div>
-          <h2 className="flex items-center gap-2 text-lg font-black text-gray-900">
+      <div className={`mb-3 flex items-end justify-between`}>
+        <div className="flex flex-col gap-0.5">
+          <h2 className={`flex items-center gap-2 ${secSize(cfg?.size)} font-black`} style={{ color: secColor(cfg?.color) }}>
             <LayoutGrid className="h-5 w-5 text-yellow-500" /> {title || "Shop by Category"}
           </h2>
-          <p className="text-[11px] text-gray-500">{sub || "All wholesale departments in one row — tap to browse"}</p>
+          <p className="text-[11px] text-gray-500" style={{ color: secColor(cfg?.color) }}>{sub || "All wholesale departments in one row — tap to browse"}</p>
         </div>
         <Link href="/catalog" className="text-xs font-bold text-yellow-600 hover:underline">Browse all products →</Link>
       </div>
@@ -214,7 +219,7 @@ function useFlagRows() {
   return rows;
 }
 
-function DealsRail({ deals, title, sub }: { deals: DProduct[]; title?: string; sub?: string }) {
+function DealsRail({ cfg, deals, title, sub }: { cfg?: HomeSectionCfg; deals: DProduct[]; title?: string; sub?: string }) {
   if (!deals.length) return null;
   return (
     <section className="rounded-2xl bg-gradient-to-r from-red-600 to-red-500 p-4 md:p-6">
@@ -222,7 +227,7 @@ function DealsRail({ deals, title, sub }: { deals: DProduct[]; title?: string; s
         <div className="flex items-center gap-3">
           <span className="rounded-lg bg-white px-3 py-1.5 text-lg font-black text-red-600">DEALS</span>
           <div>
-            <p className="text-base font-black text-white md:text-xl">{title || "Deals of the Day"}</p>
+            <p className={`${secSize(cfg?.size)} font-black text-white`} style={{ color: secColor(cfg?.color) }}>{title || "Deals of the Day"}</p>
             <p className="text-[11px] text-red-100">{sub || "Extra margin on today's picks — while stocks last"}</p>
           </div>
         </div>
@@ -273,13 +278,13 @@ function TabbedShowcase() {
 /* ─────────────── Brand Ads showcase (uniform cards below the product list) ─────────────── */
 type AdRow = { id: string; title: string; image: string; link: string; active: boolean; brand?: { name: string; slug: string } | null };
 
-function AdsStrip({ title }: { title?: string }) {
+function AdsStrip({ cfg, title }: { cfg?: HomeSectionCfg; title?: string }) {
   const catalog = useCatalog();
   const ads = ((catalog?.ads ?? []) as AdRow[]).filter((a) => a.active).slice(0, 4);
   if (!ads.length) return null;
   return (
     <section>
-      <h2 className="mb-3 flex items-center gap-2 text-lg font-black text-gray-900">
+      <h2 className={`mb-3 flex items-center gap-2 ${secSize(cfg?.size)} font-black`} style={{ color: secColor(cfg?.color) }}>
         <Megaphone className="h-5 w-5 text-yellow-500" /> {title || "Sponsored Promotions"}
       </h2>
       {/* 4 well-formatted ad slots in 16:9 frames — content comes from admin Ad inputs */}
@@ -312,13 +317,13 @@ function AdsStrip({ title }: { title?: string }) {
 }
 
 /* ─────────────── All Products — full catalog with filters, right after Sponsored Promotions ─────────────── */
-function AllProductsSection({ title, sub }: { title?: string; sub?: string }) {
+function AllProductsSection({ cfg, title, sub }: { cfg?: HomeSectionCfg; title?: string; sub?: string }) {
   const catalog = useCatalog();
   if (!catalog) return null;
   return (
     <section>
-      <div className="mb-3">
-        <h2 className="flex items-center gap-2 text-lg font-black text-gray-900">
+      <div className={`mb-3 flex flex-col gap-0.5 ${secAlign(cfg?.align)}`}>
+        <h2 className={`flex items-center gap-2 ${secSize(cfg?.size)} font-black`} style={{ color: secColor(cfg?.color) }}>
           <ListFilter className="h-5 w-5 text-yellow-500" /> {title || "All Products"}
         </h2>
         <p className="text-[11px] text-gray-500">{sub || "Complete wholesale range — filter by department, category, brand, price and sort"}</p>
@@ -333,12 +338,12 @@ function AllProductsSection({ title, sub }: { title?: string; sub?: string }) {
 }
 
 /* ─────────────── Departments ─────────────── */
-function DeptCards({ title }: { title?: string }) {
+function DeptCards({ cfg, title }: { cfg?: HomeSectionCfg; title?: string }) {
   const catalog = useCatalog();
   const tops = catalog?.tops ?? [];
   return (
     <section>
-      <h2 className="mb-3 flex items-center gap-2 text-lg font-black text-gray-900">
+      <h2 className={`mb-3 flex items-center gap-2 ${secSize(cfg?.size)} font-black`} style={{ color: secColor(cfg?.color) }}>
         <PackageCheck className="h-5 w-5 text-yellow-500" /> {title || "Wholesale Departments"}
       </h2>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -364,7 +369,7 @@ function DeptCards({ title }: { title?: string }) {
 }
 
 /* ─────────────── How it works ─────────────── */
-function HowItWorks({ title }: { title?: string }) {
+function HowItWorks({ cfg, title }: { cfg?: HomeSectionCfg; title?: string }) {
   const steps = [
     { icon: Building2, title: "Create B2B Account", text: "Register as retailer, wholesaler or distributor — get your price tier after approval." },
     { icon: PackageCheck, title: "Order Pieces, Packs or Cases", text: "Every product supports single pieces, full packs and bulk cases with transparent pricing." },
@@ -372,7 +377,7 @@ function HowItWorks({ title }: { title?: string }) {
   ];
   return (
     <section className="rounded-2xl bg-black p-6 md:p-10">
-      <h2 className="text-center text-xl font-black text-white md:text-2xl">{title || "Built for Serious B2B Buyers"}</h2>
+      <h2 className={`text-center text-xl font-black text-white md:text-2xl`} style={{ color: secColor(cfg?.color) }}>{title || "Built for Serious B2B Buyers"}</h2>
       <div className="mt-8 grid gap-6 md:grid-cols-3">
         {steps.map((s, i) => (
           <div key={i} className="relative rounded-2xl border border-gray-800 bg-gray-950 p-5">
@@ -430,16 +435,16 @@ export function HomeView() {
         if (!s.visible) return null;
         switch (s.id) {
           case "offerHero": return <OfferHero key={s.id} />;
-          case "brandStrip": return <BrandStrip key={s.id} title={s.title} />;
-          case "couponStrip": return <CouponStrip key={s.id} title={s.title} />;
-          case "categoryGrid": return <CategoryGrid key={s.id} title={s.title} sub={s.sub} />;
-          case "dealsRail": return <DealsRail key={s.id} deals={rows.deals} title={s.title} sub={s.sub} />;
+          case "brandStrip": return <BrandStrip key={s.id} cfg={s} title={s.title} />;
+          case "couponStrip": return <CouponStrip key={s.id} cfg={s} title={s.title} />;
+          case "categoryGrid": return <CategoryGrid key={s.id} cfg={s} title={s.title} sub={s.sub} />;
+          case "dealsRail": return <DealsRail key={s.id} cfg={s} deals={rows.deals} title={s.title} sub={s.sub} />;
           case "tabbedShowcase": return <TabbedShowcase key={s.id} />;
-          case "adsStrip": return <AdsStrip key={s.id} title={s.title} />;
-          case "allProducts": return <AllProductsSection key={s.id} title={s.title} sub={s.sub} />;
-          case "deptCards": return <DeptCards key={s.id} title={s.title} />;
+          case "adsStrip": return <AdsStrip key={s.id} cfg={s} title={s.title} />;
+          case "allProducts": return <AllProductsSection key={s.id} cfg={s} title={s.title} sub={s.sub} />;
+          case "deptCards": return <DeptCards key={s.id} cfg={s} title={s.title} />;
           case "trustStrip": return <TrustStrip key={s.id} />;
-          case "howItWorks": return <HowItWorks key={s.id} title={s.title} />;
+          case "howItWorks": return <HowItWorks key={s.id} cfg={s} title={s.title} />;
           default: return null;
         }
       })}

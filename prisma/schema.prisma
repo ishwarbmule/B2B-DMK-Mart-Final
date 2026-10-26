@@ -461,6 +461,9 @@ model Slider {
   highlight   String  @default("") // headline words shown in yellow accent (two-tone, like old artwork)
   chips       String  @default("") // comma-separated USP chips, e.g. "Wide Product Range,Trusted Quality"
   tagline     String  @default("") // script-font tagline, top-right on wide screens
+  mobilePosition String @default("") // 9-zone copy placement on phones, e.g. TOP-LEFT
+  textColor   String  @default("DARK") // DARK (light walls) or LIGHT (dark walls) — no scrim is drawn
+  headingScale String @default("M") // S / M / L headline size — content must fit the vacant space
   position    String  @default("LEFT")
   active      Boolean @default(true)
   sortOrder   Int     @default(0)

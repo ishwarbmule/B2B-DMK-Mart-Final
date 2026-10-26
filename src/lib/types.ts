@@ -64,6 +64,9 @@ export interface SliderRow {
   highlight?: string;
   chips?: string;
   tagline?: string;
+  mobilePosition?: string;
+  textColor?: string;
+  headingScale?: string;
   position: string;
 }
 

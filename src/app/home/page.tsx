@@ -6,14 +6,6 @@ export const metadata = { title: "DMK Mart — Homepage Design Gallery" };
 
 const DESIGNS = [
   {
-    href: "/home-2",
-    name: "Home-2 · Everyday Essentials",
-    tag: "Bright Retail",
-    desc: "The approved demo homepage — warm Everyday Essentials hero with USP chips, category circles, price-band cards, sponsored ad banners, top-seller grid and a company logo wall.",
-    points: ["Everyday Essentials hero", "Shop by Category circles", "Shop by Price bands", "Sponsored ads + logo wall"],
-    accent: "bg-amber-300",
-  },
-  {
     href: "/home/dmart",
     name: "DMart style",
     tag: "Value Bazaar",
