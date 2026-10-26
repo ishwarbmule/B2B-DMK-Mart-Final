@@ -32,6 +32,11 @@ export interface OfferNode {
   subText: string;
   ctaText: string;
   ctaUrl: string;
+  bannerImage?: string;
+  contentPosition?: string; // TOP-LEFT | TOP-RIGHT | CENTER | BOTTOM-LEFT | BOTTOM-RIGHT
+  discountType?: string; // PERCENT | AMOUNT
+  discountValue?: number;
+  minOrder?: number;
   bgColor: string;
   textColor: string;
   heroSlot: boolean;

@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, BadgePercent, Building2, LayoutGrid, ListFilter, Megaphone, PackageCheck, PhoneCall, Star, Truck, ChevronLeft, ChevronRight } from "lucide-react";
+import { motion } from "framer-motion";
+import { ArrowRight, BadgePercent, Building2, Check, Copy, LayoutGrid, ListFilter, Megaphone, PackageCheck, PhoneCall, Star, Ticket, Truck, ChevronRight, Sparkles } from "lucide-react";
 import { useCatalog } from "./site-header-v2";
 import { HeroBanner } from "./hero-banner";
 import { HeroSlider } from "./hero-slider";
 import { ProductCard, ProductCardMini } from "./product-card";
 import { CatalogView } from "./catalog-view";
-import type { DProduct } from "@/lib/types";
+import type { DProduct, OfferNode, CouponNode } from "@/lib/types";
 import { formatINR } from "@/lib/store";
 
 /* ─────────────── Homepage section config (Website Management → Homepage Editor) ─────────────── */
@@ -67,6 +68,154 @@ function OfferHero() {
         <HeroBanner />
       )}
     </section>
+  );
+}
+
+/* ─────────────── Big Sale / Offer promo — auto-appears ABOVE the hero when an offer is active,
+                    hides itself automatically when none is live (Admin → Offers & Campaigns) ─────────────── */
+const PROMO_ZONES: Record<string, string> = {
+  "TOP-LEFT": "justify-start items-start text-left",
+  "TOP-RIGHT": "justify-start items-end text-right",
+  CENTER: "justify-center items-center text-center",
+  "BOTTOM-LEFT": "justify-end items-start text-left",
+  "BOTTOM-RIGHT": "justify-end items-end text-right",
+};
+
+function OfferPromo({ offer }: { offer: OfferNode }) {
+  const zone = PROMO_ZONES[offer.contentPosition || "TOP-LEFT"] ?? PROMO_ZONES["TOP-LEFT"];
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: -16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      className="relative overflow-hidden rounded-2xl bg-black"
+      style={{ background: offer.bannerImage ? undefined : offer.bgColor }}
+    >
+      {/* 16:9 cinematic frame — only this frame size is accepted in admin */}
+      <div className="relative aspect-video max-h-[560px] w-full">
+        {offer.bannerImage ? (
+          <Image src={offer.bannerImage} alt={offer.headline} fill sizes="100vw" className="object-cover object-center" priority unoptimized />
+        ) : null}
+        {/* copy sits where admin chose — 50px from every side on wide screens, no hiding overlay */}
+        <div className={`absolute inset-0 flex flex-col p-5 sm:p-[50px] ${zone}`}>
+          <motion.div
+            initial="hidden"
+            animate="show"
+            variants={{ hidden: {}, show: { transition: { staggerChildren: 0.09 } } }}
+            className={`flex max-w-full flex-col gap-1.5 sm:gap-2.5 ${zone}`}
+          >
+            <motion.p
+              variants={{ hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 120, damping: 16 } } }}
+              className="text-[10px] font-extrabold uppercase tracking-[0.22em] sm:text-xs"
+              style={{ color: offer.textColor }}
+            >
+              <Sparkles className="mr-1.5 inline h-3.5 w-3.5" /> Limited Period Campaign
+            </motion.p>
+            <motion.h2
+              variants={{ hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 120, damping: 16 } } }}
+              className="max-w-lg text-2xl font-black leading-[1.06] tracking-tight drop-shadow-[0_1px_10px_rgba(0,0,0,0.35)] sm:text-4xl md:text-5xl"
+              style={{ color: offer.textColor }}
+            >
+              {offer.headline}
+            </motion.h2>
+            {offer.subText && (
+              <motion.p
+                variants={{ hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 120, damping: 16 } } }}
+                className="max-w-md text-[11px] font-semibold leading-snug drop-shadow-[0_1px_6px_rgba(0,0,0,0.4)] sm:text-sm"
+                style={{ color: offer.textColor }}
+              >
+                {offer.subText}
+              </motion.p>
+            )}
+            <motion.div
+              variants={{ hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 120, damping: 16 } } }}
+            >
+              <Link
+                href={offer.ctaUrl || "/catalog"}
+                className="mt-1 flex w-fit items-center gap-2 rounded-full bg-amber-400 px-5 py-2 text-xs font-extrabold text-black shadow-lg shadow-amber-400/30 transition-transform duration-200 hover:scale-[1.04] active:scale-95 sm:px-7 sm:py-3 sm:text-sm"
+              >
+                {offer.ctaText || "Shop Now"}
+                <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" strokeWidth={2.6} />
+              </Link>
+            </motion.div>
+          </motion.div>
+        </div>
+      </div>
+    </motion.section>
+  );
+}
+
+/* Yellow sliding headline for the active Big Sale — sits between the promo banner and the hero */
+function SaleMarquee({ offer }: { offer: OfferNode }) {
+  const bits = useMemo(() => {
+    const arr = [offer.headline, offer.subText];
+    if ((offer.discountValue ?? 0) > 0) arr.push(offer.discountType === "AMOUNT" ? `Flat ₹${offer.discountValue} OFF` : `Flat ${offer.discountValue}% OFF`);
+    if ((offer.minOrder ?? 0) > 0) arr.push(`On orders above ${formatINR(offer.minOrder ?? 0)}`);
+    arr.push(offer.ctaText || "Shop Now");
+    return arr.filter(Boolean);
+  }, [offer]);
+  const Seq = () => (
+    <span className="flex shrink-0 items-center">
+      {bits.map((b, i) => (
+        <span key={i} className="flex items-center">
+          <Sparkles className="mx-4 h-3.5 w-3.5 shrink-0" />
+          <span className="whitespace-nowrap text-xs font-black uppercase tracking-wide sm:text-sm">{b}</span>
+        </span>
+      ))}
+    </span>
+  );
+  return (
+    <div className="overflow-hidden rounded-full bg-yellow-400 py-2.5 text-black shadow-sm">
+      <div className="flex w-max animate-dmk-marquee-slim hover:[animation-play-state:paused]">
+        <Seq /><Seq /><Seq />
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────── Slim coupon marquee — auto-appears after Deals of the Day when coupons are live.
+                    Codes are copy-to-clipboard; a single coupon repeats across the strip ─────────────── */
+function CouponMarquee({ coupons }: { coupons: CouponNode[] }) {
+  const [copied, setCopied] = useState<string | null>(null);
+  if (!coupons.length) return null;
+  // one coupon → repeat it across the strip so the ticker never runs empty
+  const base = coupons.length === 1 ? Array.from({ length: 6 }, () => coupons[0]) : coupons;
+
+  const copy = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(code);
+      setTimeout(() => setCopied((c) => (c === code ? null : c)), 1600);
+    } catch {
+      /* clipboard unavailable — code is still selectable text */
+    }
+  };
+
+  const Seq = () => (
+    <span className="flex shrink-0 items-center">
+      {base.map((c, i) => (
+        <span key={`${c.id}-${i}`} className="mx-3 flex items-center gap-2">
+          <Ticket className="h-3.5 w-3.5 shrink-0 text-yellow-400" />
+          <span className="whitespace-nowrap text-[11px] font-bold text-white">{c.headline || "Coupon"}</span>
+          <button
+            onClick={() => copy(c.code)}
+            title="Click to copy coupon code"
+            className="flex items-center gap-1 whitespace-nowrap rounded border border-dashed border-yellow-400/70 bg-yellow-400/10 px-2 py-0.5 font-mono text-[11px] font-black tracking-widest text-yellow-400 transition hover:bg-yellow-400 hover:text-black"
+          >
+            {c.code}
+            {copied === c.code ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3 opacity-70" />}
+          </button>
+        </span>
+      ))}
+    </span>
+  );
+
+  return (
+    <div className="overflow-hidden rounded-full border border-gray-800 bg-black py-2 shadow-sm">
+      <div className="flex w-max animate-dmk-marquee-slim hover:[animation-play-state:paused]">
+        <Seq /><Seq />
+      </div>
+    </div>
   );
 }
 
@@ -267,39 +416,70 @@ function TabbedShowcase() {
   );
 }
 
-/* ─────────────── Brand Ads showcase (uniform cards below the product list) ─────────────── */
+/* ─────────────── Brand Ads showcase (uniform height, native aspect — 1:1, 16:9, 9:16, 3:4 all align;
+                    hover slides a white detail card in from the bottom-left corner) ─────────────── */
 type AdRow = { id: string; title: string; image: string; link: string; active: boolean; brand?: { name: string; slug: string } | null };
+
+/** Renders at the image's natural aspect ratio inside a fixed-height row (any format aligns cleanly). */
+function AdImage({ src, alt }: { src: string; alt: string }) {
+  const [ratio, setRatio] = useState(16 / 9);
+  return (
+    <div className="relative h-full" style={{ aspectRatio: String(ratio) }}>
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        sizes="(max-width: 768px) 80vw, 30vw"
+        className="object-cover"
+        unoptimized
+        onLoad={(e) => {
+          const img = e.currentTarget;
+          if (img.naturalWidth && img.naturalHeight) setRatio(img.naturalWidth / img.naturalHeight);
+        }}
+      />
+    </div>
+  );
+}
 
 function AdsStrip({ cfg, title }: { cfg?: HomeSectionCfg; title?: string }) {
   const catalog = useCatalog();
-  const ads = ((catalog?.ads ?? []) as AdRow[]).filter((a) => a.active).slice(0, 4);
+  const ads = ((catalog?.ads ?? []) as AdRow[]).filter((a) => a.active).slice(0, 6);
   if (!ads.length) return null;
   return (
     <section>
       <h2 className={`mb-3 flex items-center gap-2 ${secSize(cfg?.size)} font-black`} style={{ color: secColor(cfg?.color) }}>
         <Megaphone className="h-5 w-5 text-yellow-500" /> {title || "Sponsored Promotions"}
       </h2>
-      {/* 4 well-formatted ad slots in 16:9 frames — content comes from admin Ad inputs */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {/* one aligned row — every ad keeps its own shape at the same height, swipeable on mobile */}
+      <div className="flex items-stretch gap-3 overflow-x-auto pb-1 scrollbar-hide lg:justify-center">
         {ads.map((a) => (
           <Link
             key={a.id}
             href={a.brand?.slug ? `/brand/${a.brand.slug}` : a.link || "#"}
-            className="group relative block aspect-video w-full overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm transition hover:shadow-md"
+            className="group relative block h-44 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm transition hover:shadow-md md:h-52 lg:h-56"
             aria-label={a.title}
           >
             {a.image ? (
-              <Image src={a.image} alt={a.title} fill sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw" className="object-cover transition duration-300 group-hover:scale-[1.03]" unoptimized />
+              <AdImage src={a.image} alt={a.title} />
             ) : (
-              <span className="flex h-full w-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-[#FFF6E0] to-[#FBE8B4] text-center">
+              <span className="flex h-full w-64 flex-col items-center justify-center gap-1 bg-gradient-to-br from-[#FFF6E0] to-[#FBE8B4] text-center">
                 <Megaphone className="h-6 w-6 text-yellow-500" />
                 <span className="px-3 text-xs font-bold text-gray-800">{a.title}</span>
-                <span className="text-[10px] font-semibold text-gray-500">Tap to explore →</span>
               </span>
             )}
             <span className="absolute left-2 top-2 rounded bg-black/70 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-yellow-400">Ad</span>
-            <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/75 via-black/30 to-transparent px-3 pb-2 pt-7 text-[11px] font-bold text-white">
+            {/* touch devices have no hover — always show a slim bottom label */}
+            <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/75 via-black/30 to-transparent px-3 pb-2 pt-7 text-[11px] font-bold text-white sm:group-hover:opacity-0">
               {a.brand?.name || a.title}
+            </span>
+            {/* white detail card slides in from the bottom-left corner on hover */}
+            <span className="pointer-events-none absolute inset-0 flex -translate-x-full translate-y-full flex-col justify-end gap-0.5 bg-white/95 p-4 shadow-xl transition-transform duration-300 ease-out group-hover:translate-x-0 group-hover:translate-y-0">
+              <span className="text-[9px] font-black uppercase tracking-[0.18em] text-yellow-600">Sponsored</span>
+              <span className="line-clamp-2 text-sm font-black leading-tight text-gray-900">{a.title}</span>
+              {a.brand?.name && <span className="text-[11px] font-semibold text-gray-500">by {a.brand.name}</span>}
+              <span className="mt-1.5 flex w-fit items-center gap-1 rounded-full bg-black px-3 py-1 text-[10px] font-bold text-yellow-400">
+                Visit now <ArrowRight className="h-3 w-3" strokeWidth={2.6} />
+              </span>
             </span>
           </Link>
         ))}
@@ -420,9 +600,14 @@ export function HomeView() {
   const rows = useFlagRows();
   const catalog = useCatalog();
   const cfg = parseSections(catalog?.settings?.home_sections);
+  const offer = catalog?.activeOffer ?? null;
+  const coupons = catalog?.homeCoupons ?? [];
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-8 px-3 py-5 md:px-6">
+      {/* Big Sale / Offer engine — banner + yellow marquee render ONLY while an offer is active (auto-hide otherwise) */}
+      {offer && <OfferPromo offer={offer} />}
+      {offer && <SaleMarquee offer={offer} />}
       {cfg.map((s) => {
         if (!s.visible) return null;
         switch (s.id) {
@@ -430,7 +615,13 @@ export function HomeView() {
           case "brandStrip": return <BrandStrip key={s.id} cfg={s} title={s.title} />;
           case "couponStrip": return <CouponStrip key={s.id} cfg={s} title={s.title} />;
           case "categoryGrid": return <CategoryGrid key={s.id} cfg={s} title={s.title} sub={s.sub} />;
-          case "dealsRail": return <DealsRail key={s.id} cfg={s} deals={rows.deals} title={s.title} sub={s.sub} />;
+          case "dealsRail": return (
+            <div key={s.id} className="space-y-8">
+              <DealsRail cfg={s} deals={rows.deals} title={s.title} sub={s.sub} />
+              {/* slim copyable coupon ticker — auto-appears only while coupons are live */}
+              {coupons.length > 0 && <CouponMarquee coupons={coupons} />}
+            </div>
+          );
           case "tabbedShowcase": return <TabbedShowcase key={s.id} />;
           case "adsStrip": return <AdsStrip key={s.id} cfg={s} title={s.title} />;
           case "allProducts": return <AllProductsSection key={s.id} cfg={s} title={s.title} sub={s.sub} />;

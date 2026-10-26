@@ -2,6 +2,8 @@
  * POST /api/admin/sync/apply-hero-schema — one-shot idempotent migration:
  *   - Slider.mobileImage (3:4 portrait artwork for phones)
  *   - Slider.kicker / highlight / chips / tagline (old-artwork content structure)
+ *   - Slider.mobilePosition / textColor / headingScale (per-device copy zones)
+ *   - Offer.contentPosition (where promo copy sits on the 16:9 sale banner)
  * Safe to run repeatedly (information_schema check; Hostinger = MariaDB).
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -35,12 +37,14 @@ export async function POST(req: NextRequest) {
       ["mobilePosition", "ALTER TABLE `Slider` ADD COLUMN `mobilePosition` VARCHAR(191) NOT NULL DEFAULT ''"],
       ["textColor", "ALTER TABLE `Slider` ADD COLUMN `textColor` VARCHAR(191) NOT NULL DEFAULT 'DARK'"],
       ["headingScale", "ALTER TABLE `Slider` ADD COLUMN `headingScale` VARCHAR(191) NOT NULL DEFAULT 'M'"],
+      ["contentPosition", "ALTER TABLE `Offer` ADD COLUMN `contentPosition` VARCHAR(191) NOT NULL DEFAULT 'TOP-LEFT'"],
     ] as const) {
-      if (await colExists("Slider", col)) {
-        skipped.push(`Slider.${col} (already exists)`);
+      const table = ddl.startsWith("ALTER TABLE `Offer`") ? "Offer" : "Slider";
+      if (await colExists(table, col)) {
+        skipped.push(`${table}.${col} (already exists)`);
       } else {
         await db.$executeRawUnsafe(ddl);
-        applied.push(`Slider.${col}`);
+        applied.push(`${table}.${col}`);
       }
     }
 

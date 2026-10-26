@@ -324,6 +324,7 @@ model Offer {
   ctaText       String   @default("Shop Now")
   ctaUrl        String   @default("#deals")
   bannerImage   String   @default("")
+  contentPosition String @default("TOP-LEFT") // where promo copy + CTA sit on the 16:9 banner: TOP-LEFT | TOP-RIGHT | CENTER | BOTTOM-LEFT | BOTTOM-RIGHT
   bgColor       String   @default("#111111")
   textColor     String   @default("#facc15")
   heroSlot      Boolean  @default(true) // auto-appear in homepage hero

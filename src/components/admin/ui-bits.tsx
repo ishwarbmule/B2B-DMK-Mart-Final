@@ -5,13 +5,41 @@ import { Search, Plus, Pencil, Trash2, X, Loader2, RefreshCw, ChevronLeft, Chevr
 import { toast } from "sonner";
 import Image from "next/image";
 
-/** Image URL field with one-click Cloudinary upload (used by every CRUD module with type:"image"). */
-function ImageField({ value, onChange, token }: { value: string; onChange: (v: string) => void; token: string }) {
+/** Image URL field with one-click Cloudinary upload (used by every CRUD module with type:"image").
+ *  `aspect` enforces a frame ratio client-side (e.g. "16:9" for Big Sale banners) — wrong-shape
+ *  files are rejected BEFORE upload so only correctly sized creatives land in Cloudinary. */
+function ImageField({ value, onChange, token, aspect }: { value: string; onChange: (v: string) => void; token: string; aspect?: string }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
+  const checkAspect = (file: File, want: string): Promise<string | null> =>
+    new Promise((resolve) => {
+      const [w, h] = want.split(":").map(Number);
+      if (!w || !h) return resolve(null);
+      const url = URL.createObjectURL(file);
+      const img = new window.Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const diff = Math.abs(img.naturalWidth / img.naturalHeight - w / h);
+        resolve(diff / (w / h) > 0.06 ? `Image must be exactly ${w}:${h} (e.g. ${w * 60}×${h * 60}px). Uploaded file is ${img.naturalWidth}×${img.naturalHeight}.` : null);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve("Could not read image dimensions.");
+      };
+      img.src = url;
+    });
+
   const pick = async (file: File | undefined) => {
     if (!file) return;
+    if (aspect) {
+      const err = await checkAspect(file, aspect);
+      if (err) {
+        toast.error(err);
+        if (fileRef.current) fileRef.current.value = "";
+        return;
+      }
+    }
     setUploading(true);
     try {
       const fd = new FormData();
@@ -34,7 +62,7 @@ function ImageField({ value, onChange, token }: { value: string; onChange: (v: s
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="/cms/slider-0.svg or upload →"
+        placeholder={aspect ? `paste URL or upload — frame must be ${aspect}` : "/cms/slider-0.svg or upload →"}
         className="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-yellow-400"
       />
       <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
@@ -130,7 +158,7 @@ export function StatusBadge({ status }: { status: string }) {
 export interface FieldDef {
   key: string;
   label: string;
-  type: "text" | "number" | "select" | "toggle" | "textarea" | "image" | "password" | "ref";
+  type: "text" | "number" | "select" | "toggle" | "textarea" | "image" | "password" | "ref" | "scope";
   options?: string[];
   refEntity?: string; // for select of another crud entity (id/name)
   refLabelField?: string;
@@ -139,12 +167,141 @@ export interface FieldDef {
   step?: string;
   hideInTable?: boolean;
   default?: string | number | boolean;
+  aspect?: string; // for image fields — enforce frame ratio, e.g. "16:9"
 }
 
 export interface ColumnDef {
   key: string;
   label: string;
   render?: (row: Record<string, unknown>) => React.ReactNode;
+}
+
+/** Apply-to scope picker — turns the coupon's `scopeType` into concrete targets.
+ *  BRAND → checkbox list (stores slugs, matching /api/coupons/validate),
+ *  CATEGORY → multi-select of departments + sub-categories (stores ids),
+ *  PRODUCT → search-and-add product list (stores ids; coupon applies to those only). */
+function ScopePicker({ scopeType, value, onChange, token }: { scopeType: string; value: string; onChange: (v: string) => void; token: string }) {
+  const call = useMemo(() => api(token), [token]);
+  const ids = useMemo(() => {
+    try { return JSON.parse(value || "[]") as string[]; } catch { return []; }
+  }, [value]);
+  const toggle = (id: string) => onChange(JSON.stringify(ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+
+  const [brands, setBrands] = useState<{ slug: string; name: string }[]>([]);
+  const [cats, setCats] = useState<{ id: string; label: string }[]>([]);
+  const [picked, setPicked] = useState<Record<string, string>>({});
+  const [q, setQ] = useState("");
+  const [results, setResults] = useState<{ id: string; name: string }[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    if (scopeType === "BRAND" && brands.length === 0) {
+      call("/api/admin/crud/brands")
+        .then((d) => setBrands((d.rows || []).map((r: Record<string, unknown>) => ({ slug: String(r.slug), name: String(r.name) }))))
+        .catch(() => {});
+    }
+    if (scopeType === "CATEGORY" && cats.length === 0) {
+      Promise.all([call("/api/admin/crud/tops"), call("/api/admin/crud/mids")])
+        .then(([t, m]) => {
+          const tops = (t.rows || []) as Record<string, unknown>[];
+          const mids = (m.rows || []) as Record<string, unknown>[];
+          setCats([
+            ...tops.map((r) => ({ id: String(r.id), label: `${String(r.name)} · department` })),
+            ...mids.map((r) => ({ id: String(r.id), label: `${String((r.top as { name?: string } | undefined)?.name ?? "?")} › ${String(r.name)}` })),
+          ]);
+        })
+        .catch(() => {});
+    }
+  }, [scopeType, call, brands.length, cats.length]);
+
+  const search = async () => {
+    if (!q.trim()) return;
+    setSearching(true);
+    try {
+      const d = await call(`/api/products?q=${encodeURIComponent(q.trim())}&limit=8`);
+      setResults(((d.products || []) as { id: string; name: string }[]).map((p) => ({ id: p.id, name: p.name })));
+    } catch {
+      setResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const box = "max-h-44 space-y-0.5 overflow-y-auto rounded-lg border border-gray-200 p-2";
+
+  if (scopeType === "ALL") {
+    return <p className="rounded-lg bg-yellow-50 px-3 py-2 text-[11px] font-semibold text-gray-600">Applies to every product in the catalog — no selection needed.</p>;
+  }
+
+  if (scopeType === "BRAND") {
+    return (
+      <div className={box}>
+        {brands.map((b) => (
+          <label key={b.slug} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-xs hover:bg-yellow-50">
+            <input type="checkbox" checked={ids.includes(b.slug)} onChange={() => toggle(b.slug)} className="h-3.5 w-3.5 accent-yellow-500" />
+            <span className="font-semibold text-gray-800">{b.name}</span>
+          </label>
+        ))}
+        {brands.length === 0 && <p className="px-1.5 py-1 text-[11px] text-gray-400">Loading brands…</p>}
+      </div>
+    );
+  }
+
+  if (scopeType === "CATEGORY") {
+    return (
+      <div className={box}>
+        {cats.map((c) => (
+          <label key={c.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-xs hover:bg-yellow-50">
+            <input type="checkbox" checked={ids.includes(c.id)} onChange={() => toggle(c.id)} className="h-3.5 w-3.5 accent-yellow-500" />
+            <span className="font-semibold text-gray-800">{c.label}</span>
+          </label>
+        ))}
+        {cats.length === 0 && <p className="px-1.5 py-1 text-[11px] text-gray-400">Loading categories…</p>}
+      </div>
+    );
+  }
+
+  // PRODUCT — search and add; only listed products get the discount
+  return (
+    <div className="space-y-2">
+      {ids.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {ids.map((id) => (
+            <span key={id} className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-700">
+              {picked[id] || `#${id.slice(-6)}`}
+              <button type="button" onClick={() => toggle(id)} aria-label={`Remove ${picked[id] || id}`}><X className="h-3 w-3 text-gray-500 hover:text-red-600" /></button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-1.5">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), search())}
+          placeholder="Search products to add…"
+          className="h-9 w-full rounded-lg border border-gray-200 px-3 text-xs outline-none focus:border-yellow-400"
+        />
+        <button type="button" onClick={search} disabled={searching} className="flex h-9 shrink-0 items-center gap-1 rounded-lg bg-black px-3 text-[11px] font-bold text-yellow-400 disabled:opacity-50">
+          {searching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />} Add
+        </button>
+      </div>
+      <div className="space-y-0.5">
+        {results.map((r) => (
+          <button
+            key={r.id}
+            type="button"
+            onClick={() => { if (!ids.includes(r.id)) { toggle(r.id); setPicked((p) => ({ ...p, [r.id]: r.name })); } }}
+            disabled={ids.includes(r.id)}
+            className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-xs text-gray-700 hover:bg-yellow-50 disabled:opacity-40"
+          >
+            <span className="truncate">{r.name}</span>
+            <span className="shrink-0 font-bold text-yellow-600">{ids.includes(r.id) ? "Added" : "+ Add"}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 /** Reusable CRUD module: search + add/edit dialog + delete + refresh */
@@ -358,8 +515,10 @@ export function CrudModule({
                     </select>
                   ) : f.type === "textarea" ? (
                     <textarea value={String(form[f.key] ?? "")} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} rows={3} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-yellow-400" />
+                  ) : f.type === "scope" ? (
+                    <ScopePicker scopeType={String(form.scopeType || "ALL")} value={String(form[f.key] ?? "[]")} onChange={(v) => setForm({ ...form, [f.key]: v })} token={token} />
                   ) : f.type === "image" ? (
-                    <ImageField value={String(form[f.key] ?? "")} onChange={(v) => setForm({ ...form, [f.key]: v })} token={token} />
+                    <ImageField value={String(form[f.key] ?? "")} onChange={(v) => setForm({ ...form, [f.key]: v })} token={token} aspect={f.aspect} />
                   ) : (
                     <input
                       type={f.type === "number" ? "number" : f.type === "password" ? "password" : "text"}
