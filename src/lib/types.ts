@@ -73,6 +73,22 @@ export interface SliderRow {
   textColor?: string;
   headingScale?: string;
   position: string;
+  // Hero v5 — per-element styling controls
+  kickerColor?: string;
+  kickerSize?: number;
+  headingColor?: string;
+  headingSize?: number;
+  headingColors?: string;
+  highlightColor?: string;
+  contentColor?: string;
+  contentSize?: number;
+  taglineColor?: string;
+  buttonBg?: string;
+  buttonTextColor?: string;
+  padTop?: number;
+  padBottom?: number;
+  padLeft?: number;
+  padRight?: number;
 }
 
 export interface AdRow {

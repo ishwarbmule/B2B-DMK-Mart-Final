@@ -176,7 +176,7 @@ export function SiteHeaderV2() {
 
         {/* departments mega — one compact row: small image + name + subcategory list per department */}
         {mega === "depts" && (
-          <div onMouseLeave={() => setMega(null)} className="absolute inset-x-0 top-full z-50 border-t-2 border-yellow-400 bg-white shadow-xl">
+          <div className="absolute inset-x-0 top-full z-50 border-t-2 border-yellow-400 bg-white shadow-xl">
             <div className="mx-auto flex max-w-[1400px] items-stretch gap-1 overflow-x-auto p-4 scrollbar-hide lg:justify-between lg:overflow-visible">
               {tops.map((t) => (
                 <div key={t.id} className="group w-[118px] shrink-0 px-1 lg:min-w-[104px] lg:flex-1">
@@ -214,7 +214,7 @@ export function SiteHeaderV2() {
 
         {/* per-department mega panel (hover a top-level category) — compact: small image + subcategory list */}
         {tops.filter((t) => t.id === mega).map((t) => (
-          <div key={t.id} onMouseLeave={() => setMega(null)} className="absolute inset-x-0 top-full z-50 border-t-2 border-yellow-400 bg-white shadow-xl">
+          <div key={t.id} className="absolute inset-x-0 top-full z-50 border-t-2 border-yellow-400 bg-white shadow-xl">
             <div className="mx-auto flex max-w-[1400px] items-start gap-4 p-4">
               <Link
                 href={`/catalog?top=${t.id}`}
@@ -255,7 +255,7 @@ export function SiteHeaderV2() {
 
         {/* brands mega */}
         {mega === "brands" && (
-          <div onMouseLeave={() => setMega(null)} className="absolute inset-x-0 top-full z-50 max-h-[70vh] overflow-y-auto border-t-2 border-yellow-400 bg-white shadow-xl">
+          <div className="absolute inset-x-0 top-full z-50 max-h-[70vh] overflow-y-auto border-t-2 border-yellow-400 bg-white shadow-xl">
             <div className="mx-auto max-w-[1400px] p-6">
               <div className="mb-3 flex items-center justify-between">
                 <p className="text-sm font-bold text-black">Shop by Brand — {brands.length} brands</p>
