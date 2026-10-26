@@ -17,9 +17,11 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 
 type Customer = {
   id: string; name: string; shopName: string; phone: string; email: string;
-  customerType: string; tier: string; status: string; city: string; gstin: string;
+  customerType: string; tier: string; status: string; city: string; gstin: string; pincode?: string;
   orders: number; totalSpent: number;
 };
+
+type NearestWarehouse = { id: string; name: string; city: string; address: string; phone: string } | null;
 
 type RecentOrder = { id: string; invoiceNo: string; grandTotal: number; status: string; createdAt: string; otp?: string };
 
@@ -40,7 +42,7 @@ const INPUT = "h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-
 const LABEL = "mb-1 block text-[13px] font-bold text-gray-900";
 const LINK = "font-semibold text-yellow-700 underline-offset-2 hover:underline";
 
-const emptyReg = { name: "", shopName: "", phone: "", email: "", password: "", confirm: "", customerType: "RETAILER", gstin: "", city: "" };
+const emptyReg = { name: "", shopName: "", phone: "", email: "", password: "", confirm: "", customerType: "RETAILER", gstin: "", city: "", pincode: "" };
 
 function AlertBox({ children }: { children: React.ReactNode }) {
   return (
@@ -78,6 +80,7 @@ function AccountInner() {
 
   const [step, setStep] = useState<Step>("identify");
   const [customer, setCustomer] = useState<Customer | null>(null);
+  const [nearest, setNearest] = useState<NearestWarehouse>(null);
   const [orders, setOrders] = useState<RecentOrder[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -120,6 +123,7 @@ function AccountInner() {
       const d = await r.json();
       if (d?.customer) {
         setCustomer(d.customer);
+        setNearest(d.nearestWarehouse ?? null);
         setOrders(d.recentOrders ?? []);
       } else clearCustomerToken();
     } catch {
@@ -267,6 +271,7 @@ function AccountInner() {
     if (reg.name.trim().length < 2) e.name = "Enter the contact person name";
     if (!/^[6-9]\d{9}$/.test(reg.phone.trim())) e.phone = "Enter a valid 10-digit Indian mobile number";
     if (reg.email && !/^\S+@\S+\.\S+$/.test(reg.email)) e.email = "Enter a valid email address";
+    if (reg.pincode && !/^\d{6}$/.test(reg.pincode)) e.pincode = "Pincode must be 6 digits";
     if (reg.password.length < 6) e.password = "Use at least 6 characters";
     if (reg.password !== reg.confirm) e.confirm = "The two passwords do not match";
     setRegErrors(e);
@@ -317,6 +322,9 @@ function AccountInner() {
                   <p className="text-xs font-bold uppercase tracking-wide text-yellow-600">{customer.customerType}</p>
                   <h1 className="text-xl font-black text-gray-900">{customer.shopName || customer.name}</h1>
                   <p className="text-xs text-gray-500">{customer.phone} · {customer.city || "—"} {customer.gstin ? `· GSTIN ${customer.gstin}` : ""}</p>
+                  {nearest && (
+                    <p className="mt-1 text-[11px] font-semibold text-emerald-700">📍 Your nearest DMK Mart warehouse: {nearest.name}{nearest.city ? ` (${nearest.city})` : ""} — pickup available</p>
+                  )}
                 </div>
                 <button onClick={logout} className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50">
                   <LogOut className="h-3.5 w-3.5" /> Logout
@@ -557,10 +565,16 @@ function AccountInner() {
                       <input id="reg-city" value={reg.city} onChange={(e) => setReg((f) => ({ ...f, city: e.target.value }))} placeholder="City" className={INPUT} />
                     </div>
                     <div>
-                      <label className={LABEL} htmlFor="reg-gstin">GSTIN (optional)</label>
-                      <input id="reg-gstin" value={reg.gstin} onChange={(e) => setReg((f) => ({ ...f, gstin: e.target.value.toUpperCase() }))} placeholder="27ABCDE1234F1Z5" className={INPUT} />
+                      <label className={LABEL} htmlFor="reg-pincode">Pincode (location)</label>
+                      <input id="reg-pincode" value={reg.pincode} onChange={(e) => setReg((f) => ({ ...f, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) }))} placeholder="e.g. 411001" inputMode="numeric" className={regErrors.pincode ? INPUT.replace("border-gray-300", "border-red-400") : INPUT} />
+                      {regErrors.pincode && <p className="mt-0.5 text-[11px] text-red-500">{regErrors.pincode}</p>}
                     </div>
                   </div>
+                  <div className="mb-2.5">
+                    <label className={LABEL} htmlFor="reg-gstin">GSTIN (optional)</label>
+                    <input id="reg-gstin" value={reg.gstin} onChange={(e) => setReg((f) => ({ ...f, gstin: e.target.value.toUpperCase() }))} placeholder="27ABCDE1234F1Z5" className={INPUT} />
+                  </div>
+                  <p className="mb-2.5 text-[11px] leading-relaxed text-gray-400">City + pincode place you near a DMK Mart warehouse — after login the site shows pickup availability and the nearest godown for your orders.</p>
                   <button onClick={doRegister} disabled={busy} className={`${BTN_PRIMARY} mt-2`}>
                     {busy ? "Creating…" : "Create account"}
                   </button>

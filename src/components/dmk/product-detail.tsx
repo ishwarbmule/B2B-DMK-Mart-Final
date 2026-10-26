@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { BadgeCheck, Flame, Minus, Package, Plus, ShoppingCart, Star, TrendingUp, Truck, Zap } from "lucide-react";
+import { BadgeCheck, Flame, MapPin, Minus, Package, Plus, ShoppingCart, Star, Store, TrendingUp, Truck, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { useCartStore, formatINR, lineKey, unitPriceFor, piecesPerUnit, useSiteStore, type UnitType } from "@/lib/store";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { discountPct, type DProduct } from "@/lib/types";
+import { useCustomerSession } from "@/lib/customer-client";
+import { piecePriceOf, deliveryUnitPrice } from "@/lib/pricing";
 import { toCartItem, ProductCard } from "./product-card";
 
 const UNITS: { key: UnitType; label: string; hint: string }[] = [
@@ -23,6 +25,25 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
   const items = useCartStore((s) => s.items);
   const gst = useSiteStore((s) => s.gstEnabled);
   useEffect(() => { useSiteStore.getState().load(); }, []);
+  // Task 15: session (slab pricing + nearest warehouse) + pickup availability
+  useEffect(() => { useCustomerSession.getState().load(); }, []);
+  const customer = useCustomerSession((s) => s.customer);
+  const nearestWarehouse = useCustomerSession((s) => s.nearestWarehouse);
+  const [pickupAvailable, setPickupAvailable] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!nearestWarehouse) return;
+    let live = true;
+    fetch(`/api/warehouses?productId=${p.id}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => { if (live) setPickupAvailable(d.availability?.[nearestWarehouse.id] === "IN_STOCK"); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [p.id, nearestWarehouse]);
+  // Task 15 dual rates — Pickup (per-piece slab) · Delivery (pack price)
+  const tier = customer?.tier || "tier2";
+  const piece = piecePriceOf(p, tier);
+  const pickupRate = p.isDeal && !!p.dealPrice && p.dealPrice > 0 ? p.dealPrice : piece;
+  const deliveryPack = deliveryUnitPrice(p, tier, "PACK");
   const [unit, setUnit] = useState<UnitType>("SINGLE");
   const [qty, setQty] = useState(1);
   const [imgIdx, setImgIdx] = useState(0);
@@ -120,6 +141,28 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
             <span className="font-semibold text-emerald-600">Available to order</span>
           </div>
 
+          {/* Task 15: the two rates — chosen at checkout (pickup vs delivery popup) */}
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="rounded-2xl border-2 border-yellow-400 bg-yellow-50/70 p-3">
+              <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-yellow-700"><Store className="h-3.5 w-3.5" /> Pickup rate</p>
+              <p className="mt-0.5 text-xl font-black text-gray-900">{formatINR(pickupRate)} <span className="text-[11px] font-semibold text-gray-500">/pc</span></p>
+              <p className="text-[10px] leading-snug text-gray-500">Collect from your nearest warehouse — per-piece slab price</p>
+            </div>
+            <div className="rounded-2xl border bg-white p-3">
+              <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-gray-500"><Truck className="h-3.5 w-3.5" /> Delivery rate</p>
+              <p className="mt-0.5 text-xl font-black text-gray-900">{formatINR(deliveryPack)} <span className="text-[11px] font-semibold text-gray-500">/pack</span></p>
+              <p className="text-[10px] leading-snug text-gray-500">Delivered to your address — pack price ({p.packQty} pcs/pack)</p>
+            </div>
+          </div>
+          {hydrated && nearestWarehouse && (
+            <p className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-gray-600">
+              <MapPin className={`h-3.5 w-3.5 ${pickupAvailable === false ? "text-red-500" : "text-emerald-600"}`} />
+              {pickupAvailable === false
+                ? `Not currently at ${nearestWarehouse.name} (${nearestWarehouse.city}) — order anyway, we will arrange from another warehouse`
+                : `Available for pickup at ${nearestWarehouse.name} (${nearestWarehouse.city})`}
+            </p>
+          )}
+
           {/* unit selector */}
           <div className="mt-4 grid grid-cols-3 gap-2">
             {UNITS.map((u) => {
@@ -144,6 +187,9 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
               <p className="text-3xl font-black text-gray-900">{formatINR(up)}</p>
               <p className="text-[11px] text-gray-500">
                 per {unit === "SINGLE" ? "piece" : unit === "PACK" ? `pack of ${p.packQty}` : `case of ${ppu}`}{gst ? ` · excl. GST ${p.gst}%` : " · final price"}
+              </p>
+              <p className="text-[10px] font-semibold text-emerald-700">
+                {customer ? `Your ${customer.customerType.replace("_", "-").toLowerCase()} slab pricing` : "Wholesale (guest) pricing — login for your slab"}
               </p>
             </div>
             {p.mrp > up && (

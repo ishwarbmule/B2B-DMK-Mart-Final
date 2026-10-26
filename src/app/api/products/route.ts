@@ -19,6 +19,8 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(60, Math.max(4, parseInt(sp.get("limit") || "24")));
   const includeInactive = sp.get("all") === "1"; // admin use
 
+  const warehouseId = sp.get("warehouseId") || ""; // Task 15: only products stocked at this warehouse
+
   const where: Record<string, unknown> = {};
   if (!includeInactive) where.active = true;
   if (q) {
@@ -40,6 +42,7 @@ export async function GET(req: NextRequest) {
   if (flag === "hot") where.isHot = true;
   if (flag === "top") where.isTop = true;
   if (flag === "deal") where.isDeal = true;
+  if (warehouseId) where.warehouseStocks = { some: { warehouseId, qty: { gt: 0 } } };
   if (!Number.isNaN(minPrice) || !Number.isNaN(maxPrice)) {
     where.dealerPrice = {
       ...(Number.isNaN(minPrice) ? {} : { gte: minPrice }),
@@ -66,8 +69,21 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
+  // Buyer-safe payload whitelist: purchase cost and live stock NEVER leave the admin panel
+  // (Task 12g + Task 15). Tiers + packPrice ride along for the client-side slab pricing engine.
+  const safe = products.map((p) => ({
+    id: p.id, sku: p.sku, slug: p.slug, name: p.name,
+    dealerPrice: p.dealerPrice, basePrice: p.basePrice, mrp: p.mrp,
+    tier1: p.tier1, tier2: p.tier2, tier3: p.tier3, tier4: p.tier4, tier5: p.tier5,
+    packPrice: p.packPrice, packQty: p.packQty, piecesPerBox: p.piecesPerBox, unit: p.unit,
+    barcode: p.barcode, gst: p.gst, image: p.image,
+    isHot: p.isHot, isTop: p.isTop, isFeatured: p.isFeatured, isDeal: p.isDeal, dealPrice: p.dealPrice,
+    active: p.active, rating: p.rating, reviewCount: p.reviewCount,
+    brand: p.brand, topId: p.topId, midId: p.midId, endId: p.endId, createdAt: p.createdAt,
+  }));
+
   const res = NextResponse.json({
-    products,
+    products: safe,
     total,
     page,
     pages: Math.max(1, Math.ceil(total / limit)),

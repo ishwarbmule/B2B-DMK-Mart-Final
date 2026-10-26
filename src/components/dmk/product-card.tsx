@@ -3,17 +3,23 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Heart, Package, Flame, TrendingUp, Star, Zap, Minus, Plus, ShoppingCart } from "lucide-react";
+import { Heart, Package, Flame, TrendingUp, Star, Zap, Minus, Plus, ShoppingCart, Store, Truck } from "lucide-react";
 import { toast } from "sonner";
 import { useCartStore, formatINR, type CartItem, type UnitType, unitPriceFor, piecesPerUnit, lineKey } from "@/lib/store";
 import { discountPct, type DProduct } from "@/lib/types";
 import { useHydrated } from "@/hooks/use-hydrated";
+import { useCustomerSession, currentTier } from "@/lib/customer-client";
+import { piecePriceOf, deliveryUnitPrice } from "@/lib/pricing";
 
 export function toCartItem(p: DProduct, unitType: UnitType = "SINGLE"): CartItem {
+  // Task 15: cart lines carry the BUYER'S slab price (guests → wholesale tier2).
+  // Server recomputes authoritative pricing at order time.
+  const piece = piecePriceOf(p, currentTier());
   return {
     id: p.id, sku: p.sku, name: p.name, brand: p.brand?.name ?? "", image: p.image,
     slug: p.slug ?? "", packQty: p.packQty ?? 1, piecesPerBox: p.piecesPerBox ?? 0,
-    price: p.dealPrice && p.dealPrice > 0 && p.isDeal ? p.dealPrice : p.dealerPrice,
+    price: p.dealPrice && p.dealPrice > 0 && p.isDeal ? p.dealPrice : piece,
+    packPrice: p.packPrice ?? 0,
     mrp: p.mrp, gst: p.gst, unitType, qty: 1,
   };
 }
@@ -25,11 +31,19 @@ export function ProductCard({ p }: { p: DProduct }) {
   const addItem = useCartStore((s) => s.addItem);
   const items = useCartStore((s) => s.items);
   const setQty = useCartStore((s) => s.setQty);
+  const sessionTier = useCustomerSession((s) => s.customer?.tier);
+  const loaded = useCustomerSession((s) => s.loaded);
   const [wish, setWish] = useState(false);
   const unitType: UnitType = "SINGLE";
   const key = lineKey(p.id, unitType);
   const inCart = hydrated ? items.find((i) => lineKey(i.id, i.unitType) === key)?.qty ?? 0 : 0;
-  const disc = discountPct(p.mrp, p.dealerPrice);
+  // Task 15 dual pricing — Pickup = per-piece slab price · Delivery = pack price
+  const tier = sessionTier || "tier2";
+  const piece = piecePriceOf(p, tier);
+  const dealActive = p.isDeal && !!p.dealPrice && p.dealPrice > 0;
+  const priceShown = dealActive ? (p.dealPrice ?? piece) : piece;
+  const deliveryPack = deliveryUnitPrice(p, tier, "PACK");
+  const disc = discountPct(p.mrp, priceShown);
   const href = p.slug ? `/product/${p.slug}` : "#";
 
   return (
@@ -93,14 +107,23 @@ export function ProductCard({ p }: { p: DProduct }) {
         </div>
         <div className="mt-auto pt-1">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-base font-bold text-gray-900">{formatINR(p.dealerPrice)}</span>
+            <span className="text-base font-bold text-gray-900">{formatINR(priceShown)}</span>
             <span className="text-[11px] text-gray-400">/pc</span>
-            {p.mrp > p.dealerPrice && <span className="text-[11px] text-gray-400 line-through">{formatINR(p.mrp)}</span>}
+            {p.mrp > priceShown && <span className="text-[11px] text-gray-400 line-through">{formatINR(p.mrp)}</span>}
+            {hydrated && loaded && sessionTier && sessionTier !== "tier2" && (
+              <span className="ml-auto rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-700">Your slab</span>
+            )}
           </div>
-          <p className="text-[11px] text-gray-500">
-            Pack {formatINR(Math.round(p.dealerPrice * (p.packQty || 1) * 0.94 * 100) / 100)} · Case{" "}
-            {formatINR(Math.round(p.dealerPrice * Math.max(p.piecesPerBox || 0, (p.packQty || 1) * 4, 1) * 0.88 * 100) / 100)}
-          </p>
+          {/* Task 15: the two rates — short & understandable */}
+          <div className="mt-0.5 flex items-center gap-2 text-[11px] text-gray-600">
+            <span className="flex items-center gap-0.5" title="Collect from your nearest warehouse — per-piece slab price">
+              <Store className="h-3 w-3 text-yellow-600" /> Pickup {formatINR(priceShown)}
+            </span>
+            <span className="flex items-center gap-0.5" title="Delivered to your address — pack price">
+              <Truck className="h-3 w-3 text-gray-500" /> Delivery {formatINR(deliveryPack)}
+              <span className="text-gray-400">/pk</span>
+            </span>
+          </div>
           {hydrated && inCart > 0 ? (
             <div className="mt-2 flex items-center justify-between rounded-lg bg-yellow-400 px-1 py-1">
               <button
@@ -139,7 +162,11 @@ export function ProductCard({ p }: { p: DProduct }) {
 /** compact row card used in horizontal rails */
 export function ProductCardMini({ p }: { p: DProduct }) {
   const addItem = useCartStore((s) => s.addItem);
-  const disc = discountPct(p.mrp, p.dealerPrice);
+  const priceShown = (() => {
+    const piece = piecePriceOf(p, currentTier());
+    return p.isDeal && !!p.dealPrice && p.dealPrice > 0 ? p.dealPrice : piece;
+  })();
+  const disc = discountPct(p.mrp, priceShown);
   return (
     <div className="flex w-[240px] shrink-0 flex-col overflow-hidden rounded-xl border bg-white transition hover:shadow-md">
       <Link href={p.slug ? `/product/${p.slug}` : "#"} className="relative block aspect-square w-full overflow-hidden bg-gray-50">
@@ -157,8 +184,8 @@ export function ProductCardMini({ p }: { p: DProduct }) {
         </Link>
         <div className="mt-auto flex items-center justify-between pt-1.5">
           <div>
-            <span className="text-sm font-bold">{formatINR(p.dealerPrice)}</span>
-            {p.mrp > p.dealerPrice && <span className="ml-1 text-[10px] text-gray-400 line-through">{formatINR(p.mrp)}</span>}
+            <span className="text-sm font-bold">{formatINR(priceShown)}</span>
+            {p.mrp > priceShown && <span className="ml-1 text-[10px] text-gray-400 line-through">{formatINR(p.mrp)}</span>}
           </div>
           <button
             onClick={() => {
