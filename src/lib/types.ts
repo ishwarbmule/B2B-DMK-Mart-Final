@@ -60,6 +60,10 @@ export interface SliderRow {
   buttonUrl: string;
   image: string;
   mobileImage?: string;
+  kicker?: string;
+  highlight?: string;
+  chips?: string;
+  tagline?: string;
   position: string;
 }
 

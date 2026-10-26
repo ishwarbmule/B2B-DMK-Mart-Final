@@ -1,6 +1,7 @@
 /**
  * POST /api/admin/sync/apply-hero-schema — one-shot idempotent migration:
  *   - Slider.mobileImage (3:4 portrait artwork for phones)
+ *   - Slider.kicker / highlight / chips / tagline (old-artwork content structure)
  * Safe to run repeatedly (information_schema check; Hostinger = MariaDB).
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -25,13 +26,19 @@ export async function POST(req: NextRequest) {
   const skipped: string[] = [];
 
   try {
-    if (await colExists("Slider", "mobileImage")) {
-      skipped.push("Slider.mobileImage (already exists)");
-    } else {
-      await db.$executeRawUnsafe(
-        "ALTER TABLE `Slider` ADD COLUMN `mobileImage` VARCHAR(191) NOT NULL DEFAULT ''"
-      );
-      applied.push("Slider.mobileImage VARCHAR(191) DEFAULT ''");
+    for (const [col, ddl] of [
+      ["mobileImage", "ALTER TABLE `Slider` ADD COLUMN `mobileImage` VARCHAR(191) NOT NULL DEFAULT ''"],
+      ["kicker", "ALTER TABLE `Slider` ADD COLUMN `kicker` VARCHAR(191) NOT NULL DEFAULT ''"],
+      ["highlight", "ALTER TABLE `Slider` ADD COLUMN `highlight` VARCHAR(191) NOT NULL DEFAULT ''"],
+      ["chips", "ALTER TABLE `Slider` ADD COLUMN `chips` VARCHAR(191) NOT NULL DEFAULT ''"],
+      ["tagline", "ALTER TABLE `Slider` ADD COLUMN `tagline` VARCHAR(191) NOT NULL DEFAULT ''"],
+    ] as const) {
+      if (await colExists("Slider", col)) {
+        skipped.push(`Slider.${col} (already exists)`);
+      } else {
+        await db.$executeRawUnsafe(ddl);
+        applied.push(`Slider.${col}`);
+      }
     }
 
     return NextResponse.json({ ok: true, applied, skipped });
