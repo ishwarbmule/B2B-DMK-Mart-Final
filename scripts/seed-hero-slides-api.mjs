@@ -12,13 +12,16 @@ const LOGIN_ID = process.env.ADMIN_LOGIN_ID || "B2B DMK Mart";
 const PASSWORD = process.env.ADMIN_PASSWORD || "DmkMartB2B!2026";
 
 const slide = {
-  heading: "Everyday Essentials for a Better Tomorrow",
-  content:
-    "Housewares, kitchenware & storage from 40+ trusted brands — live stock, true wholesale rates, straight from DMK Mart ERP.",
-  buttonText: "Shop Catalog",
+  kicker: "Your Partner in Quality Products",
+  heading: "Everyday Essentials for a",
+  highlight: "Better Tomorrow",
+  content: "", // old artwork has no paragraph — chips + tagline carry the messaging
+  chips: "Wide Product Range,Trusted Quality,Built for Businesses",
+  tagline: "Homes, Shops, Businesses — All in One Place",
+  buttonText: "Shop Now",
   buttonUrl: "/catalog",
   image: "/images/hero/hero-1.jpg",       // horizontal wide → laptop/desktop/tablet
-  mobileImage: "/images/hero/hero-3.jpg", // 3:4 portrait → mobile
+  mobileImage: "/images/hero/hero-3.jpg", // 3:4 portrait → mobile (copy top-left)
   position: "LEFT",
   sortOrder: 0,
   active: true,
@@ -63,7 +66,7 @@ const main = async () => {
   // 3. Square artwork → ad tile
   const ads = await api("/api/admin/crud/ads", { headers: auth });
   const ad = (ads.rows || []).find((a) => a.title === AD_TITLE);
-  if (ad) {
+  if (ad && ad.image !== AD_IMAGE) {
     await api("/api/admin/crud/ads", {
       method: "PATCH",
       headers: auth,
@@ -71,7 +74,7 @@ const main = async () => {
     });
     console.log(`✓ ad "${AD_TITLE}" image → ${AD_IMAGE} (square)`);
   } else {
-    console.log(`⚠ ad "${AD_TITLE}" not found — square image not assigned`);
+    console.log(ad ? `✓ ad "${AD_TITLE}" already points at ${AD_IMAGE}` : `⚠ ad "${AD_TITLE}" not found`);
   }
   console.log("✓ hero art-direction seeded");
 };

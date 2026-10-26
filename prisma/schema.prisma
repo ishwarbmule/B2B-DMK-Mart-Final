@@ -457,6 +457,10 @@ model Slider {
   buttonUrl   String  @default("#deals")
   image       String  @default("")
   mobileImage String  @default("") // 3:4 portrait artwork shown on phones (art direction)
+  kicker      String  @default("") // small uppercase eyebrow line above the heading
+  highlight   String  @default("") // headline words shown in yellow accent (two-tone, like old artwork)
+  chips       String  @default("") // comma-separated USP chips, e.g. "Wide Product Range,Trusted Quality"
+  tagline     String  @default("") // script-font tagline, top-right on wide screens
   position    String  @default("LEFT")
   active      Boolean @default(true)
   sortOrder   Int     @default(0)

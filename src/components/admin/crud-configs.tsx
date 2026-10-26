@@ -250,8 +250,12 @@ export const CONFIGS: Record<
   sliders: {
     title: "Manage Sliders", sub: "Hero carousel slides on the storefront home", nameField: "heading",
     fields: [
-      { key: "heading", label: "Heading", type: "text" },
-      { key: "content", label: "Content", type: "textarea", required: false },
+      { key: "kicker", label: "Kicker (small uppercase line above heading)", type: "text", required: false },
+      { key: "heading", label: "Heading (dark part of the two-tone headline)", type: "text" },
+      { key: "highlight", label: "Highlight (words shown in yellow after heading)", type: "text", required: false },
+      { key: "content", label: "Paragraph (optional — old design leaves this empty)", type: "textarea", required: false },
+      { key: "chips", label: "USP Chips (comma-separated, yellow icon circles)", type: "text", required: false },
+      { key: "tagline", label: "Tagline (script font, top-right on wide screens)", type: "text", required: false },
       { key: "buttonText", label: "Button Text", type: "text", required: false, default: "Shop Now" },
       { key: "buttonUrl", label: "Button URL", type: "text", required: false, default: "#departments" },
       { key: "image", label: "Image (horizontal wide — desktop/laptop/tablet)", type: "image", required: false },
