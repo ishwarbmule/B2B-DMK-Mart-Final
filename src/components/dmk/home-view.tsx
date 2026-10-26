@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowRight, BadgePercent, Building2, LayoutGrid, ListFilter, Megaphone, PackageCheck, PhoneCall, Star, Truck, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCatalog } from "./site-header-v2";
 import { HeroBanner } from "./hero-banner";
+import { HeroSlider } from "./hero-slider";
 import { ProductCard, ProductCardMini } from "./product-card";
 import { CatalogView } from "./catalog-view";
 import type { DProduct } from "@/lib/types";
@@ -49,13 +50,19 @@ function parseSections(raw: string | undefined): HomeSectionCfg[] {
   }
 }
 
-/* ─────────────── Hero banner + live stats (artwork: upload IMG-20261014-ART0003) ─────────────── */
+/* ─────────────── Hero carousel + live stats (slides editable: Admin → Website Management → Manage Sliders) ─────────────── */
 function OfferHero() {
-  const stat = useCatalog()?.stats;
+  const cat = useCatalog();
+  const stat = cat?.stats;
+  const sliders = cat?.sliders ?? [];
 
   return (
     <section>
-      <HeroBanner />
+      {sliders.length > 0 ? (
+        <HeroSlider sliders={sliders} onCta={() => (window.location.href = "/catalog")} />
+      ) : (
+        <HeroBanner />
+      )}
       <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-gray-600">
         <span className="rounded-lg bg-black/5 px-3 py-1.5"><b className="text-gray-900">{stat?.products ?? 2272}</b> SKUs live</span>
         <span className="rounded-lg bg-black/5 px-3 py-1.5"><b className="text-gray-900">{stat?.brands ?? 39}</b> brands</span>
