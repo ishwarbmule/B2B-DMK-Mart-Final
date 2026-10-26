@@ -32,6 +32,9 @@ export async function POST(req: NextRequest) {
       ["highlight", "ALTER TABLE `Slider` ADD COLUMN `highlight` VARCHAR(191) NOT NULL DEFAULT ''"],
       ["chips", "ALTER TABLE `Slider` ADD COLUMN `chips` VARCHAR(191) NOT NULL DEFAULT ''"],
       ["tagline", "ALTER TABLE `Slider` ADD COLUMN `tagline` VARCHAR(191) NOT NULL DEFAULT ''"],
+      ["mobilePosition", "ALTER TABLE `Slider` ADD COLUMN `mobilePosition` VARCHAR(191) NOT NULL DEFAULT ''"],
+      ["textColor", "ALTER TABLE `Slider` ADD COLUMN `textColor` VARCHAR(191) NOT NULL DEFAULT 'DARK'"],
+      ["headingScale", "ALTER TABLE `Slider` ADD COLUMN `headingScale` VARCHAR(191) NOT NULL DEFAULT 'M'"],
     ] as const) {
       if (await colExists("Slider", col)) {
         skipped.push(`Slider.${col} (already exists)`);

@@ -65,7 +65,6 @@ export function useCountdown() {
 
 const DESIGNS = [
   { href: "/", label: "Original", desc: "DMK Commerce X — dark editorial" },
-  { href: "/home-2", label: "Home-2", desc: "Everyday Essentials — bright retail" },
   { href: "/home/dmart", label: "DMart style", desc: "Value bazaar — clean & price-led" },
   { href: "/home/etsy", label: "Etsy style", desc: "Warm editorial marketplace" },
   { href: "/home/croma", label: "Croma style", desc: "Sleek tech retail — dark deals" },

@@ -5,10 +5,11 @@ import os
 os.makedirs("public/images/hero", exist_ok=True)
 
 TARGETS = [
-    # (source, destination, max_width) — order = slide order
-    ("upload/file_00000000ef30820881e88d48518e04ad.png", "public/images/hero/hero-1.jpg", 1920),  # wide 2.73:1
-    ("upload/file_0000000079208208b6d077ae4db6ed68.png", "public/images/hero/hero-2.jpg", 1400),  # square 1:1
-    ("upload/file_000000007fb482088596fc462ccbf035.png", "public/images/hero/hero-3.jpg", 1200),  # portrait 3:4
+    # (source, destination, max_width) — slide 1 & 2, desktop wide + mobile portrait pairs
+    ("upload/Earthy Homeware Sunlit Display.png", "public/images/hero/hero-d1.jpg", 1600),          # wide 1.78:1
+    ("upload/Sunlit Sage Green Kitchen Corner.png", "public/images/hero/hero-m1.jpg", 1086),        # portrait 3:4
+    ("upload/Sunlit Sage Green Kitchen Still Life.png", "public/images/hero/hero-d2.jpg", 1600),    # wide 1.78:1
+    ("upload/Sunlit Modern Kitchen Still Life.png", "public/images/hero/hero-m2.jpg", 1086),        # portrait 3:4
 ]
 
 for src, dst, maxw in TARGETS:

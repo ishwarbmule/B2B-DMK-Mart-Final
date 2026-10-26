@@ -11,21 +11,44 @@ const BASE = process.argv[2] || "https://b2b-dmk-mart.vercel.app";
 const LOGIN_ID = process.env.ADMIN_LOGIN_ID || "B2B DMK Mart";
 const PASSWORD = process.env.ADMIN_PASSWORD || "DmkMartB2B!2026";
 
-const slide = {
-  kicker: "Your Partner in Quality Products",
-  heading: "Everyday Essentials for a",
-  highlight: "Better Tomorrow",
-  content: "", // old artwork has no paragraph — chips + tagline carry the messaging
-  chips: "Wide Product Range,Trusted Quality,Built for Businesses",
-  tagline: "Homes, Shops, Businesses — All in One Place",
-  buttonText: "Shop Now",
-  buttonUrl: "/catalog",
-  image: "/images/hero/hero-1.jpg",       // horizontal wide → laptop/desktop/tablet
-  mobileImage: "/images/hero/hero-3.jpg", // 3:4 portrait → mobile (copy top-left)
-  position: "LEFT",
-  sortOrder: 0,
-  active: true,
-};
+const slides = [
+  {
+    kicker: "Wholesale Home Essentials",
+    heading: "Everyday Storage & Care",
+    highlight: "for Less",
+    content: "Baskets, bins, towels & cookware from 40+ brands at true wholesale rates.",
+    chips: "Wide Product Range,Trusted Quality,Built for Businesses",
+    tagline: "",
+    buttonText: "Shop Now",
+    buttonUrl: "/catalog",
+    image: "/images/hero/hero-d1.jpg",       // wide — vacant left wall → copy MIDDLE-LEFT
+    mobileImage: "/images/hero/hero-m1.jpg", // portrait — vacant top wall → copy TOP-LEFT
+    position: "MIDDLE-LEFT",
+    mobilePosition: "TOP-LEFT",
+    textColor: "DARK",
+    headingScale: "M",
+    sortOrder: 0,
+    active: true,
+  },
+  {
+    kicker: "Kitchen & Appliances",
+    heading: "Cook, Store & Serve",
+    highlight: "Better",
+    content: "Air fryers, cookware, jars & storage — bulk deals for your business.",
+    chips: "Tier Pricing,OTP Delivery,48h Dispatch",
+    tagline: "",
+    buttonText: "Explore Kitchen",
+    buttonUrl: "/catalog",
+    image: "/images/hero/hero-d2.jpg",       // wide — vacant upper-left wall → copy MIDDLE-LEFT
+    mobileImage: "/images/hero/hero-m2.jpg", // portrait — vacant top wall → copy TOP-CENTER
+    position: "MIDDLE-LEFT",
+    mobilePosition: "TOP-CENTER",
+    textColor: "DARK",
+    headingScale: "M",
+    sortOrder: 1,
+    active: true,
+  },
+];
 
 const AD_TITLE = "Bulk Buy Bonanza";
 const AD_IMAGE = "/images/hero/hero-2.jpg"; // square → ad/promo tiles
@@ -56,12 +79,14 @@ const main = async () => {
     await api(`/api/admin/crud/sliders?id=${r.id}`, { method: "DELETE", headers: auth });
     console.log(`  − deleted old slide: "${r.heading}"`);
   }
-  const { row } = await api("/api/admin/crud/sliders", {
-    method: "POST",
-    headers: auth,
-    body: JSON.stringify(slide),
-  });
-  console.log(`✓ slide: "${row.heading}" desktop=${row.image} mobile=${row.mobileImage}`);
+  for (const slide of slides) {
+    const { row } = await api("/api/admin/crud/sliders", {
+      method: "POST",
+      headers: auth,
+      body: JSON.stringify(slide),
+    });
+    console.log(`✓ slide [${row.sortOrder}]: "${row.heading}" desktop=${row.image}@${row.position} mobile=${row.mobileImage}@${row.mobilePosition}`);
+  }
 
   // 3. Square artwork → ad tile
   const ads = await api("/api/admin/crud/ads", { headers: auth });

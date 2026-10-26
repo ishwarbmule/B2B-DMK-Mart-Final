@@ -8,16 +8,36 @@ import type { SliderRow } from "@/lib/types";
 
 /**
  * Hero carousel driven by the DB `Slider` rows (Website Management → Manage Sliders).
- * Copy structure mirrors the original DMK artwork:
- *   kicker ("YOUR PARTNER IN QUALITY PRODUCTS") → two-tone headline (dark + yellow
- *   highlight) → USP chips (yellow icon circles) → yellow pill "Shop Now →" →
- *   script-font tagline ("Homes, Shops, Businesses — All in One Place", top-right).
- * Art direction: slide.image (horizontal) on laptop/desktop/tablet (≥640px),
- * slide.mobileImage (3:4 portrait) on phones. On phones the copy block sits in the
- * TOP-LEFT corner over a top-down scrim; on wide screens it sits left over a
- * left→right scrim, keeping the light-on-cream look of the original artwork.
+ * NO overlay/scrim is drawn — copy sits directly in each artwork's vacant space.
+ * 9-zone placement per device: `position` (laptop/desktop/tablet) and
+ * `mobilePosition` (phones). `textColor` DARK/LIGHT matches the wall behind the
+ * copy; `headingScale` S/M/L keeps the content inside the vacant area.
+ * Copy structure: kicker → two-tone heading (highlight in amber) → short
+ * paragraph → USP chips → pill CTA → script tagline (wide screens, top-right).
  */
 const CHIP_ICONS = [Package, ShieldCheck, Users];
+
+const ZONES: Record<string, string> = {
+  "TOP-LEFT": "justify-start items-start text-left",
+  "TOP-CENTER": "justify-start items-center text-center",
+  "TOP-RIGHT": "justify-start items-end text-right",
+  "MIDDLE-LEFT": "justify-center items-start text-left",
+  "MIDDLE-CENTER": "justify-center items-center text-center",
+  "MIDDLE-RIGHT": "justify-center items-end text-right",
+  "BOTTOM-LEFT": "justify-end items-start text-left",
+  "BOTTOM-CENTER": "justify-end items-center text-center",
+  "BOTTOM-RIGHT": "justify-end items-end text-right",
+  // legacy values from earlier schema
+  LEFT: "justify-center items-start text-left",
+  CENTER: "justify-center items-center text-center",
+  RIGHT: "justify-center items-end text-right",
+};
+
+const SCALES: Record<string, string> = {
+  S: "text-lg sm:text-2xl md:text-3xl",
+  M: "text-xl sm:text-3xl md:text-4xl",
+  L: "text-2xl sm:text-4xl md:text-5xl",
+};
 
 export function HeroSlider({ sliders, onCta }: { sliders: SliderRow[]; onCta?: () => void }) {
   const [idx, setIdx] = useState(0);
@@ -33,25 +53,18 @@ export function HeroSlider({ sliders, onCta }: { sliders: SliderRow[]; onCta?: (
   const s = sliders[idx];
   const href = s.buttonUrl && !s.buttonUrl.startsWith("#") ? s.buttonUrl : null;
   const chips = (s.chips ?? "").split(",").map((c) => c.trim()).filter(Boolean);
+  const dark = (s.textColor ?? "DARK") !== "LIGHT";
+  const ink = dark ? "text-gray-900" : "text-white";
+  const inkSoft = dark ? "text-gray-700" : "text-gray-100";
 
-  /* Wide screens: copy position per slide (LEFT default, like the old artwork) */
-  const posWrapSm =
-    s.position === "CENTER"
-      ? "sm:items-center sm:text-center"
-      : s.position === "RIGHT"
-        ? "sm:items-end sm:text-right sm:justify-end"
-        : "sm:items-start sm:text-left";
-
-  /* Scrim: white wash (old artwork = dark text on cream). Phones: top-down wash,
-     copy pinned top-left. Wide: left→right wash, copy vertically centered. */
-  const scrim =
-    "absolute inset-0 flex flex-col justify-start items-start text-left gap-2 bg-gradient-to-b from-white/95 via-white/80 to-transparent p-5 pt-7 sm:justify-center sm:gap-3 sm:bg-gradient-to-r sm:from-white/95 sm:via-white/70 sm:to-transparent sm:p-10";
+  const zone = ZONES[s.mobilePosition || s.position || "TOP-LEFT"] ?? ZONES["TOP-LEFT"];
+  const zoneSm = ZONES[s.position || "MIDDLE-LEFT"] ?? ZONES["MIDDLE-LEFT"];
+  const scale = SCALES[s.headingScale || "M"] ?? SCALES.M;
 
   return (
     <div className="relative overflow-hidden rounded-2xl bg-[#FFF6E0]">
-      {/* 3:4 portrait frame on phones · wide 2.5:1 frame on tablet/laptop/desktop */}
-      <div className="relative aspect-[3/4] w-full sm:aspect-[1200/480] lg:max-h-[440px]">
-        {/* Desktop / laptop / tablet artwork (horizontal) */}
+      {/* 3:4 portrait frame on phones · wide 16:9-ish frame on tablet/laptop/desktop */}
+      <div className="relative aspect-[3/4] w-full sm:aspect-[16/9] lg:max-h-[480px]">
         <Image
           key={`d-${s.id}`}
           src={s.image}
@@ -62,7 +75,6 @@ export function HeroSlider({ sliders, onCta }: { sliders: SliderRow[]; onCta?: (
           priority
           unoptimized
         />
-        {/* Mobile artwork (3:4 portrait) */}
         <Image
           key={`m-${s.id}`}
           src={s.mobileImage || s.image}
@@ -74,11 +86,11 @@ export function HeroSlider({ sliders, onCta }: { sliders: SliderRow[]; onCta?: (
           unoptimized
         />
 
-        {/* Script tagline — top-right, wide screens only (like the old artwork) */}
+        {/* Script tagline — top-right, wide screens only, no backdrop */}
         {s.tagline && (
           <div className="absolute right-6 top-5 z-10 hidden text-right sm:block lg:right-10 lg:top-7">
             <p
-              className="text-2xl font-bold leading-[1.15] text-gray-900 lg:text-[2rem]"
+              className={`text-2xl font-bold leading-[1.15] ${ink} lg:text-[2rem]`}
               style={{ fontFamily: "var(--font-script), cursive" }}
             >
               {s.tagline}
@@ -86,56 +98,60 @@ export function HeroSlider({ sliders, onCta }: { sliders: SliderRow[]; onCta?: (
           </div>
         )}
 
-        {/* Copy block — top-left on phones · positioned left/center/right on wide */}
-        <div className={`${scrim} ${posWrapSm}`}>
-          {s.kicker && (
-            <span className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-gray-700 sm:text-xs">
-              {s.kicker}
-            </span>
-          )}
-          <h2 className="max-w-md text-[1.35rem] font-black leading-[1.08] tracking-tight text-gray-900 sm:text-3xl md:text-4xl lg:text-[2.6rem]">
-            {s.heading}
-            {s.highlight && <span className="text-amber-500"> {s.highlight}</span>}
-          </h2>
-          {s.content && (
-            <p className="max-w-sm text-[11px] leading-relaxed text-gray-700 sm:max-w-md sm:text-sm">
-              {s.content}
-            </p>
-          )}
-          {chips.length > 0 && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-0.5 sm:gap-x-5 sm:gap-y-0 sm:pt-1">
-              {chips.map((c, i) => {
-                const Icon = CHIP_ICONS[i % CHIP_ICONS.length];
-                return (
-                  <span key={c} className="flex items-center gap-1.5 sm:gap-2">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-400 text-black shadow-sm sm:h-9 sm:w-9">
-                      <Icon className="h-3.5 w-3.5 sm:h-4.5 sm:w-4.5" strokeWidth={2.4} />
+        {/* Copy block — placed in the artwork's vacant space; NO overlay colours */}
+        <div
+          className={`absolute inset-0 flex flex-col gap-1.5 p-5 sm:gap-2.5 sm:p-10 ${zone} ${zoneSm ? zoneSm : ""}`}
+        >
+          <div className={`flex flex-col gap-1.5 sm:gap-2.5 ${zone}`}>
+            {s.kicker && (
+              <span className={`text-[10px] font-extrabold uppercase tracking-[0.18em] ${inkSoft} sm:text-xs`}>
+                {s.kicker}
+              </span>
+            )}
+            <h2 className={`max-w-[60%] font-black leading-[1.06] tracking-tight sm:max-w-md ${scale} ${ink}`}>
+              {s.heading}
+              {s.highlight && <span className="text-amber-500"> {s.highlight}</span>}
+            </h2>
+            {s.content && (
+              <p className={`max-w-[62%] text-[11px] leading-snug sm:max-w-sm sm:text-sm sm:leading-snug ${inkSoft}`}>
+                {s.content}
+              </p>
+            )}
+            {chips.length > 0 && (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:gap-x-5">
+                {chips.map((c, i) => {
+                  const Icon = CHIP_ICONS[i % CHIP_ICONS.length];
+                  return (
+                    <span key={c} className="flex items-center gap-1.5 sm:gap-2">
+                      <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full shadow-sm sm:h-9 sm:w-9 ${dark ? "bg-amber-400 text-black" : "bg-white/20 text-white backdrop-blur-sm"}`}>
+                        <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" strokeWidth={2.4} />
+                      </span>
+                      <span className={`max-w-[76px] text-[9.5px] font-bold leading-tight sm:max-w-[96px] sm:text-xs ${ink}`}>
+                        {c}
+                      </span>
                     </span>
-                    <span className="max-w-[76px] text-[9.5px] font-bold leading-tight text-gray-800 sm:max-w-[96px] sm:text-xs">
-                      {c}
-                    </span>
-                  </span>
-                );
-              })}
-            </div>
-          )}
-          {href ? (
-            <Link
-              href={href}
-              className="mt-1 flex w-fit items-center gap-2 rounded-full bg-amber-400 px-5 py-2 text-xs font-extrabold text-black shadow-md transition hover:bg-amber-300 sm:mt-2 sm:px-7 sm:py-3 sm:text-sm"
-            >
-              {s.buttonText || "Shop Now"}
-              <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" strokeWidth={2.6} />
-            </Link>
-          ) : (
-            <button
-              onClick={onCta}
-              className="mt-1 flex w-fit items-center gap-2 rounded-full bg-amber-400 px-5 py-2 text-xs font-extrabold text-black shadow-md transition hover:bg-amber-300 sm:mt-2 sm:px-7 sm:py-3 sm:text-sm"
-            >
-              {s.buttonText || "Shop Now"}
-              <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" strokeWidth={2.6} />
-            </button>
-          )}
+                  );
+                })}
+              </div>
+            )}
+            {href ? (
+              <Link
+                href={href}
+                className={`mt-0.5 flex w-fit items-center gap-2 rounded-full px-4 py-1.5 text-[11px] font-extrabold shadow-md transition sm:mt-1 sm:px-6 sm:py-2.5 sm:text-sm ${dark ? "bg-amber-400 text-black hover:bg-amber-300" : "bg-white/95 text-gray-900 hover:bg-white"}`}
+              >
+                {s.buttonText || "Shop Now"}
+                <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" strokeWidth={2.6} />
+              </Link>
+            ) : (
+              <button
+                onClick={onCta}
+                className={`mt-0.5 flex w-fit items-center gap-2 rounded-full px-4 py-1.5 text-[11px] font-extrabold shadow-md transition sm:mt-1 sm:px-6 sm:py-2.5 sm:text-sm ${dark ? "bg-amber-400 text-black hover:bg-amber-300" : "bg-white/95 text-gray-900 hover:bg-white"}`}
+              >
+                {s.buttonText || "Shop Now"}
+                <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" strokeWidth={2.6} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -144,14 +160,14 @@ export function HeroSlider({ sliders, onCta }: { sliders: SliderRow[]; onCta?: (
           <button
             onClick={() => setIdx((i) => (i - 1 + n) % n)}
             aria-label="Previous offer"
-            className="absolute left-3 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black shadow hover:bg-white sm:flex"
+            className="absolute left-3 top-1/2 z-10 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black shadow hover:bg-white sm:flex"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
           <button
             onClick={() => setIdx((i) => (i + 1) % n)}
             aria-label="Next offer"
-            className="absolute right-3 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black shadow hover:bg-white sm:flex"
+            className="absolute right-3 top-1/2 z-10 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black shadow hover:bg-white sm:flex"
           >
             <ChevronRight className="h-5 w-5" />
           </button>

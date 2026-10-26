@@ -9,7 +9,7 @@ import Link from "next/link";
  * headline, USP chips (Wide Product Range / Trusted Quality / Built for
  * Businesses), Shop Now and the Homes-Shops-Businesses tagline.
  * The whole banner deep-links to the catalog.
- * Used on BOTH homepages: default (/) and home-2 (/home-2).
+ * Used on the default homepage (fallback when no admin slides exist).
  */
 export function HeroBanner() {
   return (
