@@ -169,31 +169,37 @@ export function SiteHeaderV2() {
           </Link>
         </div>
 
-        {/* departments mega — image cards */}
+        {/* departments mega — one compact row: small image + name + subcategory list per department */}
         {mega === "depts" && (
-          <div onMouseLeave={() => setMega(null)} className="absolute inset-x-0 top-full z-50 max-h-[75vh] overflow-y-auto border-t-2 border-yellow-400 bg-white shadow-xl">
-            <div className="mx-auto grid max-w-[1400px] grid-cols-2 gap-4 p-6 sm:grid-cols-3 lg:grid-cols-5">
+          <div onMouseLeave={() => setMega(null)} className="absolute inset-x-0 top-full z-50 border-t-2 border-yellow-400 bg-white shadow-xl">
+            <div className="mx-auto flex max-w-[1400px] items-stretch gap-1 overflow-x-auto p-4 scrollbar-hide lg:justify-between lg:overflow-visible">
               {tops.map((t) => (
-                <div key={t.id} className="group overflow-hidden rounded-xl border border-gray-100 bg-white transition hover:border-yellow-400 hover:shadow-md">
-                  <Link href={`/catalog?top=${t.id}`} onClick={() => setMega(null)} className="relative block aspect-[16/10] w-full overflow-hidden bg-gray-50">
-                    {t.image ? (
-                      <Image src={t.image} alt={t.name} fill sizes="260px" className="object-cover transition duration-300 group-hover:scale-105" unoptimized />
-                    ) : (
-                      <span className="flex h-full items-center justify-center text-4xl">{t.emoji}</span>
-                    )}
-                    <span className="absolute right-1.5 top-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-yellow-400">{t.productCount ?? 0} SKUs</span>
-                  </Link>
-                  <div className="p-3">
-                    <Link href={`/catalog?top=${t.id}`} onClick={() => setMega(null)} className="line-clamp-1 text-[13px] font-bold text-black hover:text-yellow-600">
+                <div key={t.id} className="group w-[118px] shrink-0 px-1 lg:min-w-[104px] lg:flex-1">
+                  <Link href={`/catalog?top=${t.id}`} onClick={() => setMega(null)} className="block">
+                    <span className="relative mx-auto block h-16 w-16 overflow-hidden rounded-xl border border-gray-100 bg-gray-50">
+                      {t.image ? (
+                        <Image src={t.image} alt={t.name} fill sizes="64px" className="object-cover transition duration-300 group-hover:scale-105" unoptimized />
+                      ) : (
+                        <span className="flex h-full items-center justify-center text-2xl">{t.emoji}</span>
+                      )}
+                    </span>
+                    <span className="mt-1.5 line-clamp-2 block text-center text-[11px] font-bold leading-tight text-gray-900 group-hover:text-yellow-600">
                       {t.name}
-                    </Link>
-                    <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5">
-                      {t.mids.slice(0, 3).map((m) => (
-                        <Link key={m.id} href={`/catalog?top=${t.id}`} onClick={() => setMega(null)} className="line-clamp-1 text-[11px] text-gray-500 hover:text-yellow-600">
-                          {m.name}
-                        </Link>
-                      ))}
-                    </div>
+                    </span>
+                    <span className="mt-0.5 block text-center text-[9px] font-semibold text-yellow-600">{t.productCount ?? 0} SKUs</span>
+                  </Link>
+                  <div className="mt-1.5 space-y-0.5 border-t border-gray-100 pt-1.5">
+                    {t.mids.map((m) => (
+                      <Link
+                        key={m.id}
+                        href={`/catalog?top=${t.id}`}
+                        onClick={() => setMega(null)}
+                        title={m.name}
+                        className="block truncate text-[10px] leading-snug text-gray-500 hover:text-yellow-600"
+                      >
+                        · {m.name}
+                      </Link>
+                    ))}
                   </div>
                 </div>
               ))}
@@ -201,34 +207,37 @@ export function SiteHeaderV2() {
           </div>
         )}
 
-        {/* per-department mega panel (hover a top-level category) */}
+        {/* per-department mega panel (hover a top-level category) — compact: small image + subcategory list */}
         {tops.filter((t) => t.id === mega).map((t) => (
           <div key={t.id} onMouseLeave={() => setMega(null)} className="absolute inset-x-0 top-full z-50 border-t-2 border-yellow-400 bg-white shadow-xl">
-            <div className="mx-auto flex max-w-[1400px] gap-6 p-6">
-              <div className="hidden w-60 shrink-0 md:block">
-                <Link href={`/catalog?top=${t.id}`} onClick={() => setMega(null)} className="group relative block overflow-hidden rounded-xl border border-gray-100 bg-gray-50" aria-label={`Shop all ${t.name}`}>
-                  <div className="relative aspect-[4/5] w-full">
-                    {t.image ? (
-                      <Image src={t.image} alt={t.name} fill sizes="240px" className="object-cover transition duration-300 group-hover:scale-105" unoptimized />
-                    ) : (
-                      <span className="flex h-full items-center justify-center text-5xl">{t.emoji}</span>
-                    )}
-                    <span className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pb-2.5 pt-8 text-xs font-bold text-white">
-                      Shop all {t.productCount ?? 0} SKUs <ChevronRight className="h-3.5 w-3.5" />
-                    </span>
-                  </div>
-                </Link>
-              </div>
+            <div className="mx-auto flex max-w-[1400px] items-start gap-4 p-4">
+              <Link
+                href={`/catalog?top=${t.id}`}
+                onClick={() => setMega(null)}
+                aria-label={`Shop all ${t.name}`}
+                className="group relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-gray-50"
+              >
+                {t.image ? (
+                  <Image src={t.image} alt={t.name} fill sizes="96px" className="object-cover transition duration-300 group-hover:scale-105" unoptimized />
+                ) : (
+                  <span className="flex h-full items-center justify-center text-3xl">{t.emoji}</span>
+                )}
+              </Link>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base font-black text-black">{t.emoji} {t.name}</h3>
-                  <Link href={`/catalog?top=${t.id}`} onClick={() => setMega(null)} className="text-xs font-bold text-yellow-600 hover:underline">
-                    View department →
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="truncate text-sm font-black text-black">{t.emoji} {t.name}</h3>
+                  <Link href={`/catalog?top=${t.id}`} onClick={() => setMega(null)} className="shrink-0 text-xs font-bold text-yellow-600 hover:underline">
+                    Shop all {t.productCount ?? 0} SKUs →
                   </Link>
                 </div>
-                <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1.5 lg:grid-cols-3">
+                <div className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-0.5 sm:grid-cols-3 lg:grid-cols-4">
                   {t.mids.map((m) => (
-                    <Link key={m.id} href={`/catalog?top=${t.id}`} onClick={() => setMega(null)} className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-yellow-50 hover:text-black">
+                    <Link
+                      key={m.id}
+                      href={`/catalog?top=${t.id}`}
+                      onClick={() => setMega(null)}
+                      className="flex items-center gap-1.5 truncate rounded-lg px-2 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-yellow-50 hover:text-black"
+                    >
                       <ChevronRight className="h-3 w-3 shrink-0 text-yellow-500" />
                       <span className="truncate">{m.name}</span>
                     </Link>
