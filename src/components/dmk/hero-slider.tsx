@@ -159,8 +159,9 @@ export function HeroSlider({ sliders, onCta }: { sliders: SliderRow[]; onCta?: (
   return (
     <div className="relative overflow-hidden rounded-2xl bg-[#FFF6E0]">
       {/* auto-fit frames: portrait-friendly on phones, cinematic on wide screens —
-          the artwork always covers the container edge-to-edge */}
-      <div className="relative h-[440px] w-full sm:h-[460px] lg:h-[540px]">
+          the artwork always covers the container edge-to-edge. padVars live here so BOTH
+          the copy block and the script tagline inherit the per-side padding rhythm. */}
+      <div className="relative h-[440px] w-full sm:h-[460px] lg:h-[540px]" style={padVars}>
         {/* desktop / tablet artwork — crossfade between slides */}
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.div
@@ -202,7 +203,6 @@ export function HeroSlider({ sliders, onCta }: { sliders: SliderRow[]; onCta?: (
             Pads wrap content + buttons ONLY; the artwork is never inset. NO overlay colours. */}
         <div
           className={`absolute inset-0 flex flex-col pt-[var(--ptm)] pr-[var(--prm)] pb-[var(--pbm)] pl-[var(--plm)] sm:pt-[var(--pt)] sm:pr-[var(--pr)] sm:pb-[var(--pb)] sm:pl-[var(--pl)] ${zoneAll}`}
-          style={padVars}
         >
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
