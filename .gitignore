@@ -63,3 +63,4 @@ scripts/upload_missing_logos.py
 worklog.md
 .golive-token
 tool-results/
+upload/

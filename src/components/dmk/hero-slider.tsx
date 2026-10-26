@@ -2,25 +2,41 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { SliderRow } from "@/lib/types";
 
-export function HeroSlider({ sliders, onCta }: { sliders: SliderRow[]; onCta: () => void }) {
+/**
+ * Hero carousel driven by the DB `Slider` rows (Website Management → Manage Sliders).
+ * Every slide's image, headline, paragraph, button text and button URL are
+ * admin-editable. Slide copy sits on a gradient scrim; position LEFT/CENTER/RIGHT
+ * is honoured per slide. Mixed artwork ratios are handled with object-cover on a
+ * responsive aspect box (taller on mobile, wide on desktop).
+ */
+export function HeroSlider({ sliders, onCta }: { sliders: SliderRow[]; onCta?: () => void }) {
   const [idx, setIdx] = useState(0);
   const n = sliders.length;
 
   useEffect(() => {
     if (n <= 1) return;
-    const t = setInterval(() => setIdx((i) => (i + 1) % n), 5000);
+    const t = setInterval(() => setIdx((i) => (i + 1) % n), 6000);
     return () => clearInterval(t);
   }, [n]);
 
   if (!n) return null;
   const s = sliders[idx];
+  const href = s.buttonUrl && !s.buttonUrl.startsWith("#") ? s.buttonUrl : null;
+
+  const posWrap =
+    s.position === "CENTER"
+      ? "items-center text-center"
+      : s.position === "RIGHT"
+        ? "items-end text-right justify-end"
+        : "items-start text-left";
 
   return (
     <div className="relative overflow-hidden rounded-2xl bg-black">
-      <div className="relative aspect-[1200/480] max-h-[380px] w-full">
+      <div className="relative aspect-[4/3] w-full sm:aspect-[1200/560] lg:aspect-[1200/480] lg:max-h-[440px]">
         <Image
           key={s.id}
           src={s.image}
@@ -31,20 +47,31 @@ export function HeroSlider({ sliders, onCta }: { sliders: SliderRow[]; onCta: ()
           priority
           unoptimized
         />
-        <div className="absolute inset-0 flex flex-col justify-center gap-3 bg-gradient-to-r from-black/70 via-black/20 to-transparent p-6 md:p-12">
-          <span className="w-fit rounded-full bg-yellow-400 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-black">
+        <div
+          className={`absolute inset-0 flex flex-col justify-center gap-2.5 bg-gradient-to-r from-black/70 via-black/25 to-transparent p-5 md:gap-3 md:p-10 ${posWrap}`}
+        >
+          <span className="w-fit rounded-full bg-yellow-400 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-black md:text-[11px]">
             DMK Mart Exclusive
           </span>
-          <h2 className="max-w-md text-2xl font-black leading-tight text-white md:text-4xl">
+          <h2 className="max-w-md text-xl font-black leading-tight text-white md:text-3xl lg:text-4xl">
             {s.heading}
           </h2>
           <p className="max-w-md text-xs text-gray-200 md:text-sm">{s.content}</p>
-          <button
-            onClick={onCta}
-            className="w-fit rounded-lg bg-yellow-400 px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-black transition hover:bg-yellow-300 md:text-sm"
-          >
-            {s.buttonText || "Shop Now"} →
-          </button>
+          {href ? (
+            <Link
+              href={href}
+              className="w-fit rounded-lg bg-yellow-400 px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-black transition hover:bg-yellow-300 md:text-sm"
+            >
+              {s.buttonText || "Shop Now"} →
+            </Link>
+          ) : (
+            <button
+              onClick={onCta}
+              className="w-fit rounded-lg bg-yellow-400 px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-black transition hover:bg-yellow-300 md:text-sm"
+            >
+              {s.buttonText || "Shop Now"} →
+            </button>
+          )}
         </div>
       </div>
 
