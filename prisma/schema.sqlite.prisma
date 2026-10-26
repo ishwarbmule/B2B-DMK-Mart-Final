@@ -207,6 +207,9 @@ model Order {
   paymentMethod  String      @default("UPI")
   paymentStatus  String      @default("PENDING")
   waOptIn        Boolean     @default(false) // customer consented to WhatsApp order updates at checkout
+  fulfillment          String  @default("DELIVERY")
+  pickupWarehouseId    String  @default("")
+  pickupWarehouseName  String  @default("")
   confirmedAt    DateTime?
   confirmedBy    String      @default("")
   nextDeliveryAt String      @default("")
@@ -257,6 +260,8 @@ model Warehouse {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   stocks    WarehouseStock[]
+  transfersFrom StockTransfer[] @relation("transfersFrom")
+  transfersTo   StockTransfer[] @relation("transfersTo")
 }
 
 model WarehouseStock {
@@ -269,6 +274,34 @@ model WarehouseStock {
   updatedAt   DateTime @updatedAt
 
   @@unique([warehouseId, productId])
+}
+
+// ───────────────── STOCK TRANSFERS (warehouse → warehouse, single or bulk) ─────────────────
+
+model StockTransfer {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  fromWarehouseId String
+  fromWarehouse   Warehouse @relation("transfersFrom", fields: [fromWarehouseId], references: [id])
+  toWarehouseId   String
+  toWarehouse     Warehouse @relation("transfersTo", fields: [toWarehouseId], references: [id])
+  status          String    @default("RECEIVED")
+  note            String    @default("")
+  itemCount       Int       @default(0)
+  totalQty        Int       @default(0)
+  createdBy       String    @default("Super Admin")
+  createdAt       DateTime  @default(now())
+  items           StockTransferItem[]
+}
+
+model StockTransferItem {
+  id         String        @id @default(cuid())
+  transferId String
+  transfer   StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  productId  String
+  sku        String        @default("")
+  name       String        @default("")
+  qty        Int
 }
 
 // ───────────────────────── OFFERS & COUPONS (Big Million Days engine) ─────────────────────────

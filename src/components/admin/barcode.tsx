@@ -40,3 +40,62 @@ export function Code39Svg({ value, height = 44, moduleWidth = 1.6, showText = tr
     </svg>
   );
 }
+
+const inr = (n: number) =>
+  "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+
+/**
+ * Task 15 — the DMK Mart product label, print-grade structure:
+ *   ┌────────────────────────┐
+ *   │      [ BARCODE ]       │  ← barcode at the TOP
+ *   │   DMK0017-SP1          │  ← machine code, small mono
+ *   │  Product Name Here     │  ← product name, larger & well-fonted
+ *   │  MRP ₹199 · Sale ₹149  │  ← MRP + selling price, small
+ *   │  DMK Mart · 98765 43210│  ← firm name + phone, tiny, bottom center
+ *   └────────────────────────┘
+ * Used by the Barcode Studio preview AND the order barcode print sheet.
+ */
+export function BarcodeLabel({
+  value,
+  name,
+  mrp,
+  price,
+  firmName = "DMK Mart",
+  firmPhone = "",
+  qtyLabel = "",
+  height = 34,
+  moduleWidth = 1,
+}: {
+  value: string;
+  name: string;
+  mrp: number;
+  price: number;
+  firmName?: string;
+  firmPhone?: string;
+  qtyLabel?: string; // e.g. "×2 pcs" on order sheets
+  height?: number;
+  moduleWidth?: number;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-between gap-0.5 rounded-md border border-gray-300 bg-white px-1.5 py-1.5 text-center leading-tight">
+      {/* barcode at the top */}
+      <div className="flex w-full justify-center overflow-hidden">
+        <Code39Svg value={value} height={height} moduleWidth={moduleWidth} showText />
+      </div>
+      {/* product name — larger, well-fonted */}
+      <p className="line-clamp-2 min-h-[26px] w-full px-0.5 text-[11px] font-bold leading-snug text-gray-900">
+        {name}
+      </p>
+      {/* MRP + selling price — small */}
+      <p className="w-full text-[9px] font-semibold text-gray-700">
+        MRP {inr(mrp)} <span className="mx-0.5 text-gray-400">·</span>{" "}
+        <span className="font-black text-gray-900">Sale {inr(price)}</span>
+        {qtyLabel ? <span className="ml-1 font-bold text-yellow-700">{qtyLabel}</span> : null}
+      </p>
+      {/* firm identity — tiny, bottom center */}
+      <p className="w-full border-t border-dashed border-gray-300 pt-0.5 text-[7.5px] font-medium uppercase tracking-wide text-gray-500">
+        {firmName}{firmPhone ? ` · ${firmPhone}` : ""}
+      </p>
+    </div>
+  );
+}

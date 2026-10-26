@@ -5,9 +5,9 @@ import Image from "next/image";
 import { Check, Minus, Plus, Printer, RefreshCcw, Search } from "lucide-react";
 import { toast } from "sonner";
 import { api, ModuleHeader } from "./ui-bits";
-import { Code39Svg } from "./barcode";
+import { BarcodeLabel } from "./barcode";
 
-type Row = { id: string; sku: string; name: string; image: string; packQty: number; piecesPerBox: number; dealerPrice: number; brand: { name: string } };
+type Row = { id: string; sku: string; name: string; image: string; packQty: number; piecesPerBox: number; dealerPrice: number; mrp: number; brand: { name: string } };
 type UnitType = "SINGLE" | "PACK" | "BULK";
 
 const UNIT_META: Record<UnitType, { label: string; suffix: string; pieces: (r: Row) => number; price: (r: Row) => number }> = {
@@ -24,6 +24,15 @@ export function BarcodeStudio({ token }: { token: string }) {
   const [unit, setUnit] = useState<UnitType>("SINGLE");
   const [labelsPerProduct, setLabelsPerProduct] = useState(2);
   const [loading, setLoading] = useState(false);
+  const [firm, setFirm] = useState({ name: "DMK Mart", phone: "" });
+
+  useEffect(() => {
+    // label footer identity — firm name + phone from public site settings
+    fetch("/api/site-settings", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => setFirm({ name: d.firmName || "DMK Mart", phone: d.firmPhone || "" }))
+      .catch(() => {});
+  }, []);
 
   const search = useCallback(async () => {
     setLoading(true);
@@ -121,19 +130,24 @@ export function BarcodeStudio({ token }: { token: string }) {
         <div>
           <div className="rounded-xl border bg-white p-4">
             <p className="text-xs font-bold text-gray-700">Label Sheet Preview</p>
-            <p className="mb-3 text-[11px] text-gray-400">{selCount * labelsPerProduct} labels · Code39 · print on label rolls or A4 stickers</p>
+            <p className="mb-3 text-[11px] text-gray-400">{selCount * labelsPerProduct} labels · Code39 · barcode top · name · MRP &amp; sale price · DMK Mart footer</p>
             {selCount === 0 ? (
               <div className="rounded-lg border border-dashed p-8 text-center text-xs text-gray-400">Select products from the list to build the label sheet.</div>
             ) : (
               <div id="label-sheet" className="grid max-h-[56vh] grid-cols-2 gap-2 overflow-y-auto rounded-lg border-2 border-dashed border-yellow-400 p-2">
                 {Object.values(selected).flatMap((r) =>
                   Array.from({ length: labelsPerProduct }).map((_, i) => (
-                    <div key={`${r.id}-${i}`} className="rounded-md border border-gray-200 p-1.5 text-center">
-                      <p className="truncate text-[9px] font-bold text-black">{r.name}</p>
-                      <p className="text-[8px] text-gray-500">{r.sku}-{meta.suffix}{meta.pieces(r)} · {r.brand?.name}</p>
-                      <div className="flex justify-center overflow-hidden"><Code39Svg value={`${r.sku}-${meta.suffix}${meta.pieces(r)}`} height={30} moduleWidth={1} /></div>
-                      <p className="text-[9px] font-black">{formatINRmeta(meta.price(r))} <span className="font-normal text-gray-400">/ {meta.label.replace("Single ", "").toLowerCase()}</span></p>
-                    </div>
+                    <BarcodeLabel
+                      key={`${r.id}-${i}`}
+                      value={`${r.sku}-${meta.suffix}${meta.pieces(r)}`}
+                      name={r.name}
+                      mrp={r.mrp}
+                      price={meta.price(r)}
+                      firmName={firm.name}
+                      firmPhone={firm.phone}
+                      height={30}
+                      moduleWidth={1}
+                    />
                   ))
                 )}
               </div>

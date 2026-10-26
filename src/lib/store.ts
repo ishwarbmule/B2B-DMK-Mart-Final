@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { Fulfillment } from "@/lib/pricing";
 
 export type UnitType = "SINGLE" | "PACK" | "BULK";
 
@@ -14,7 +15,8 @@ export interface CartItem {
   slug: string;
   packQty: number;
   piecesPerBox: number;
-  price: number; // price per SINGLE piece (tier-adjusted client-side when known)
+  price: number; // per-SINGLE-piece price for the buyer's slab (client-adjusted when logged in)
+  packPrice?: number; // Task 15: admin-set delivery pack rate (delivery PACK lines bill this)
   mrp: number;
   gst: number;
   unitType: UnitType;
@@ -30,12 +32,22 @@ export function piecesPerUnit(item: Pick<CartItem, "unitType" | "packQty" | "pie
   return Math.max(item.piecesPerBox || 0, (item.packQty || 1) * 4, 1);
 }
 
-/** price per unit of the chosen unit type */
-export function unitPriceFor(item: Pick<CartItem, "unitType" | "packQty" | "piecesPerBox" | "price">): number {
+/** price per unit of the chosen unit type under the chosen fulfillment mode.
+ *  PICKUP  → flat per-piece slab rate (no pack discount — buyer collects from the warehouse)
+ *  DELIVERY→ pack-based rates: PACK uses the admin packPrice when set, else piece × packQty × 0.94 */
+export function unitPriceFor(
+  item: Pick<CartItem, "unitType" | "packQty" | "piecesPerBox" | "price" | "packPrice">,
+  fulfillment: Fulfillment = "DELIVERY"
+): number {
   const ppu = piecesPerUnit(item);
   if (item.unitType === "SINGLE") return item.price;
-  if (item.unitType === "PACK") return Math.round(item.price * ppu * 0.94 * 100) / 100;
-  return Math.round(item.price * ppu * 0.88 * 100) / 100;
+  if (item.unitType === "PACK") {
+    if (fulfillment === "PICKUP") return Math.round(item.price * ppu * 100) / 100;
+    return item.packPrice && item.packPrice > 0
+      ? item.packPrice
+      : Math.round(item.price * ppu * 0.94 * 100) / 100;
+  }
+  return Math.round(item.price * ppu * (fulfillment === "PICKUP" ? 1 : 0.88) * 100) / 100;
 }
 
 export const GST_RATE = 0.18;
@@ -110,12 +122,12 @@ export interface CartTotals {
 }
 
 /** gstEnabled = admin GST master toggle (Settings → GST Mode). When false, no tax is added or shown anywhere. */
-export function cartTotals(items: CartItem[], gstEnabled = true): CartTotals {
+export function cartTotals(items: CartItem[], gstEnabled = true, fulfillment: Fulfillment = "DELIVERY"): CartTotals {
   let itemTotal = 0;
   let totalPieces = 0;
   let totalSavings = 0;
   for (const i of items) {
-    const up = unitPriceFor(i);
+    const up = unitPriceFor(i, fulfillment);
     const ppu = piecesPerUnit(i);
     itemTotal += up * i.qty;
     totalPieces += ppu * i.qty;

@@ -9,7 +9,8 @@ import { formatINR } from "@/lib/store";
 
 type Row = Record<string, unknown> & {
   id: string; sku: string; name: string; image: string; slug: string;
-  dealerPrice: number; mrp: number; purchaseCost: number; stock: number; packQty: number;
+  dealerPrice: number; mrp: number; purchaseCost: number; stock: number; packQty: number; packPrice: number;
+  tier1: number; tier2: number; tier3: number; tier4: number;
   isTop: boolean; isFeatured: boolean; isHot: boolean; isDeal: boolean; active: boolean;
   brand: { name: string }; syncSource: string;
   top: { name: string }; mid: { name: string }; end: { name: string };
@@ -28,7 +29,7 @@ const FLAGS = [
 
 const EMPTY_FORM = {
   name: "", sku: "", brandId: "", brandName: "", topId: "", midId: "", endId: "",
-  dealerPrice: "", mrp: "", purchaseCost: "", tier1: "", tier2: "", tier3: "", tier4: "", tier5: "",
+  dealerPrice: "", mrp: "", purchaseCost: "", tier1: "", tier2: "", tier3: "", tier4: "", tier5: "", packPrice: "",
   packQty: "1", piecesPerBox: "", stock: "", barcode: "", hsn: "", gst: "18", image: "", description: "",
   isHot: false, isTop: false, isFeatured: false, isDeal: false, active: true,
 };
@@ -156,7 +157,8 @@ export function ProductsModule({ token }: { token: string }) {
         body: JSON.stringify({
           id: editRow.id,
           name: editRow.name, sku: editRow.sku, dealerPrice: editRow.dealerPrice, mrp: editRow.mrp,
-          purchaseCost: editRow.purchaseCost, stock: editRow.stock, packQty: editRow.packQty,
+          purchaseCost: editRow.purchaseCost, stock: editRow.stock, packQty: editRow.packQty, packPrice: editRow.packPrice,
+          tier1: editRow.tier1, tier2: editRow.tier2, tier3: editRow.tier3, tier4: editRow.tier4,
           barcode: editRow.barcode, hsn: editRow.hsn, gst: editRow.gst, image: editRow.image,
           isTop: editRow.isTop, isFeatured: editRow.isFeatured, isHot: editRow.isHot, isDeal: editRow.isDeal, active: editRow.active,
         }),
@@ -347,6 +349,7 @@ export function ProductsModule({ token }: { token: string }) {
               <input value={form.purchaseCost} onChange={(e) => setForm((f) => ({ ...f, purchaseCost: e.target.value }))} placeholder="Purchase cost (admin only)" className="h-9 rounded-lg border px-3 text-xs" />
               <input value={form.dealerPrice} onChange={(e) => setForm((f) => ({ ...f, dealerPrice: e.target.value }))} placeholder="Selling price (tier4) *" className="h-9 rounded-lg border px-3 text-xs" />
               <input value={form.mrp} onChange={(e) => setForm((f) => ({ ...f, mrp: e.target.value }))} placeholder="MRP *" className="h-9 rounded-lg border px-3 text-xs" />
+              <input value={form.packPrice} onChange={(e) => setForm((f) => ({ ...f, packPrice: e.target.value }))} placeholder="Delivery pack price ₹/pack (Task 15)" className="h-9 rounded-lg border px-3 text-xs" />
               <input value={form.packQty} onChange={(e) => setForm((f) => ({ ...f, packQty: e.target.value }))} placeholder="Pack qty (pcs)" className="h-9 rounded-lg border px-3 text-xs" />
               <input value={form.stock} onChange={(e) => setForm((f) => ({ ...f, stock: e.target.value }))} placeholder="Stock" className="h-9 rounded-lg border px-3 text-xs" />
               <input value={form.hsn} onChange={(e) => setForm((f) => ({ ...f, hsn: e.target.value }))} placeholder="HSN" className="h-9 rounded-lg border px-3 text-xs" />
@@ -374,8 +377,11 @@ export function ProductsModule({ token }: { token: string }) {
             <div className="grid grid-cols-2 gap-3">
               {([
                 ["name", "Name", "text"], ["sku", "SKU", "text"],
-                ["purchaseCost", "Purchase Cost (hidden)", "number"], ["dealerPrice", "Selling Price", "number"],
-                ["mrp", "MRP", "number"], ["stock", "Stock", "number"],
+                ["purchaseCost", "Purchase Cost (hidden)", "number"], ["dealerPrice", "Selling Price (tier4)", "number"],
+                ["mrp", "MRP", "number"], ["packPrice", "Delivery Pack Price ₹/pack", "number"],
+                ["tier1", "Tier 1 — Distributor ₹", "number"], ["tier2", "Tier 2 — Wholesale ₹", "number"],
+                ["tier3", "Tier 3 — Semi-Wholesale ₹", "number"], ["tier4", "Tier 4 — Retailer ₹", "number"],
+                ["stock", "Stock", "number"],
                 ["packQty", "Pack Qty", "number"], ["gst", "GST %", "number"],
                 ["barcode", "Barcode", "text"], ["hsn", "HSN", "text"], ["image", "Image URL", "text"],
               ] as const).map(([key, label, type]) => (

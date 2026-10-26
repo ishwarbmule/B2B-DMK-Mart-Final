@@ -65,28 +65,30 @@ export default async function BarcodeSheetPage({
         <p className="mt-1 font-mono text-[10px] font-bold">DMK{invoiceDigits}</p>
       </div>
 
-      {/* per-line barcode cards */}
+      {/* per-line barcode cards — Task 15 structure: barcode TOP → name → MRP & sale → firm footer */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 print:grid-cols-3 print:gap-2">
         {order.items.map((it, i) => {
           const code = `DMK${String(it.serialNo || i + 1).padStart(3, "0")}${invoiceDigits}`;
           return (
-            <div key={it.id} className={`bc-card rounded-xl border-2 p-3 text-center ${it.lineStatus === "NEXT_PLAN" ? "border-dashed border-blue-400 bg-blue-50" : "border-black"}`}>
-              <p className="flex items-center justify-between text-[9px] font-black uppercase tracking-wide text-gray-600">
-                <span>{brand}</span>
-                <span>{phone}</span>
+            <div key={it.id} className={`bc-card flex flex-col items-center justify-between gap-1 rounded-xl border-2 p-2.5 text-center ${it.lineStatus === "NEXT_PLAN" ? "border-dashed border-blue-400 bg-blue-50" : "border-black"}`}>
+              {/* barcode at the top */}
+              <div className="flex justify-center"><OrderBarcode value={code} /></div>
+              {/* product name — larger, well-fonted */}
+              <p className="line-clamp-2 min-h-[32px] text-[13px] font-black leading-tight">{it.name}</p>
+              <p className="text-[9px] text-gray-500">{it.sku} · {it.unitType === "SINGLE" ? "Piece" : it.unitType === "PACK" ? `Pack of ${it.packQty}` : `Case of ${it.packQty}`} · Qty {it.qty} · SR {it.serialNo || i + 1}</p>
+              {/* MRP + selling price — small */}
+              <p className="text-[10px] font-semibold text-gray-700">
+                MRP <b>{inr(it.unitPrice > 0 ? it.unitPrice : 0)}</b>
+                <span className="mx-1 text-gray-400">·</span>
+                Sale <b className="text-[11px]">{inr(it.unitPrice)}</b>
               </p>
-              <p className="mt-1 text-[13px] font-black leading-tight">{it.name}</p>
-              <p className="text-[9px] text-gray-500">{it.sku} · {it.unitType === "SINGLE" ? "Piece" : it.unitType === "PACK" ? `Pack of ${it.packQty}` : `Case of ${it.packQty}`} · Qty {it.qty}</p>
-              <div className="mt-1.5 flex items-center justify-center gap-3 text-[11px]">
-                <span>MRP: <b>{inr(it.unitPrice > 0 ? it.unitPrice : 0)}</b></span>
-                <span className="text-[9px] text-gray-400">/unit</span>
-                <span>Sell: <b>{inr(it.unitPrice)}</b></span>
-              </div>
-              <div className="mt-1.5 flex justify-center"><OrderBarcode value={code} /></div>
-              <p className="font-mono text-[10px] font-bold">SR {it.serialNo || i + 1} · {code}</p>
               {it.lineStatus === "NEXT_PLAN" && (
-                <p className="mt-1 rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-black text-blue-700">NEXT DELIVERY{order.nextDeliveryAt ? ` · ${order.nextDeliveryAt}` : ""}</p>
+                <p className="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-black text-blue-700">NEXT DELIVERY{order.nextDeliveryAt ? ` · ${order.nextDeliveryAt}` : ""}</p>
               )}
+              {/* firm identity — tiny, bottom center */}
+              <p className="w-full border-t border-dashed border-gray-300 pt-1 text-[8px] font-bold uppercase tracking-wide text-gray-600">
+                {brand} · {phone}
+              </p>
             </div>
           );
         })}

@@ -17,6 +17,7 @@ const schema = z.object({
   customerType: z.enum(["RETAILER", "WHOLESALE", "SEMI_WHOLESALE", "DISTRIBUTOR"]),
   gstin: z.string().optional().or(z.literal("")),
   city: z.string().optional().or(z.literal("")),
+  pincode: z.string().optional().or(z.literal("")), // Task 15: buyer location → nearest warehouse
   address: z.string().optional().or(z.literal("")),
 });
 
@@ -41,6 +42,7 @@ export async function POST(req: NextRequest) {
       tier: "tier4", // assigned by admin at approval — never self-selected
       gstin: d.gstin || "",
       city: d.city || "",
+      pincode: d.pincode || "",
       address: d.address || "",
       status: "PENDING",
       source: "WEB",

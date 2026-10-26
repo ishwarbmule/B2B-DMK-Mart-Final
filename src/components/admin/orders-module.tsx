@@ -368,6 +368,13 @@ export function OrdersModule({ token }: { token: string }) {
                         <span>Ship: {o.shippingStatus}</span><span>·</span>
                         <span>Pay: {o.paymentStatus}</span><span>·</span>
                         <span>Tier: {o.priceTier}</span><span>·</span>
+                        {o.fulfillment === "PICKUP" ? (
+                          <span className="rounded-md bg-yellow-100 px-2 py-0.5 font-bold text-yellow-800" title="Buyer collects from this warehouse — verify stock there">
+                            🏭 Pickup: {o.pickupWarehouseName || "warehouse"}
+                          </span>
+                        ) : (
+                          <span className="rounded-md bg-sky-50 px-2 py-0.5 font-semibold text-sky-700">🚚 Delivery</span>
+                        )}
                         <span>{o.addressLine}, {o.city} — {o.pincode}</span>
                         {o.couponCode && (<><span>·</span><span className="font-bold text-emerald-600">Coupon {o.couponCode}</span></>)}
                         <button onClick={() => patch(o.id, { shippingStatus: "IN_TRANSIT" }, "Marked in transit")} className="ml-auto rounded-md border px-2 py-1 font-semibold hover:bg-white">Mark In-Transit</button>

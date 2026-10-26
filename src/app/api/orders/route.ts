@@ -1,5 +1,7 @@
 /**
  * POST /api/orders — place a B2B order (unit-aware lines, tier pricing, coupon validation, delivery OTP).
+ * Task 15: fulfillment = DELIVERY (pack pricing) | PICKUP (per-piece slab pricing from a chosen
+ * warehouse, no delivery fee). Logged-out buyers are priced on the WHOLESALE (tier2) slab.
  * GET  /api/orders?id=|phone= — order lookup.
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -8,6 +10,7 @@ import { db } from "@/lib/db";
 import { customerFromReq } from "@/lib/customer-auth";
 import { smsTemplates } from "@/lib/sms";
 import { notifyCustomer } from "@/lib/whatsapp";
+import { GUEST_TIER, piecesForUnit, unitPriceForLine, round2, isFulfillment, type Fulfillment } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +24,12 @@ const orderSchema = z.object({
   customerName: z.string().min(2),
   phone: z.string().regex(/^[6-9]\d{9}$/),
   email: z.string().email().optional().or(z.literal("")),
-  addressLine: z.string().min(6),
-  city: z.string().min(2),
-  pincode: z.string().regex(/^\d{6}$/),
+  // address optional for warehouse PICKUP orders (buyer collects)
+  addressLine: z.string().optional().or(z.literal("")),
+  city: z.string().optional().or(z.literal("")),
+  pincode: z.string().optional().or(z.literal("")),
+  fulfillment: z.enum(["PICKUP", "DELIVERY"]).optional(),
+  pickupWarehouseId: z.string().optional().or(z.literal("")),
   zone: z.string().optional(),
   slot: z.string().optional(),
   paymentMethod: z.enum(["UPI", "CARD", "COD", "CREDIT"]),
@@ -32,19 +38,6 @@ const orderSchema = z.object({
   waOptIn: z.boolean().optional(),
   items: z.array(lineSchema).min(1),
 });
-
-function piecesFor(unitType: string, packQty: number, piecesPerBox: number) {
-  if (unitType === "SINGLE") return 1;
-  if (unitType === "PACK") return Math.max(1, packQty || 1);
-  return Math.max(piecesPerBox || 0, (packQty || 1) * 4, 1);
-}
-
-function tierPriceOf(p: { tier1: number; tier2: number; tier3: number; tier4: number; dealerPrice: number }, tier: string) {
-  if (tier === "tier1" && p.tier1 > 0) return p.tier1;
-  if (tier === "tier2" && p.tier2 > 0) return p.tier2;
-  if (tier === "tier3" && p.tier3 > 0) return p.tier3;
-  return p.dealerPrice || p.tier4;
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -55,9 +48,33 @@ export async function POST(req: NextRequest) {
     }
     const d = parsed.data;
 
-    // authenticated customer → tier pricing
+    // fulfillment mode — pickup orders must name an active warehouse
+    const fulfillment: Fulfillment = isFulfillment(d.fulfillment) ? d.fulfillment : "DELIVERY";
+    let pickupWarehouseId = "";
+    let pickupWarehouseName = "";
+    if (fulfillment === "PICKUP") {
+      const wh = d.pickupWarehouseId
+        ? await db.warehouse.findFirst({ where: { id: d.pickupWarehouseId, active: true } })
+        : null;
+      if (!wh) return NextResponse.json({ error: "Choose a pickup warehouse" }, { status: 400 });
+      pickupWarehouseId = wh.id;
+      pickupWarehouseName = wh.name;
+    } else {
+      // delivery orders need the full address
+      if (!d.addressLine || d.addressLine.trim().length < 6) {
+        return NextResponse.json({ error: "Enter the complete delivery address" }, { status: 400 });
+      }
+      if (!d.city || d.city.trim().length < 2) {
+        return NextResponse.json({ error: "Enter the city" }, { status: 400 });
+      }
+      if (!d.pincode || !/^\d{6}$/.test(d.pincode)) {
+        return NextResponse.json({ error: "Enter a valid 6-digit pincode" }, { status: 400 });
+      }
+    }
+
+    // authenticated customer → their slab; logged-out → WHOLESALE (tier2) prices (owner rule)
     const customerId = customerFromReq(req);
-    let priceTier = "tier4";
+    let priceTier = GUEST_TIER;
     let customerType = "GUEST";
     if (customerId) {
       const cust = await db.customer.findUnique({ where: { id: customerId } });
@@ -90,11 +107,9 @@ export async function POST(req: NextRequest) {
     for (const it of d.items) {
       const p = map.get(it.id);
       if (!p) continue;
-      const ppu = piecesFor(it.unitType, p.packQty, p.piecesPerBox);
-      const base = tierPriceOf(p, priceTier);
-      const packFactor = it.unitType === "SINGLE" ? 1 : it.unitType === "PACK" ? 0.94 : 0.88;
-      let unitPrice = Math.round(base * ppu * packFactor * 100) / 100;
-      // deal price override
+      const ppu = piecesForUnit(it.unitType, p.packQty, p.piecesPerBox);
+      let unitPrice = unitPriceForLine(p, priceTier, it.unitType, fulfillment);
+      // deal price override (single pieces only, both fulfillment modes)
       if (p.isDeal && p.dealPrice > 0 && it.unitType === "SINGLE") unitPrice = p.dealPrice;
       // mega offer discount on eligible scope
       if (megaOffer) {
@@ -163,7 +178,8 @@ export async function POST(req: NextRequest) {
     // blended GST from lines
     const taxableBase = itemTotal - discount;
     const gstAmount = gstEnabled ? Math.round(taxableBase * 0.18 * 100) / 100 : 0;
-    const deliveryFee = itemTotal >= 5000 ? 0 : 250;
+    // warehouse pickup = buyer collects → no delivery fee
+    const deliveryFee = fulfillment === "PICKUP" ? 0 : itemTotal >= 5000 ? 0 : 250;
     const grandTotal = Math.round((taxableBase + gstAmount + deliveryFee) * 100) / 100;
     const totalSavings = Math.round(
       lines.reduce((s, l) => {
@@ -189,9 +205,12 @@ export async function POST(req: NextRequest) {
         customerType, priceTier,
         phone: d.phone,
         email: d.email || "",
-        addressLine: d.addressLine,
-        city: d.city,
-        pincode: d.pincode,
+        addressLine: fulfillment === "PICKUP" ? `Warehouse pickup — ${pickupWarehouseName}` : d.addressLine || "",
+        city: fulfillment === "PICKUP" ? "" : d.city || "",
+        pincode: fulfillment === "PICKUP" ? "" : d.pincode || "",
+        fulfillment,
+        pickupWarehouseId,
+        pickupWarehouseName,
         zone: d.zone || "",
         slot: d.slot || "Standard dispatch",
         paymentMethod: d.paymentMethod,
@@ -230,7 +249,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       ok: true, orderId: order.id, invoiceNo, otp,
-      bill: { itemTotal, slabPct, slabDisc, couponDisc, discount, gstAmount, deliveryFee, grandTotal, totalSavings, totalPieces, appliedCoupon, priceTier, customerType },
+      bill: { itemTotal, slabPct, slabDisc, couponDisc, discount, gstAmount, deliveryFee, grandTotal, totalSavings, totalPieces, appliedCoupon, priceTier, customerType, fulfillment, pickupWarehouseName },
     });
   } catch (e) {
     console.error("[orders] place failed:", e instanceof Error ? e.message : e);

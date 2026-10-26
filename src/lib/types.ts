@@ -90,6 +90,13 @@ export interface DProduct {
   dealerPrice: number;
   basePrice: number;
   mrp: number;
+  // Task 15: slab prices ride on every product payload — the client pricing engine
+  // (lib/pricing.ts) picks the slab: buyer's tier when logged in, wholesale (tier2) otherwise.
+  tier1?: number;
+  tier2?: number;
+  tier3?: number;
+  tier4?: number;
+  packPrice?: number;
   packQty: number;
   piecesPerBox?: number;
   unit?: string;
@@ -160,6 +167,10 @@ export interface OrderRow {
   shippingStatus: string;
   status: string;
   source: string;
+  // Task 15: fulfillment mode + chosen pickup warehouse
+  fulfillment?: string; // PICKUP | DELIVERY
+  pickupWarehouseId?: string;
+  pickupWarehouseName?: string;
   note?: string;
   confirmedAt?: string;
   nextDeliveryAt?: string;
