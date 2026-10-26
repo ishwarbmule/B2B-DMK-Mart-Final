@@ -138,3 +138,8 @@
 @utility animate-dmk-marquee {
   animation: dmk-marquee 32s linear infinite;
 }
+
+/* Slim promo / coupon marquee (faster than the brand strip) */
+@utility animate-dmk-marquee-slim {
+  animation: dmk-marquee 24s linear infinite;
+}
