@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Minus, Plus, Trash2, Package, Truck, ArrowRight, TicketPercent, CheckCircle2 } from "lucide-react";
-import { useCartStore, cartTotals, formatINR, FREE_DELIVERY_ABOVE, lineKey, unitPriceFor, piecesPerUnit, useSiteStore, type UnitType } from "@/lib/store";
+import { useCartStore, cartTotals, formatINR, FREE_DELIVERY_ABOVE, lineKey, unitPriceFor, piecesPerUnit, type UnitType } from "@/lib/store";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { useEffect } from "react";
 import { toast } from "sonner";
@@ -12,7 +12,7 @@ import { toast } from "sonner";
 const UNIT_BADGE: Record<UnitType, { label: string; cls: string }> = {
   SINGLE: { label: "Piece", cls: "bg-gray-100 text-gray-700" },
   PACK: { label: "Pack", cls: "bg-yellow-100 text-yellow-800" },
-  BULK: { label: "Bulk Case", cls: "bg-emerald-100 text-emerald-800" },
+  BULK: { label: "Pack", cls: "bg-yellow-100 text-yellow-800" }, // legacy carts only — bulk cases are no longer offered
 };
 
 export function CartDrawer({ onCheckout }: { onCheckout: (couponCode: string, couponDisc: number) => void }) {
@@ -22,15 +22,13 @@ export function CartDrawer({ onCheckout }: { onCheckout: (couponCode: string, co
   const closeCart = useCartStore((s) => s.closeCart);
   const setQty = useCartStore((s) => s.setQty);
   const remove = useCartStore((s) => s.remove);
-  const gst = useSiteStore((s) => s.gstEnabled);
-  useEffect(() => { useSiteStore.getState().load(); }, []);
   const [coupon, setCoupon] = useState("");
   const [couponDisc, setCouponDisc] = useState(0);
   const [appliedCode, setAppliedCode] = useState("");
   const [checking, setChecking] = useState(false);
 
   if (!hydrated) return null;
-  const t = cartTotals(items, gst);
+  const t = cartTotals(items);
   const progress = Math.min(100, Math.round((t.itemTotal / FREE_DELIVERY_ABOVE) * 100));
   const totalPieces = items.reduce((n, i) => n + piecesPerUnit(i) * i.qty, 0);
 
@@ -83,7 +81,7 @@ export function CartDrawer({ onCheckout }: { onCheckout: (couponCode: string, co
           <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
             <Package className="h-10 w-10 text-gray-300" />
             <p className="text-sm font-semibold text-gray-700">Your cart is empty</p>
-            <p className="text-xs text-gray-400">Add pieces, packs or bulk cases to start your order.</p>
+            <p className="text-xs text-gray-400">Add pieces or packs to start your order.</p>
             <button onClick={closeCart} className="mt-2 rounded-lg bg-black px-4 py-2 text-xs font-bold text-yellow-400">
               Continue Shopping
             </button>
@@ -106,7 +104,7 @@ export function CartDrawer({ onCheckout }: { onCheckout: (couponCode: string, co
                         </div>
                         <p className="line-clamp-1 text-xs font-semibold text-gray-900">{i.name}</p>
                         <p className="text-[10px] text-gray-500">
-                          {piecesPerUnit(i)} pcs × {i.qty} {i.unitType === "SINGLE" ? "pc" : i.unitType === "PACK" ? "pack" : "case"} · {formatINR(up)}/{i.unitType === "SINGLE" ? "pc" : i.unitType === "PACK" ? "pack" : "case"}
+                          {piecesPerUnit(i)} pcs × {i.qty} {i.unitType === "SINGLE" ? "pc" : "pack"} · {formatINR(up)}/{i.unitType === "SINGLE" ? "pc" : "pack"}
                         </p>
                         <div className="mt-1.5 flex items-center justify-between">
                           <div className="flex items-center rounded-lg bg-yellow-400">
@@ -159,11 +157,6 @@ export function CartDrawer({ onCheckout }: { onCheckout: (couponCode: string, co
               )}
               {couponDisc > 0 && (
                 <div className="flex justify-between text-emerald-600"><span>Coupon ({appliedCode})</span><span className="font-semibold">− {formatINR(couponDisc)}</span></div>
-              )}
-              {gst ? (
-                <div className="flex justify-between text-gray-600"><span>GST @ 18%</span><span className="font-semibold">{formatINR(t.gstAmount)}</span></div>
-              ) : (
-                <div className="flex justify-between text-gray-600"><span>GST</span><span className="font-semibold">Not applicable</span></div>
               )}
               <div className="flex justify-between text-gray-600"><span>Delivery</span><span className="font-semibold">{t.deliveryFee === 0 ? "FREE" : formatINR(t.deliveryFee)}</span></div>
               <div className="flex justify-between border-t pt-2 text-sm">

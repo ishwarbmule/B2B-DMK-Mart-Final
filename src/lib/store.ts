@@ -33,24 +33,32 @@ export function piecesPerUnit(item: Pick<CartItem, "unitType" | "packQty" | "pie
 }
 
 /** price per unit of the chosen unit type under the chosen fulfillment mode.
- *  PICKUP  → flat per-piece slab rate (no pack discount — buyer collects from the warehouse)
- *  DELIVERY→ pack-based rates: PACK uses the admin packPrice when set, else piece × packQty × 0.94 */
+ *  DELIVERY→ SINGLE-PIECE pricing: flat slab piece rate (no pack economics)
+ *  PICKUP  → PACK rate: packPrice when set, else piece × packQty × 0.94 (wholesale economics at the counter) */
 export function unitPriceFor(
   item: Pick<CartItem, "unitType" | "packQty" | "piecesPerBox" | "price" | "packPrice">,
   fulfillment: Fulfillment = "DELIVERY"
 ): number {
   const ppu = piecesPerUnit(item);
-  if (item.unitType === "SINGLE") return item.price;
-  if (item.unitType === "PACK") {
-    if (fulfillment === "PICKUP") return Math.round(item.price * ppu * 100) / 100;
-    return item.packPrice && item.packPrice > 0
-      ? item.packPrice
-      : Math.round(item.price * ppu * 0.94 * 100) / 100;
+  if (item.unitType === "SINGLE") {
+    if (fulfillment === "PICKUP") {
+      return item.packPrice && item.packPrice > 0 && item.packQty > 0
+        ? Math.round((item.packPrice / item.packQty) * 100) / 100
+        : Math.round(item.price * 0.94 * 100) / 100;
+    }
+    return item.price;
   }
-  return Math.round(item.price * ppu * (fulfillment === "PICKUP" ? 1 : 0.88) * 100) / 100;
+  if (item.unitType === "PACK") {
+    if (fulfillment === "PICKUP") {
+      return item.packPrice && item.packPrice > 0
+        ? item.packPrice
+        : Math.round(item.price * ppu * 0.94 * 100) / 100;
+    }
+    return Math.round(item.price * ppu * 100) / 100;
+  }
+  return Math.round(item.price * ppu * (fulfillment === "PICKUP" ? 0.88 : 1) * 100) / 100;
 }
 
-export const GST_RATE = 0.18;
 export const DELIVERY_FEE = 250;
 export const FREE_DELIVERY_ABOVE = 5000;
 
@@ -121,8 +129,8 @@ export interface CartTotals {
   totalSavings: number;
 }
 
-/** gstEnabled = admin GST master toggle (Settings → GST Mode). When false, no tax is added or shown anywhere. */
-export function cartTotals(items: CartItem[], gstEnabled = true, fulfillment: Fulfillment = "DELIVERY"): CartTotals {
+/** No GST anywhere — DMK Mart does not charge or provide GST. gstAmount is always 0. */
+export function cartTotals(items: CartItem[], fulfillment: Fulfillment = "DELIVERY"): CartTotals {
   let itemTotal = 0;
   let totalPieces = 0;
   let totalSavings = 0;
@@ -137,7 +145,7 @@ export function cartTotals(items: CartItem[], gstEnabled = true, fulfillment: Fu
   itemTotal = Math.round(itemTotal * 100) / 100;
   const slab = slabFor(itemTotal);
   const slabDisc = Math.round((itemTotal * slab.pct) / 100 * 100) / 100;
-  const gstAmount = gstEnabled ? Math.round((itemTotal - slabDisc) * GST_RATE * 100) / 100 : 0;
+  const gstAmount = 0;
   const deliveryFee = itemTotal >= FREE_DELIVERY_ABOVE || itemTotal === 0 ? 0 : DELIVERY_FEE;
   const grandTotal = Math.round((itemTotal - slabDisc + gstAmount + deliveryFee) * 100) / 100;
   return {
@@ -157,28 +165,3 @@ export function cartTotals(items: CartItem[], gstEnabled = true, fulfillment: Fu
 export function formatINR(n: number): string {
   return "₹" + n.toLocaleString("en-IN", { maximumFractionDigits: 2 });
 }
-
-// ───────────────────────── SITE SETTINGS (GST master toggle etc.) ─────────────────────────
-
-interface SiteState {
-  gstEnabled: boolean;
-  loaded: boolean;
-  load: () => Promise<void>;
-}
-
-/** Client-side mirror of admin Settings (public, non-secret). GST off ⇒ the whole site renders without GST. */
-export const useSiteStore = create<SiteState>()((set, get) => ({
-  gstEnabled: true,
-  loaded: false,
-  load: async () => {
-    if (get().loaded) return;
-    set({ loaded: true });
-    try {
-      const r = await fetch("/api/site-settings", { cache: "no-store" });
-      const d = await r.json();
-      set({ gstEnabled: d.gstEnabled !== false });
-    } catch {
-      /* keep default (GST on) */
-    }
-  },
-}));

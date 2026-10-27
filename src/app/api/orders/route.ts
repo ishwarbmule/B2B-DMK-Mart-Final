@@ -1,7 +1,8 @@
 /**
  * POST /api/orders — place a B2B order (unit-aware lines, tier pricing, coupon validation, delivery OTP).
- * Task 15: fulfillment = DELIVERY (pack pricing) | PICKUP (per-piece slab pricing from a chosen
+ * Task 15 + pricing swap: fulfillment = DELIVERY (single-piece pricing) | PICKUP (pack rate from a chosen
  * warehouse, no delivery fee). Logged-out buyers are priced on the WHOLESALE (tier2) slab.
+ * No GST — DMK Mart does not charge or provide GST (gstAmount always 0).
  * GET  /api/orders?id=|phone= — order lookup.
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -172,15 +173,11 @@ export async function POST(req: NextRequest) {
     }
 
     const discount = Math.min(itemTotal, Math.round((slabDisc + couponDisc) * 100) / 100);
-    // GST Mode (admin Settings toggle): "off" ⇒ the order is billed WITHOUT GST (no tax added/shown).
-    const gstSetting = await db.setting.findUnique({ where: { key: "gst_enabled" } });
-    const gstEnabled = gstSetting?.value !== "off";
-    // blended GST from lines
-    const taxableBase = itemTotal - discount;
-    const gstAmount = gstEnabled ? Math.round(taxableBase * 0.18 * 100) / 100 : 0;
+    // No GST — DMK Mart does not charge or provide GST.
+    const gstAmount = 0;
     // warehouse pickup = buyer collects → no delivery fee
     const deliveryFee = fulfillment === "PICKUP" ? 0 : itemTotal >= 5000 ? 0 : 250;
-    const grandTotal = Math.round((taxableBase + gstAmount + deliveryFee) * 100) / 100;
+    const grandTotal = Math.round((itemTotal - discount + gstAmount + deliveryFee) * 100) / 100;
     const totalSavings = Math.round(
       lines.reduce((s, l) => {
         const p = map.get(l.productId)!;

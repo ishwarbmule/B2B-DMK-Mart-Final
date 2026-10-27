@@ -10,7 +10,7 @@ const columns = [
   },
   {
     title: "B2B",
-    links: ["Tier Pricing", "Bulk Orders", "Distributor Network", "Dealer Registration", "GST Invoicing"],
+    links: ["Tier Pricing", "Bulk Orders", "Distributor Network", "Dealer Registration", "Itemised Invoicing"],
   },
   {
     title: "Help",

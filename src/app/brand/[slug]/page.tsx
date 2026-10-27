@@ -70,7 +70,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!brand) return { title: "Brand not found | DMK Mart" };
   return {
     title: `${brand.name} Brand Store — Wholesale Catalog | DMK Mart B2B`,
-    description: brand.description || `Shop the full ${brand.name} range at DMK Mart wholesale prices. Pieces, packs & bulk cases with GST invoice.`,
+    description: brand.description || `Shop the full ${brand.name} range at DMK Mart wholesale prices. Pieces & packs with itemised invoicing.`,
     alternates: { canonical: `/brand/${brand.slug}` },
     openGraph: { images: brand.logo ? [{ url: brand.logo }] : undefined },
   };

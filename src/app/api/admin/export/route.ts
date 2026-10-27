@@ -28,8 +28,8 @@ export async function GET(req: NextRequest) {
 
   if (type === "orders") {
     const orders = await db.order.findMany({ where: { createdAt: { gte: from, lte: to } }, orderBy: { createdAt: "desc" }, include: { items: true } });
-    columns = ["Invoice", "Date", "Customer", "Type", "Phone", "City", "Items", "Pieces", "ItemTotal", "GST", "Discount", "Coupon", "GrandTotal", "Payment", "PayStatus", "Status", "OTP"];
-    rows = orders.map((o) => [o.invoiceNo, new Date(o.createdAt).toLocaleDateString("en-IN"), o.customerName, o.customerType, o.phone, o.city, o.items.length, o.items.reduce((s, i) => s + i.pieces, 0), o.itemTotal, o.gstAmount, o.discount, o.couponCode, o.grandTotal, o.paymentMethod, o.paymentStatus, o.status, o.otp]);
+    columns = ["Invoice", "Date", "Customer", "Type", "Phone", "City", "Items", "Pieces", "ItemTotal", "Discount", "Coupon", "GrandTotal", "Payment", "PayStatus", "Status", "OTP"];
+    rows = orders.map((o) => [o.invoiceNo, new Date(o.createdAt).toLocaleDateString("en-IN"), o.customerName, o.customerType, o.phone, o.city, o.items.length, o.items.reduce((s, i) => s + i.pieces, 0), o.itemTotal, o.discount, o.couponCode, o.grandTotal, o.paymentMethod, o.paymentStatus, o.status, o.otp]);
     name = "orders";
   } else {
     // reuse report datasets

@@ -187,7 +187,7 @@ export function CromaHome({ data }: { data: VariantData }) {
               {sliders[0]?.heading ?? "Mega Wholesale Days are live"}
             </h1>
             <p className="max-w-sm text-sm text-gray-300">
-              {sliders[0]?.content ?? "Dealer pricing on 2,400+ SKUs. Extra slab discounts stack automatically on bulk cases."}
+              {sliders[0]?.content ?? "Dealer pricing on 2,400+ SKUs. Extra slab discounts stack automatically on large orders."}
             </p>
             <div className="mt-2 flex gap-3">
               <button
@@ -317,7 +317,7 @@ export function CromaHome({ data }: { data: VariantData }) {
           {[
             { icon: Truck, t: "Express Dispatch", s: "48-hour dispatch across Maharashtra" },
             { icon: ShieldCheck, t: "100% Genuine", s: "Sourced direct from brands" },
-            { icon: ReceiptIndianRupee, t: "GST Invoice", s: "Input credit ready on every order" },
+            { icon: ReceiptIndianRupee, t: "Itemised Invoice", s: "Clear per-line billing on every order" },
             { icon: Headphones, t: "Dedicated B2B Support", s: "Key-account managers on call" },
           ].map((x) => (
             <div key={x.t} className="flex items-center gap-3">
@@ -363,13 +363,12 @@ export function CromaHome({ data }: { data: VariantData }) {
             <ul className="space-y-2 text-xs">
               <li>1800-DMK-MART (toll free)</li>
               <li>care@dmkmart.in</li>
-              <li>GSTIN 27ABCDE1234F1Z5</li>
             </ul>
           </div>
         </div>
         <div className="border-t border-white/10 py-4">
           <div className="mx-auto flex max-w-7xl flex-col items-center gap-2 px-4">
-            <p className="text-[11px] text-gray-500">© 2026 DMK Mart · Prices exclusive of 18% GST</p>
+            <p className="text-[11px] text-gray-500">© 2026 DMK Mart · Wholesale prices as marked</p>
             <DesignLinks dark />
           </div>
         </div>

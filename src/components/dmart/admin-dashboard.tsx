@@ -448,7 +448,6 @@ function ProductsTab({ token, categories }: AdminProductTableProps) {
               </select>
             </div>
             <div><Label className="text-xs text-slate-500">HSN</Label><Input value={form.hsn} onChange={set("hsn")} className="mt-1 h-9" /></div>
-            <div><Label className="text-xs text-slate-500">GST %</Label><Input type="number" min={0} max={100} value={form.gst} onChange={set("gst")} className="mt-1 h-9" /></div>
             <div className="col-span-2 flex items-center gap-2 mt-1">
               <input
                 type="checkbox"

@@ -1,7 +1,7 @@
 /**
  * /admin/orders/[id]/barcodes?token=... — printable barcode sheet for a confirmed order.
- * Each card: DMK Mart name + phone · order serial no · product name · MRP · selling price
- * · Code39 barcode (DMK-<serial>-<invoice digits>) · qty. Browser print → PDF.
+ * Each card: order serial no (SR badge + embedded in the scannable code) · product name · MRP ·
+ * selling price · Code39 barcode (DMK-<serial>-<invoice digits>) · qty. Browser print → PDF.
  */
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
@@ -68,14 +68,17 @@ export default async function BarcodeSheetPage({
       {/* per-line barcode cards — Task 15 structure: barcode TOP → name → MRP & sale → firm footer */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 print:grid-cols-3 print:gap-2">
         {order.items.map((it, i) => {
-          const code = `DMK${String(it.serialNo || i + 1).padStart(3, "0")}${invoiceDigits}`;
+          const sr = it.serialNo || i + 1;
+          const code = `DMK${String(sr).padStart(3, "0")}${invoiceDigits}`;
           return (
-            <div key={it.id} className={`bc-card flex flex-col items-center justify-between gap-1 rounded-xl border-2 p-2.5 text-center ${it.lineStatus === "NEXT_PLAN" ? "border-dashed border-blue-400 bg-blue-50" : "border-black"}`}>
-              {/* barcode at the top */}
+            <div key={it.id} className={`bc-card relative flex flex-col items-center justify-between gap-1 rounded-xl border-2 p-2.5 text-center ${it.lineStatus === "NEXT_PLAN" ? "border-dashed border-blue-400 bg-blue-50" : "border-black"}`}>
+              {/* per-order serial number — prominent, one unique SR per product label */}
+              <span className="absolute right-1.5 top-1.5 rounded bg-black px-1.5 py-0.5 text-[10px] font-black tracking-wide text-yellow-400">SR {String(sr).padStart(3, "0")}</span>
+              {/* barcode at the top — code embeds the serial: DMK<SR 3-digit><invoice digits> */}
               <div className="flex justify-center"><OrderBarcode value={code} /></div>
               {/* product name — larger, well-fonted */}
               <p className="line-clamp-2 min-h-[32px] text-[13px] font-black leading-tight">{it.name}</p>
-              <p className="text-[9px] text-gray-500">{it.sku} · {it.unitType === "SINGLE" ? "Piece" : it.unitType === "PACK" ? `Pack of ${it.packQty}` : `Case of ${it.packQty}`} · Qty {it.qty} · SR {it.serialNo || i + 1}</p>
+              <p className="text-[9px] text-gray-500">{it.sku} · {it.unitType === "SINGLE" ? "Piece" : `Pack of ${it.packQty}`} · Qty {it.qty} · SR {sr}</p>
               {/* MRP + selling price — small */}
               <p className="text-[10px] font-semibold text-gray-700">
                 MRP <b>{inr(it.unitPrice > 0 ? it.unitPrice : 0)}</b>

@@ -76,7 +76,6 @@ export function DashboardModule({ token }: { token: string }) {
         <StatCard icon={BadgePercent} label="Offers & Coupons" value={`${k.offerOrders + k.couponOrders}`} sub={`${k.offerOrders} offer orders · ${k.couponOrders} coupon orders`} color="#dc2626" />
         <StatCard icon={Boxes} label="Catalog" value={k.products} sub={`${k.brands} active brands`} color="#b45309" />
         <StatCard icon={Users} label="B2B Customers" value={k.customers} sub={`${k.pendingCustomers} pending approval`} color="#1d4ed8" />
-        <StatCard icon={IndianRupee} label="GST Collected" value={formatINR(k.gstCollected)} sub={`discounts given ${formatINR(k.discounts)}`} color="#334155" />
         <StatCard icon={Truck} label="Avg Order Value" value={formatINR(k.orders ? Math.round(k.revenue / k.orders) : 0)} sub="lifetime" color="#0f766e" />
       </div>
 
@@ -312,7 +311,7 @@ export function CustomersModule({ token }: { token: string }) {
               <tr className="border-t hover:bg-gray-50/60">
                 <td className="px-3 py-2.5">
                   <p className="font-bold">{String(c.shopName || c.name)}</p>
-                  <p className="text-[10px] text-gray-400">{String(c.city || "—")} {c.gstin ? `· GSTIN ${String(c.gstin)}` : ""}</p>
+                  <p className="text-[10px] text-gray-400">{String(c.city || "—")}</p>
                 </td>
                 <td className="px-3 py-2.5">
                   <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold">{String(c.customerType)}</span>

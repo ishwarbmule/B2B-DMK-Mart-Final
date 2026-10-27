@@ -321,9 +321,9 @@ function AccountInner() {
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wide text-yellow-600">{customer.customerType}</p>
                   <h1 className="text-xl font-black text-gray-900">{customer.shopName || customer.name}</h1>
-                  <p className="text-xs text-gray-500">{customer.phone} · {customer.city || "—"} {customer.gstin ? `· GSTIN ${customer.gstin}` : ""}</p>
+                  <p className="text-xs text-gray-500">{customer.phone} · {customer.city || "—"}</p>
                   {nearest && (
-                    <p className="mt-1 text-[11px] font-semibold text-emerald-700">📍 Your nearest DMK Mart warehouse: {nearest.name}{nearest.city ? ` (${nearest.city})` : ""} — pickup available</p>
+                    <p className="mt-1 text-[11px] font-semibold text-emerald-700">📍 Your nearest DMK Mart warehouse: {nearest.name}{nearest.city ? ` (${nearest.city})` : ""}</p>
                   )}
                 </div>
                 <button onClick={logout} className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50">
@@ -570,11 +570,7 @@ function AccountInner() {
                       {regErrors.pincode && <p className="mt-0.5 text-[11px] text-red-500">{regErrors.pincode}</p>}
                     </div>
                   </div>
-                  <div className="mb-2.5">
-                    <label className={LABEL} htmlFor="reg-gstin">GSTIN (optional)</label>
-                    <input id="reg-gstin" value={reg.gstin} onChange={(e) => setReg((f) => ({ ...f, gstin: e.target.value.toUpperCase() }))} placeholder="27ABCDE1234F1Z5" className={INPUT} />
-                  </div>
-                  <p className="mb-2.5 text-[11px] leading-relaxed text-gray-400">City + pincode place you near a DMK Mart warehouse — after login the site shows pickup availability and the nearest godown for your orders.</p>
+                  <p className="mb-2.5 text-[11px] leading-relaxed text-gray-400">City + pincode place you near a DMK Mart warehouse — after login the site shows the nearest godown for your orders.</p>
                   <button onClick={doRegister} disabled={busy} className={`${BTN_PRIMARY} mt-2`}>
                     {busy ? "Creating…" : "Create account"}
                   </button>
@@ -610,7 +606,7 @@ function AccountInner() {
             <div className="mt-6 flex items-start gap-2.5 rounded-2xl border bg-white p-4 text-[12px] text-gray-600">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-yellow-600" />
               <p>
-                <span className="font-bold text-gray-900">Wholesale pricing, GST invoices &amp; credit terms.</span>{" "}
+                <span className="font-bold text-gray-900">Wholesale pricing, itemised invoices &amp; credit terms.</span>{" "}
                 DMK Mart accounts are for verified businesses only — your details stay private and are used solely for order fulfilment.
               </p>
             </div>

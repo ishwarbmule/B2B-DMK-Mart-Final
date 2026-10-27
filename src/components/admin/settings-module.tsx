@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Save, Percent, CircleOff, SendHorizontal, MessageSquareText, MessageCircle } from "lucide-react";
+import { Save, SendHorizontal, MessageSquareText, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { api, ModuleHeader } from "./ui-bits";
 
@@ -9,8 +9,8 @@ const GROUPS: { title: string; keys: [string, string][] }[] = [
   {
     title: "Firm Profile (printed on invoices)",
     keys: [
-      ["firm_name", "Firm name"], ["firm_gstin", "GSTIN"], ["firm_address", "Registered address"],
-      ["firm_phone", "Phone"], ["firm_email", "Email"], ["gst_state", "State (code)"],
+      ["firm_name", "Firm name"], ["firm_address", "Registered address"],
+      ["firm_phone", "Phone"], ["firm_email", "Email"],
       ["firm_bank", "Bank"], ["firm_bank_account", "Bank A/c"], ["firm_ifsc", "IFSC"], ["firm_upi", "UPI ID"],
     ],
   },
@@ -44,8 +44,6 @@ const WA_HINTS: Record<string, string> = {
 export function SettingsModule({ token }: { token: string }) {
   const call = api(token);
   const [settings, setSettings] = useState<Record<string, string>>({});
-  const [gstMode, setGstMode] = useState<"on" | "off">("on");
-  const [gstSaving, setGstSaving] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testPhone, setTestPhone] = useState("");
   const [testing, setTesting] = useState(false);
@@ -55,7 +53,6 @@ export function SettingsModule({ token }: { token: string }) {
   const load = useCallback(() => {
     call("/api/admin/settings").then((d) => {
       setSettings(d.settings ?? {});
-      setGstMode(d.settings?.gst_enabled === "off" ? "off" : "on");
     }).catch(() => {});
   }, [token]);
 
@@ -70,24 +67,6 @@ export function SettingsModule({ token }: { token: string }) {
       toast.error(e instanceof Error ? e.message : "Save failed");
     } finally {
       setSaving(false);
-    }
-  };
-
-  const setGst = async (mode: "on" | "off") => {
-    if (mode === gstMode) return;
-    const prev = gstMode;
-    setGstMode(mode);
-    setGstSaving(true);
-    try {
-      await call("/api/admin/settings", { method: "PUT", body: JSON.stringify({ gst_enabled: mode }) });
-      toast.success(mode === "on" ? "GST Mode ON — tax added & shown across the website" : "GST Mode OFF — website is now fully Without-GST", {
-        description: "Takes effect on the storefront immediately (customers may need to refresh).",
-      });
-    } catch (e) {
-      setGstMode(prev);
-      toast.error(e instanceof Error ? e.message : "Failed to switch GST mode");
-    } finally {
-      setGstSaving(false);
     }
   };
 
@@ -138,39 +117,6 @@ export function SettingsModule({ token }: { token: string }) {
           <Save className="h-3.5 w-3.5" /> {saving ? "Saving…" : "Save All"}
         </button>
       </ModuleHeader>
-
-      {/* GST MASTER TOGGLE */}
-      <div className="mb-4 rounded-xl border-2 border-yellow-300 bg-gradient-to-r from-yellow-50 to-white p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-black">GST Mode <span className="ml-1 rounded-full bg-black px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-yellow-400">Master Switch</span></p>
-            <p className="mt-0.5 max-w-xl text-[11px] leading-relaxed text-gray-500">
-              One switch transforms the whole website. <b>With GST</b>: tax breakup in cart &amp; checkout, GSTIN + HSN + CGST/SGST on invoices, tax rows on thermal estimates.
-              <b> Without GST</b>: no tax added or shown anywhere — product pages, cart, invoices, estimates &amp; order totals. Stored prices are never modified, so you can flip back anytime.
-            </p>
-          </div>
-          <div className="flex overflow-hidden rounded-xl border-2 border-gray-900">
-            <button
-              onClick={() => setGst("on")}
-              disabled={gstSaving}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-black uppercase transition ${gstMode === "on" ? "bg-emerald-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}
-            >
-              <Percent className="h-3.5 w-3.5" /> With GST
-            </button>
-            <button
-              onClick={() => setGst("off")}
-              disabled={gstSaving}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-black uppercase transition ${gstMode === "off" ? "bg-red-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}
-            >
-              <CircleOff className="h-3.5 w-3.5" /> Without GST
-            </button>
-          </div>
-        </div>
-        <p className="mt-2 text-[10px] font-semibold text-gray-400">
-          Current: <b className={gstMode === "on" ? "text-emerald-600" : "text-red-600"}>{gstMode === "on" ? "WITH GST" : "WITHOUT GST"}</b>
-          {gstSaving && " · saving…"} · applies to new orders &amp; the storefront instantly; each order keeps the mode it was placed under (old invoices reprint correctly).
-        </p>
-      </div>
 
       {/* WHATSAPP — FREE-FIRST CHANNEL */}
       <div className="mb-4 rounded-xl border-2 border-emerald-300 bg-gradient-to-r from-emerald-50 to-white p-4">

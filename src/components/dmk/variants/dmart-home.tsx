@@ -178,7 +178,7 @@ export function DmartHome({ data }: { data: VariantData }) {
               </button>
             </div>
             <p className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-semibold text-black/70">
-              <span>✓ Dealer rates</span><span>✓ GST invoice</span><span>✓ Free delivery above ₹5,000</span>
+              <span>✓ Dealer rates</span><span>✓ Itemised invoice</span><span>✓ Free delivery above ₹5,000</span>
             </p>
           </div>
           <div className="relative hidden min-h-[300px] lg:block">
@@ -262,9 +262,9 @@ export function DmartHome({ data }: { data: VariantData }) {
       <section className="mt-8 border-y bg-gray-50">
         <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 px-4 py-5 sm:grid-cols-3">
           {[
-            { icon: BadgePercent, t: "Wholesale dealer rates", s: "Transparent pricing with slab discounts on bulk cases" },
+            { icon: BadgePercent, t: "Wholesale dealer rates", s: "Transparent pricing with slab discounts on large orders" },
             { icon: ShieldCheck, t: "100% genuine stock", s: "Direct from 21 verified brands — no middlemen" },
-            { icon: ReceiptIndianRupee, t: "GST invoice on every order", s: "Input-tax credit ready billing for business buyers" },
+            { icon: ReceiptIndianRupee, t: "Itemised invoice on every order", s: "Clear per-line billing for business buyers" },
           ].map((v) => (
             <div key={v.t} className="flex items-center gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-yellow-400/30">

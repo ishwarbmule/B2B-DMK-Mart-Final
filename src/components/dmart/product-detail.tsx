@@ -117,7 +117,7 @@ export function ProductDetail({
                 )}
               </div>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                Inclusive of all taxes{product.gst ? ` · GST ${product.gst}%` : ""}
+                Inclusive of all taxes
               </p>
             </div>
 

@@ -8,7 +8,7 @@ import type { CompanyNode } from "@/lib/types";
 export function BenefitsStrip() {
   const items = [
     { icon: Percent, title: "Wholesale Dealer Rates", sub: "Slab discounts up to 10%" },
-    { icon: ShieldCheck, title: "GST Invoice", sub: "18% GST breakdown on every bill" },
+    { icon: ShieldCheck, title: "Itemised Invoice", sub: "Clear per-line billing on every bill" },
     { icon: Truck, title: "Fast Dispatch", sub: "2,400+ SKUs ready to move" },
     { icon: Star, title: "21 Trusted Brands", sub: "Verified manufacturers only" },
   ];

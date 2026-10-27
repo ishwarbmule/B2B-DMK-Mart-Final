@@ -19,7 +19,7 @@ async function loadOrder(orderId: string) {
   return db.order.findUnique({ where: { id: orderId }, include: { items: { orderBy: { id: "asc" } } } });
 }
 
-function recomputeTotals(order: NonNullable<Awaited<ReturnType<typeof loadOrder>>>, lines: { total: number; pieces: number; qty: number; unitType: string }[], gstEnabled: boolean) {
+function recomputeTotals(order: NonNullable<Awaited<ReturnType<typeof loadOrder>>>, lines: { total: number; pieces: number; qty: number; unitType: string }[]) {
   const itemTotal = round2(lines.reduce((s, l) => s + l.total, 0));
   let slabPct = 0;
   if (itemTotal >= 100000) slabPct = 10; else if (itemTotal >= 50000) slabPct = 7;
@@ -32,7 +32,7 @@ function recomputeTotals(order: NonNullable<Awaited<ReturnType<typeof loadOrder>
   const couponShare = round2(Math.max(0, order.discount - round2(order.itemTotal * originalSlabPct / 100)));
   const discount = round2(Math.min(itemTotal, round2(itemTotal * slabPct / 100) + couponShare));
   const taxableBase = round2(itemTotal - discount);
-  const gstAmount = gstEnabled ? round2(taxableBase * 0.18) : 0;
+  const gstAmount = 0; // No GST — DMK Mart does not charge or provide GST.
   const deliveryFee = itemTotal >= 5000 ? 0 : 250;
   const grandTotal = round2(taxableBase + gstAmount + deliveryFee);
   const totalPieces = lines.reduce((s, l) => s + l.pieces, 0);
@@ -191,9 +191,7 @@ export async function POST(req: NextRequest) {
       }
       if (removeIds.length) await db.orderItem.deleteMany({ where: { id: { in: removeIds }, orderId: order.id } });
 
-      const gstSetting = await db.setting.findUnique({ where: { key: "gst_enabled" } });
-      const gstEnabled = gstSetting?.value !== "off";
-      const t = recomputeTotals(order, lines.map((l) => ({ total: l.total, pieces: l.pieces, qty: l.qty, unitType: l.unitType })), gstEnabled);
+      const t = recomputeTotals(order, lines.map((l) => ({ total: l.total, pieces: l.pieces, qty: l.qty, unitType: l.unitType })));
       const updated = await db.order.update({
         where: { id: order.id },
         data: {

@@ -168,7 +168,7 @@ export function EtsyHome({ data }: { data: VariantData }) {
             </h1>
             <p className="mt-4 max-w-md text-sm leading-relaxed text-gray-600 md:text-base">
               Shop once, stock the whole shelf. Dealer-priced household, kitchen and décor
-              collections from 21 indie-friendly brands — packed in cases, invoiced with GST.
+              collections from 21 indie-friendly brands — packed carefully, invoiced itemised.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-4">
               <button
@@ -274,7 +274,7 @@ export function EtsyHome({ data }: { data: VariantData }) {
           },
           {
             img: hot[0]?.image ?? hero[3]?.image ?? "", title: "Business gifting, sorted",
-            sub: "Curated corporate hampers with slab pricing & GST invoices", cta: "Talk to our team", act: () => window.open("mailto:care@dmkmart.in"),
+            sub: "Curated corporate hampers with slab pricing & itemised invoices", cta: "Talk to our team", act: () => window.open("mailto:care@dmkmart.in"),
           },
         ].map((g) => (
           <div key={g.title} className="group relative h-64 overflow-hidden rounded-3xl md:h-72">

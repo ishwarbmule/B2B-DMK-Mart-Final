@@ -93,7 +93,6 @@ export function ApprovalsModule({ token }: { token: string }) {
                     <MapPin className="mt-0.5 h-3 w-3 shrink-0" /> {[c.address, c.city, c.pincode].filter(Boolean).join(", ") || "—"}
                   </p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5 text-[10px]">
-                    {c.gstin && <span className="rounded bg-gray-100 px-1.5 py-0.5 font-semibold">GSTIN {c.gstin}</span>}
                     <span className="rounded bg-gray-100 px-1.5 py-0.5">Applied {new Date(c.createdAt).toLocaleDateString("en-IN")}</span>
                     <span className="rounded bg-gray-100 px-1.5 py-0.5">Self-declared: {TYPE_OPTIONS.find((t) => t.key === c.customerType)?.label ?? c.customerType}</span>
                   </div>

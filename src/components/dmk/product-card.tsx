@@ -9,7 +9,7 @@ import { useCartStore, formatINR, type CartItem, type UnitType, unitPriceFor, pi
 import { discountPct, type DProduct } from "@/lib/types";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { useCustomerSession, currentTier } from "@/lib/customer-client";
-import { piecePriceOf, deliveryUnitPrice } from "@/lib/pricing";
+import { piecePriceOf } from "@/lib/pricing";
 
 export function toCartItem(p: DProduct, unitType: UnitType = "SINGLE"): CartItem {
   // Task 15: cart lines carry the BUYER'S slab price (guests → wholesale tier2).
@@ -37,12 +37,14 @@ export function ProductCard({ p }: { p: DProduct }) {
   const unitType: UnitType = "SINGLE";
   const key = lineKey(p.id, unitType);
   const inCart = hydrated ? items.find((i) => lineKey(i.id, i.unitType) === key)?.qty ?? 0 : 0;
-  // Task 15 dual pricing — Pickup = per-piece slab price · Delivery = pack price
+  // Fulfilment rates — Pickup = pack rate (wholesale economics) · Delivery = single piece price
   const tier = sessionTier || "tier2";
   const piece = piecePriceOf(p, tier);
   const dealActive = p.isDeal && !!p.dealPrice && p.dealPrice > 0;
   const priceShown = dealActive ? (p.dealPrice ?? piece) : piece;
-  const deliveryPack = deliveryUnitPrice(p, tier, "PACK");
+  const packPerPc = p.packPrice && p.packPrice > 0 && (p.packQty ?? 0) > 0
+    ? Math.round((p.packPrice / (p.packQty ?? 1)) * 100) / 100
+    : Math.round(priceShown * 0.94 * 100) / 100;
   const disc = discountPct(p.mrp, priceShown);
   const href = p.slug ? `/product/${p.slug}` : "#";
 
@@ -114,14 +116,14 @@ export function ProductCard({ p }: { p: DProduct }) {
               <span className="ml-auto rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-700">Your slab</span>
             )}
           </div>
-          {/* Task 15: the two rates — short & understandable */}
+          {/* the two rates — Pickup = pack rate · Delivery = single piece price */}
           <div className="mt-0.5 flex items-center gap-2 text-[11px] text-gray-600">
-            <span className="flex items-center gap-0.5" title="Collect from your nearest warehouse — per-piece slab price">
-              <Store className="h-3 w-3 text-yellow-600" /> Pickup {formatINR(priceShown)}
+            <span className="flex items-center gap-0.5" title="Pack rate — collect from your nearest warehouse">
+              <Store className="h-3 w-3 text-yellow-600" /> Pickup {formatINR(packPerPc)}
             </span>
-            <span className="flex items-center gap-0.5" title="Delivered to your address — pack price">
-              <Truck className="h-3 w-3 text-gray-500" /> Delivery {formatINR(deliveryPack)}
-              <span className="text-gray-400">/pk</span>
+            <span className="flex items-center gap-0.5" title="Single piece price — delivered to your address">
+              <Truck className="h-3 w-3 text-gray-500" /> Delivery {formatINR(priceShown)}
+              <span className="text-gray-400">/pc</span>
             </span>
           </div>
           {hydrated && inCart > 0 ? (
