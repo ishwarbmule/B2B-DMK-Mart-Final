@@ -327,6 +327,32 @@ model Offer {
   contentPosition String @default("TOP-LEFT") // where promo copy + CTA sit on the 16:9 banner: TOP-LEFT | TOP-RIGHT | CENTER | BOTTOM-LEFT | BOTTOM-RIGHT
   bgColor       String   @default("#111111")
   textColor     String   @default("#facc15")
+  // Offer style v2 — per-element admin styling with SEPARATE laptop & mobile values ("" / 0 = theme auto)
+  kickerColor      String @default("") // small "Limited Period Campaign" line; empty = textColor
+  kickerSize       Int    @default(0)  // px laptop; 0 = auto
+  kickerSizeM      Int    @default(0)  // px mobile; 0 = auto
+  headlineColor    String @default("") // empty = textColor
+  headlineSize     Int    @default(0)  // px laptop; 0 = auto
+  headlineSizeM    Int    @default(0)  // px mobile; 0 = auto
+  subColor         String @default("") // description line; empty = textColor
+  subSize          Int    @default(0)
+  subSizeM         Int    @default(0)
+  buttonBg         String @default("") // empty = brand black
+  buttonTextColor  String @default("") // empty = brand yellow
+  buttonSize       Int    @default(0)
+  buttonSizeM      Int    @default(0)
+  padTop           Int    @default(50) // content block padding, laptop px
+  padBottom        Int    @default(50)
+  padLeft          Int    @default(50)
+  padRight         Int    @default(50)
+  padTopM          Int    @default(0) // px mobile; 0 = auto-derive (brand 14–24px)
+  padBottomM       Int    @default(0)
+  padLeftM         Int    @default(0)
+  padRightM        Int    @default(0)
+  marqueeBg        String @default("") // yellow scrolling bar; empty = brand yellow
+  marqueeTextColor String @default("") // empty = black
+  marqueeSize      Int    @default(0)
+  marqueeSizeM     Int    @default(0)
   heroSlot      Boolean  @default(true) // auto-appear in homepage hero
   startAt       DateTime?
   endAt         DateTime?
