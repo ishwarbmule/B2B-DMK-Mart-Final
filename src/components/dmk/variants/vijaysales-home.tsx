@@ -72,7 +72,7 @@ const MARQUEE = [
   "UP TO 65% OFF MRP",
   "EXTRA 10% ON 5+ CASES",
   "FREE DELIVERY ABOVE ₹5,000",
-  "GST INVOICE ON EVERY ORDER",
+  "ITEMISED INVOICE ON EVERY ORDER",
 ];
 
 export function VijaySalesHome({ data }: { data: VariantData }) {
@@ -172,7 +172,7 @@ export function VijaySalesHome({ data }: { data: VariantData }) {
             <h1 className="max-w-sm text-3xl font-black leading-tight text-white md:text-4xl">
               {hero?.heading ?? "Maha Wholesale Savings"}
             </h1>
-            <p className="max-w-sm text-sm text-gray-200">{hero?.content ?? "Dealer rates on 2,400+ SKUs — slab discounts stack on bulk cases."}</p>
+            <p className="max-w-sm text-sm text-gray-200">{hero?.content ?? "Dealer rates on 2,400+ SKUs — slab discounts stack automatically."}</p>
             <button
               onClick={() => document.getElementById("deal-day")?.scrollIntoView({ behavior: "smooth" })}
               className="mt-1 rounded-lg bg-red-600 px-7 py-3 text-xs font-black uppercase tracking-wide text-white transition hover:bg-red-700"

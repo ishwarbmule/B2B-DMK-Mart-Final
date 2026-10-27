@@ -3,50 +3,32 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { BadgeCheck, Flame, MapPin, Minus, Package, Plus, ShoppingCart, Star, Store, TrendingUp, Truck, Zap } from "lucide-react";
+import { BadgeCheck, Flame, Minus, Package, Plus, ShoppingCart, Star, Store, TrendingUp, Truck, Zap } from "lucide-react";
 import { toast } from "sonner";
-import { useCartStore, formatINR, lineKey, unitPriceFor, piecesPerUnit, useSiteStore, type UnitType } from "@/lib/store";
+import { useCartStore, formatINR, lineKey, unitPriceFor } from "@/lib/store";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { discountPct, type DProduct } from "@/lib/types";
 import { useCustomerSession } from "@/lib/customer-client";
-import { piecePriceOf, deliveryUnitPrice } from "@/lib/pricing";
+import { piecePriceOf } from "@/lib/pricing";
 import { toCartItem, ProductCard } from "./product-card";
-
-const UNITS: { key: UnitType; label: string; hint: string }[] = [
-  { key: "SINGLE", label: "Single Piece", hint: "buy 1+ pieces" },
-  { key: "PACK", label: "Full Pack", hint: "sealed pack · ~6% cheaper" },
-  { key: "BULK", label: "Bulk Case", hint: "case load · ~12% cheaper" },
-];
 
 export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[] }) {
   const hydrated = useHydrated();
   const addItem = useCartStore((s) => s.addItem);
   const openCart = useCartStore((s) => s.openCart);
   const items = useCartStore((s) => s.items);
-  const gst = useSiteStore((s) => s.gstEnabled);
-  useEffect(() => { useSiteStore.getState().load(); }, []);
-  // Task 15: session (slab pricing + nearest warehouse) + pickup availability
+  // Task 15: session (slab pricing + nearest warehouse)
   useEffect(() => { useCustomerSession.getState().load(); }, []);
   const customer = useCustomerSession((s) => s.customer);
-  const nearestWarehouse = useCustomerSession((s) => s.nearestWarehouse);
-  const [pickupAvailable, setPickupAvailable] = useState<boolean | null>(null);
-  useEffect(() => {
-    if (!nearestWarehouse) return;
-    let live = true;
-    fetch(`/api/warehouses?productId=${p.id}`, { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => { if (live) setPickupAvailable(d.availability?.[nearestWarehouse.id] === "IN_STOCK"); })
-      .catch(() => {});
-    return () => { live = false; };
-  }, [p.id, nearestWarehouse]);
-  // Task 15 dual rates — Pickup (per-piece slab) · Delivery (pack price)
-  const tier = customer?.tier || "tier2";
-  const piece = piecePriceOf(p, tier);
-  const pickupRate = p.isDeal && !!p.dealPrice && p.dealPrice > 0 ? p.dealPrice : piece;
-  const deliveryPack = deliveryUnitPrice(p, tier, "PACK");
-  const [unit, setUnit] = useState<UnitType>("SINGLE");
   const [qty, setQty] = useState(1);
   const [imgIdx, setImgIdx] = useState(0);
+  // Fulfilment rates — Pickup = pack rate (wholesale economics) · Delivery = single piece price
+  const tier = customer?.tier || "tier2";
+  const piece = piecePriceOf(p, tier);
+  const singleRate = p.isDeal && !!p.dealPrice && p.dealPrice > 0 ? p.dealPrice : piece;
+  const packPerPiece = p.packPrice && p.packPrice > 0 && (p.packQty ?? 0) > 0
+    ? Math.round((p.packPrice / p.packQty) * 100) / 100
+    : Math.round(singleRate * 0.94 * 100) / 100;
 
   const gallery: string[] = (() => {
     try {
@@ -57,37 +39,25 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
     }
   })();
 
-  const unitItem = toCartItem(p, unit);
+  const unitItem = toCartItem(p, "SINGLE");
   const up = unitPriceFor(unitItem);
-  const ppu = piecesPerUnit(unitItem);
   const lineTotal = Math.round(up * qty * 100) / 100;
-  const key = lineKey(p.id, unit);
+  const key = lineKey(p.id, "SINGLE");
   const inCart = hydrated ? items.find((i) => lineKey(i.id, i.unitType) === key)?.qty ?? 0 : 0;
   const disc = discountPct(p.mrp, p.dealerPrice);
-
-  const tierRows: [string, number, string][] = [
-    ["Distributor (tier 1)", p.tier1 ?? 0, "For district-level distributors"],
-    ["Wholesale (tier 2)", p.tier2 ?? 0, "For wholesale buyers"],
-    ["Semi-Wholesale (tier 3)", p.tier3 ?? 0, "For semi-wholesale counters"],
-    ["Retailer (tier 4)", p.tier4 ?? 0, "Standard listed price"],
-    ["MRP (tier 5)", p.tier5 || p.mrp, "Maximum retail price"],
-  ];
 
   const specRows: [string, string][] = [
     ["Brand", p.brand?.name ?? "—"],
     ["SKU", p.sku],
     ["Category", [p.top?.name, p.mid?.name, p.end?.name].filter(Boolean).join(" › ")],
-    ["Pack qty", `${p.packQty} pcs / pack`],
-    ...(p.piecesPerBox ? ([["Bulk case", `${p.piecesPerBox} pcs / case`]] as [string, string][]) : []),
     ["Unit", p.unit ?? "Pcs"],
-    ...(gst ? ([["HSN code", p.hsn || "—"], ["GST", `${p.gst}%`]] as [string, string][]) : []),
     ["Barcode", p.barcode || "—"],
   ];
 
   const addNow = (redirectCart = false) => {
     addItem({ ...unitItem, qty }, qty);
     if (redirectCart) openCart();
-    else toast.success(`Added ${qty} × ${unit === "SINGLE" ? "piece" : unit === "PACK" ? "pack" : "case"} — ${p.name}`);
+    else toast.success(`Added ${qty} × piece — ${p.name}`);
   };
 
   return (
@@ -141,61 +111,33 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
             <span className="font-semibold text-emerald-600">Available to order</span>
           </div>
 
-          {/* Task 15: the two rates — chosen at checkout (pickup vs delivery popup) */}
+          {/* the two rates — Pickup = pack rate · Delivery = single piece price (chosen at checkout) */}
           <div className="mt-4 grid grid-cols-2 gap-2">
             <div className="rounded-2xl border-2 border-yellow-400 bg-yellow-50/70 p-3">
-              <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-yellow-700"><Store className="h-3.5 w-3.5" /> Pickup rate</p>
-              <p className="mt-0.5 text-xl font-black text-gray-900">{formatINR(pickupRate)} <span className="text-[11px] font-semibold text-gray-500">/pc</span></p>
-              <p className="text-[10px] leading-snug text-gray-500">Collect from your nearest warehouse — per-piece slab price</p>
+              <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-yellow-700"><Store className="h-3.5 w-3.5" /> Pickup pricing</p>
+              <p className="mt-0.5 text-xl font-black text-gray-900">{formatINR(packPerPiece)} <span className="text-[11px] font-semibold text-gray-500">/pc</span></p>
+              <p className="text-[10px] leading-snug text-gray-500">Pack rate — collect from your nearest warehouse</p>
             </div>
             <div className="rounded-2xl border bg-white p-3">
-              <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-gray-500"><Truck className="h-3.5 w-3.5" /> Delivery rate</p>
-              <p className="mt-0.5 text-xl font-black text-gray-900">{formatINR(deliveryPack)} <span className="text-[11px] font-semibold text-gray-500">/pack</span></p>
-              <p className="text-[10px] leading-snug text-gray-500">Delivered to your address — pack price ({p.packQty} pcs/pack)</p>
+              <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-gray-500"><Truck className="h-3.5 w-3.5" /> Delivery pricing</p>
+              <p className="mt-0.5 text-xl font-black text-gray-900">{formatINR(singleRate)} <span className="text-[11px] font-semibold text-gray-500">/pc</span></p>
+              <p className="text-[10px] leading-snug text-gray-500">Single piece price — delivered to your address</p>
             </div>
-          </div>
-          {hydrated && nearestWarehouse && (
-            <p className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-gray-600">
-              <MapPin className={`h-3.5 w-3.5 ${pickupAvailable === false ? "text-red-500" : "text-emerald-600"}`} />
-              {pickupAvailable === false
-                ? `Not currently at ${nearestWarehouse.name} (${nearestWarehouse.city}) — order anyway, we will arrange from another warehouse`
-                : `Available for pickup at ${nearestWarehouse.name} (${nearestWarehouse.city})`}
-            </p>
-          )}
-
-          {/* unit selector */}
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            {UNITS.map((u) => {
-              const item = toCartItem(p, u.key);
-              const price = unitPriceFor(item);
-              return (
-                <button
-                  key={u.key}
-                  onClick={() => setUnit(u.key)}
-                  className={`rounded-xl border-2 p-3 text-left transition ${unit === u.key ? "border-yellow-400 bg-yellow-50" : "border-gray-200 bg-white hover:border-gray-300"}`}
-                >
-                  <p className="text-xs font-black text-gray-900">{u.label}</p>
-                  <p className="text-[10px] text-gray-500">{piecesPerUnit(item)} pcs · {formatINR(price)}</p>
-                </button>
-              );
-            })}
           </div>
 
           {/* price block */}
           <div className="mt-4 flex flex-wrap items-end gap-3 rounded-2xl border bg-white p-4">
             <div>
               <p className="text-3xl font-black text-gray-900">{formatINR(up)}</p>
-              <p className="text-[11px] text-gray-500">
-                per {unit === "SINGLE" ? "piece" : unit === "PACK" ? `pack of ${p.packQty}` : `case of ${ppu}`}{gst ? ` · excl. GST ${p.gst}%` : " · final price"}
-              </p>
+              <p className="text-[11px] text-gray-500">per piece · final price</p>
               <p className="text-[10px] font-semibold text-emerald-700">
                 {customer ? `Your ${customer.customerType.replace("_", "-").toLowerCase()} slab pricing` : "Wholesale (guest) pricing — login for your slab"}
               </p>
             </div>
             {p.mrp > up && (
               <div className="text-right">
-                <p className="text-sm text-gray-400 line-through">{formatINR(p.mrp * (unit === "SINGLE" ? 1 : ppu))}</p>
-                <p className="text-[11px] font-bold text-emerald-600">Save {formatINR(p.mrp * (unit === "SINGLE" ? 1 : ppu) - up)}</p>
+                <p className="text-sm text-gray-400 line-through">{formatINR(p.mrp)}</p>
+                <p className="text-[11px] font-bold text-emerald-600">Save {formatINR(p.mrp - up)}</p>
               </div>
             )}
             <div className="ml-auto flex items-center gap-2">
@@ -211,39 +153,20 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
                 Buy Now
               </button>
             </div>
-            {inCart > 0 && <p className="w-full text-[11px] font-semibold text-emerald-600">{inCart} × {unit === "SINGLE" ? "pieces" : unit === "PACK" ? "packs" : "cases"} in cart</p>}
+            {inCart > 0 && <p className="w-full text-[11px] font-semibold text-emerald-600">{inCart} × pieces in cart · {formatINR(lineTotal)}</p>}
           </div>
 
           {/* trust */}
           <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
             <span className="flex items-center gap-1.5 rounded-lg border bg-white p-2.5 text-gray-600"><Truck className="h-4 w-4 text-yellow-500" /> 48h dispatch</span>
-            <span className="flex items-center gap-1.5 rounded-lg border bg-white p-2.5 text-gray-600"><BadgeCheck className="h-4 w-4 text-yellow-500" /> {gst ? "GST invoice" : "Itemised invoice"}</span>
+            <span className="flex items-center gap-1.5 rounded-lg border bg-white p-2.5 text-gray-600"><BadgeCheck className="h-4 w-4 text-yellow-500" /> Itemised invoice</span>
             <span className="flex items-center gap-1.5 rounded-lg border bg-white p-2.5 text-gray-600"><Package className="h-4 w-4 text-yellow-500" /> OTP delivery</span>
-          </div>
-
-          {/* tier table */}
-          <div className="mt-4 overflow-hidden rounded-2xl border bg-white">
-            <p className="border-b bg-gray-50 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-gray-600">B2B Tier Pricing (per piece)</p>
-            <table className="w-full text-xs">
-              <tbody>
-                {tierRows.map(([label, price, hint], i) => (
-                  <tr key={label} className={i % 2 ? "bg-gray-50/60" : ""}>
-                    <td className="px-4 py-2 font-semibold text-gray-800">{label}<span className="ml-1.5 font-normal text-gray-400">{hint}</span></td>
-                    <td className="px-4 py-2 text-right font-black text-gray-900">{price > 0 ? formatINR(price) : "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         </div>
       </div>
 
-      {/* description + specs */}
+      {/* specifications */}
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl border bg-white p-5">
-          <h2 className="text-sm font-black uppercase tracking-wide text-gray-700">Product Details</h2>
-          <p className="mt-2 text-sm leading-relaxed text-gray-600">{(p as { description?: string }).description || `${p.name} — quality product from ${p.brand?.name} at DMK Mart wholesale rates.`}</p>
-        </div>
         <div className="overflow-hidden rounded-2xl border bg-white">
           <p className="border-b bg-gray-50 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-gray-600">Specifications</p>
           <table className="w-full text-xs">

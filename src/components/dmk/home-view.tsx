@@ -548,7 +548,7 @@ function DeptCards({ cfg, title }: { cfg?: HomeSectionCfg; title?: string }) {
 function HowItWorks({ cfg, title }: { cfg?: HomeSectionCfg; title?: string }) {
   const steps = [
     { icon: Building2, title: "Create B2B Account", text: "Register as retailer, wholesaler or distributor — get your price tier after approval." },
-    { icon: PackageCheck, title: "Order Pieces, Packs or Cases", text: "Every product supports single pieces, full packs and bulk cases with transparent pricing." },
+    { icon: PackageCheck, title: "Order Pieces or Full Packs", text: "Every product supports single pieces and sealed full packs with transparent pricing — pack rates when you pick up." },
     { icon: Truck, title: "OTP-verified Delivery", text: "A 4-digit OTP is printed on your invoice — share it only when your order arrives." },
   ];
   return (

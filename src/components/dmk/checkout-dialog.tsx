@@ -1,19 +1,22 @@
 "use client";
 
 /**
- * Task 15 — checkout dialog with the fulfillment popup:
+ * Checkout dialog with the fulfillment popup:
  *   gate → login/create-account required to place an order (guest cart stays free)
- *   mode → "How would you like your order?" DELIVERY (pack pricing) vs PICKUP (per-piece
- *          slab pricing) + nearest-warehouse picker ranked for the buyer's location
- *   address → delivery address form (skipped for pickup)
- *   pay → payment + final totals under the chosen fulfillment mode
+ *   mode → "How would you like your order?" PICKUP (pack rate at the warehouse) vs
+ *          DELIVERY (single-piece pricing) + nearest-warehouse picker for pickup
+ *   address → delivery address form (delivery only)
+ *   pay  → PICKUP: order details + confirm order ONLY (no payment options, no dispatch preference)
+ *          DELIVERY: payment + dispatch preference + final totals
+ *   No GST anywhere — DMK Mart does not charge or provide GST.
  */
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { BadgeCheck, CheckCircle2, KeyRound, MapPin, MessageCircle, Store, Truck } from "lucide-react";
 import { toast } from "sonner";
-import { useCartStore, cartTotals, formatINR, useSiteStore } from "@/lib/store";
+import { useCartStore, cartTotals, formatINR, unitPriceFor, FREE_DELIVERY_ABOVE } from "@/lib/store";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { getCustomerToken } from "@/lib/customer-session";
 import { useCustomerSession, type SessionWarehouse } from "@/lib/customer-client";
@@ -40,12 +43,10 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
   const hydrated = useHydrated();
   const items = useCartStore((s) => s.items);
   const clearCart = useCartStore((s) => s.clearCart);
-  const gst = useSiteStore((s) => s.gstEnabled);
   const customer = useCustomerSession((s) => s.customer);
   const warehouses = useCustomerSession((s) => s.warehouses); // nearest-first for this buyer
   const sessionLoaded = useCustomerSession((s) => s.loaded);
 
-  useEffect(() => { useSiteStore.getState().load(); }, []);
   useEffect(() => { if (open) useCustomerSession.getState().load(); }, [open]);
 
   const [step, setStep] = useState<Step>("mode");
@@ -79,8 +80,8 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
     }
   }, [open, sessionLoaded, customer]);
 
-  // totals under the chosen fulfillment mode (pickup = flat piece rates, no delivery fee)
-  const t = useMemo(() => cartTotals(items, gst, fulfillment), [items, gst, fulfillment]);
+  // totals under the chosen fulfillment mode (pickup = pack rates · delivery = single-piece prices)
+  const t = useMemo(() => cartTotals(items, fulfillment), [items, fulfillment]);
   const chosenWh = warehouses.find((w) => w.id === pickupWh) ?? warehouses[0] ?? null;
 
   const validateAddress = () => {
@@ -146,6 +147,46 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
 
   const grand = Math.max(0, t.grandTotal - couponDisc);
 
+  /* Order details block — line items + totals (shared by the pickup confirm step) */
+  const orderDetails = (
+    <div className="rounded-2xl border bg-white">
+      <p className="border-b bg-gray-50 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-gray-600">
+        Order Details · {t.totalLines} line{t.totalLines !== 1 ? "s" : ""} · {t.totalPieces} pcs
+      </p>
+      <div className="max-h-56 space-y-2 overflow-y-auto p-3">
+        {items.map((i) => {
+          const up = unitPriceFor(i, fulfillment);
+          return (
+            <div key={`${i.id}::${i.unitType}`} className="flex items-center gap-2.5">
+              <Image src={i.image || "/dmk-logo.png"} alt={i.name} width={40} height={40} className="h-10 w-10 shrink-0 rounded-lg object-cover" unoptimized />
+              <div className="min-w-0 flex-1">
+                <p className="line-clamp-1 text-xs font-semibold text-gray-900">{i.name}</p>
+                <p className="text-[10px] text-gray-500">{i.qty} × {formatINR(up)}</p>
+              </div>
+              <p className="text-xs font-black text-gray-900">{formatINR(Math.round(up * i.qty * 100) / 100)}</p>
+            </div>
+          );
+        })}
+      </div>
+      <div className="space-y-1.5 border-t bg-gray-50 p-3 text-xs">
+        <div className="flex justify-between text-gray-600"><span>Item total ({t.totalPieces} pcs)</span><span className="font-semibold">{formatINR(t.itemTotal)}</span></div>
+        {t.slabPct > 0 && (
+          <div className="flex justify-between text-emerald-600"><span>Slab discount ({t.slabTitle})</span><span className="font-semibold">− {formatINR(t.slabDisc)}</span></div>
+        )}
+        {couponDisc > 0 && (
+          <div className="flex justify-between text-emerald-600"><span>Coupon ({couponCode})</span><span className="font-semibold">− {formatINR(couponDisc)}</span></div>
+        )}
+        <div className="flex justify-between text-gray-600"><span>Delivery</span><span className="font-semibold">{t.deliveryFee === 0 ? "FREE" : formatINR(t.deliveryFee)}</span></div>
+        <div className="flex justify-between border-t pt-1.5 text-sm">
+          <span className="font-bold">Total</span><span className="font-black">{formatINR(grand)}</span>
+        </div>
+        {t.deliveryFee > 0 && t.itemTotal < FREE_DELIVERY_ABOVE && (
+          <p className="text-[10px] text-gray-400">Free delivery above {formatINR(FREE_DELIVERY_ABOVE)}</p>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) { setStep("mode"); setResult(null); } }}>
       <DialogContent className="max-h-[92vh] overflow-y-auto p-0 sm:max-w-lg">
@@ -153,12 +194,12 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
           <p className="text-sm font-bold text-yellow-400">
             {step === "gate" ? "Login required"
               : step === "mode" ? "How would you like your order?"
-              : step === "address" ? (fulfillment === "PICKUP" ? "Pickup contact" : "Delivery details")
-              : step === "pay" ? "Payment"
+              : step === "address" ? "Delivery details"
+              : step === "pay" ? (fulfillment === "PICKUP" ? "Confirm your order" : "Payment")
               : "Order Confirmed"} · {step === "done" && result ? formatINR(result.grandTotal) : formatINR(grand)}
           </p>
           <p className="text-[10px] text-gray-400">
-            {items.length} lines · {fulfillment === "PICKUP" ? "Warehouse pickup — per-piece rates · no delivery fee" : "Delivery — pack rates"}
+            {items.length} lines · {fulfillment === "PICKUP" ? "Warehouse pickup — pack rates · no delivery fee" : "Delivery — single piece prices"}
           </p>
         </div>
 
@@ -207,7 +248,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
                 <Store className="mt-0.5 h-5 w-5 text-yellow-600" />
                 <span>
                   <span className="block text-sm font-black text-gray-900">Pick up from warehouse</span>
-                  <span className="block text-[11px] text-gray-500">Per-piece slab rates · no delivery fee · collect from your nearest godown</span>
+                  <span className="block text-[11px] text-gray-500">Pack rates · no delivery fee · collect from your nearest warehouse</span>
                 </span>
               </span>
               {fulfillment === "PICKUP" && <BadgeCheck className="h-5 w-5 text-yellow-500" />}
@@ -222,7 +263,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
                 <Truck className="mt-0.5 h-5 w-5 text-gray-600" />
                 <span>
                   <span className="block text-sm font-black text-gray-900">Get it delivered</span>
-                  <span className="block text-[11px] text-gray-500">Pack rates · to your shop address · free above ₹5,000</span>
+                  <span className="block text-[11px] text-gray-500">Single piece prices · to your shop address · free above ₹5,000</span>
                 </span>
               </span>
               {fulfillment === "DELIVERY" && <BadgeCheck className="h-5 w-5 text-yellow-500" />}
@@ -265,32 +306,23 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
               onClick={() => setStep(fulfillment === "PICKUP" ? "pay" : "address")}
               className="w-full rounded-xl bg-black py-3 text-sm font-bold uppercase tracking-wide text-yellow-400 hover:bg-gray-800"
             >
-              Continue — {fulfillment === "PICKUP" ? "per-piece pickup rates" : "pack delivery rates"}
+              Continue — {fulfillment === "PICKUP" ? "pack pickup rates" : "single piece delivery prices"}
             </button>
           </div>
         )}
 
-        {/* ── ADDRESS (delivery) / CONTACT (pickup) ── */}
+        {/* ── DELIVERY ADDRESS ── */}
         {step === "address" && (
           <div className="space-y-3 p-5">
-            {fulfillment === "DELIVERY" && (
-              <p className="rounded-lg bg-gray-50 px-3 py-2 text-[11px] text-gray-600">
-                Delivering at <b>pack rates</b> — sealed packs at wholesale economics, free delivery above ₹5,000.
-              </p>
-            )}
             {field("customerName", "Business / Contact name *", "e.g. Rajesh Traders")}
             {field("phone", "Mobile number *", "10-digit mobile", "tel")}
             {waOptIn && <p className="-mt-1 text-[10px] font-semibold text-emerald-600">✓ WhatsApp updates enabled for this number — you can opt out below.</p>}
             {field("email", "Email", "optional@example.com", "email")}
-            {fulfillment === "DELIVERY" && (
-              <>
-                {field("addressLine", "Delivery address *", "Shop no, street, landmark")}
-                <div className="grid grid-cols-2 gap-3">
-                  {field("city", "City *", "City")}
-                  {field("pincode", "Pincode *", "6-digit pincode")}
-                </div>
-              </>
-            )}
+            {field("addressLine", "Delivery address *", "Shop no, street, landmark")}
+            <div className="grid grid-cols-2 gap-3">
+              {field("city", "City *", "City")}
+              {field("pincode", "Pincode *", "6-digit pincode")}
+            </div>
             {field("note", "Order note", "Any instructions (optional)")}
             <label className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
               <input type="checkbox" checked={waOptIn} onChange={(e) => setWaOptIn(e.target.checked)} className="mt-0.5 h-4 w-4 accent-emerald-600" />
@@ -302,28 +334,50 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
               onClick={() => validateAddress() && setStep("pay")}
               className="w-full rounded-xl bg-black py-3 text-sm font-bold uppercase tracking-wide text-yellow-400 hover:bg-gray-800"
             >
-              Continue to Payment
+              Continue
             </button>
           </div>
         )}
 
-        {/* ── PAYMENT ── */}
-        {step === "pay" && (
+        {/* ── PICKUP: order details + confirm order ONLY (no payment options, no dispatch preference) ── */}
+        {step === "pay" && fulfillment === "PICKUP" && (
           <div className="space-y-3 p-5">
             <div className="rounded-xl border bg-gray-50 p-3 text-[11px] leading-relaxed text-gray-600">
-              {fulfillment === "PICKUP" ? (
-                <>
-                  <b className="text-gray-900">Pickup from:</b>{" "}
-                  {chosenWh ? `${chosenWh.name}${chosenWh.city ? ` — ${chosenWh.city}` : ""}` : "loading…"}
-                  <br />Per-piece slab rates applied · <b>no delivery fee</b>. The DMK Mart team verifies stock at your warehouse right after you place the order.
-                </>
-              ) : (
-                <>
-                  <b className="text-gray-900">Deliver to:</b> {[form.addressLine, form.city, form.pincode].filter(Boolean).join(", ")}
-                  <br />Pack rates applied · free delivery above ₹5,000.
-                </>
-              )}
+              <b className="text-gray-900">Pickup from:</b>{" "}
+              {chosenWh ? `${chosenWh.name}${chosenWh.city ? ` — ${chosenWh.city}` : ""}` : "loading…"}
+              <br />Pack rates applied · <b>no delivery fee</b>. The DMK Mart team verifies stock at your warehouse right after you place the order.
             </div>
+            {hydrated && orderDetails}
+            <p className="-mt-1 text-center text-[10px] leading-relaxed text-gray-500">
+              By placing this order you agree to our{" "}
+              <a href="/page/terms-and-conditions" className="font-semibold text-gray-700 underline decoration-yellow-400 underline-offset-2 hover:text-black">Terms &amp; Conditions</a>,{" "}
+              <a href="/page/refund-returns-policy" className="font-semibold text-gray-700 underline decoration-yellow-400 underline-offset-2 hover:text-black">Refund &amp; Returns</a>,{" "}
+              <a href="/page/shipping-delivery-policy" className="font-semibold text-gray-700 underline decoration-yellow-400 underline-offset-2 hover:text-black">Shipping</a> and{" "}
+              <a href="/page/privacy-policy" className="font-semibold text-gray-700 underline decoration-yellow-400 underline-offset-2 hover:text-black">Privacy Policy</a>.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setStep("mode")} className="rounded-xl border px-4 py-3 text-sm font-semibold text-gray-600 hover:bg-gray-50">
+                Back
+              </button>
+              <button
+                onClick={place}
+                disabled={placing || items.length === 0}
+                className="flex-1 rounded-xl bg-black py-3 text-sm font-bold uppercase tracking-wide text-yellow-400 hover:bg-gray-800 disabled:opacity-50"
+              >
+                {placing ? "Placing order…" : `Confirm Order · ${formatINR(grand)}`}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── DELIVERY: payment + dispatch preference ── */}
+        {step === "pay" && fulfillment === "DELIVERY" && (
+          <div className="space-y-3 p-5">
+            <div className="rounded-xl border bg-gray-50 p-3 text-[11px] leading-relaxed text-gray-600">
+              <b className="text-gray-900">Deliver to:</b> {[form.addressLine, form.city, form.pincode].filter(Boolean).join(", ")}
+              <br />Single piece prices applied · free delivery above ₹5,000.
+            </div>
+            {hydrated && orderDetails}
             <div className="space-y-2">
               {PAYMENTS.map(([val, label, hint]) => (
                 <button
@@ -361,7 +415,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
               <a href="/page/privacy-policy" className="font-semibold text-gray-700 underline decoration-yellow-400 underline-offset-2 hover:text-black">Privacy Policy</a>.
             </p>
             <div className="flex gap-2">
-              <button onClick={() => setStep("mode")} className="rounded-xl border px-4 py-3 text-sm font-semibold text-gray-600 hover:bg-gray-50">
+              <button onClick={() => setStep("address")} className="rounded-xl border px-4 py-3 text-sm font-semibold text-gray-600 hover:bg-gray-50">
                 Back
               </button>
               <button

@@ -38,7 +38,7 @@ function waTextFor(c: { shopName: string; name: string; phone: string; customerT
     ``,
     `🛒 Login & start ordering: https://b2b-dmk-mart.vercel.app/account`,
     `📦 Bulk auto-slabs: ₹5,000+ 2% · ₹25,000+ 4% · ₹50,000+ 7% · ₹1,00,000+ 10%`,
-    `🚚 Dispatch in 48h · OTP-verified delivery · GST invoice`,
+    `🚚 Dispatch in 48h · OTP-verified delivery · Itemised invoice`,
     ``,
     `Need help? WhatsApp us: ${support || "+91 98220 12345"} — DMK Mart, Pune`,
   ].join("\n");

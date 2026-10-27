@@ -58,7 +58,7 @@ export function ProductDialog({ p, onClose }: { p: DProduct | null; onClose: () 
                 {p.mrp > p.basePrice && <span className="text-sm text-gray-400 line-through">{formatINR(p.mrp)}</span>}
               </div>
               <p className="mt-0.5 text-xs font-bold text-gray-700">Case of {p.packSize}: {formatINR(casePrice)}</p>
-              <p className="text-[11px] text-gray-500">+ 18% GST · GST invoice provided</p>
+              <p className="text-[11px] text-gray-500">Final price · itemised invoice provided</p>
             </div>
 
             <div className="overflow-hidden rounded-xl border text-[11px]">
@@ -93,7 +93,7 @@ export function ProductDialog({ p, onClose }: { p: DProduct | null; onClose: () 
                 </div>
                 <div className="text-xs">
                   <p className="font-bold text-gray-900">{units} units</p>
-                  <p className="font-bold text-yellow-700">{formatINR(lineTotal)} + GST</p>
+                  <p className="font-bold text-yellow-700">{formatINR(lineTotal)}</p>
                 </div>
               </div>
               <button

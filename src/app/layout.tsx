@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     template: "%s | DMK Mart B2B",
   },
   description:
-    "DMK Mart is a B2B wholesale marketplace for plastic household products, kitchenware, furniture and home appliances — 2,272+ SKUs from 39 trusted brands with retailer, wholesaler & distributor tier pricing, GST invoicing and OTP-verified delivery.",
+    "DMK Mart is a B2B wholesale marketplace for plastic household products, kitchenware, furniture and home appliances — 2,272+ SKUs from 39 trusted brands with retailer, wholesaler & distributor tier pricing, itemised invoicing and OTP-verified delivery.",
   keywords: ["DMK Mart", "B2B wholesale", "plastic household", "kitchenware wholesale", "bulk appliances", "retailer distributor", "Maharashtra"],
   icons: {
     icon: "/dmk-logo.png",

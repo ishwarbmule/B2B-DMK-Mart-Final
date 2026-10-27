@@ -328,7 +328,7 @@ export function DealsBento({
           <Truck className="h-6 w-6 text-yellow-400" />
           <div>
             <p className="text-xl font-black leading-tight md:text-2xl">{stats.stores}+ partner stores</p>
-            <p className="mt-1 text-[11px] font-semibold text-gray-400">Maharashtra-wide dispatch · GST invoice on every order</p>
+            <p className="mt-1 text-[11px] font-semibold text-gray-400">Maharashtra-wide dispatch · Itemised invoice on every order</p>
           </div>
         </div>
       </div>
@@ -432,9 +432,9 @@ export function DeptCards({
 
 export function HowItWorks({ freeAbove }: { freeAbove?: string }) {
   const steps = [
-    { icon: ClipboardList, title: "Pick your cases", sub: "Browse 2,400+ SKUs with transparent dealer & slab rates" },
-    { icon: Package2, title: "Add cases to cart", sub: `Order in case multiples · free delivery above ${formatFree(freeAbove)}` },
-    { icon: ReceiptIndianRupee, title: "Get GST invoice", sub: "18% GST breakdown, dispatch tracking & credit support" },
+    { icon: ClipboardList, title: "Pick your products", sub: "Browse 2,400+ SKUs with transparent dealer & slab rates" },
+    { icon: Package2, title: "Add pieces or packs to cart", sub: `Transparent per-piece pricing · free delivery above ${formatFree(freeAbove)}` },
+    { icon: ReceiptIndianRupee, title: "Get itemised invoice", sub: "Clear per-line billing, dispatch tracking & credit support" },
   ];
   return (
     <section className="relative overflow-hidden rounded-3xl bg-black px-6 py-8 text-white md:px-10">

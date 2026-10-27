@@ -47,7 +47,7 @@ export function FinancialModule({ token }: { token: string }) {
 
   return (
     <div>
-      <ModuleHeader title="Financial Section" sub={`${data.range.from} → ${data.range.to} · sales, COGS, profit, GST & payment mix`}>
+      <ModuleHeader title="Financial Section" sub={`${data.range.from} → ${data.range.to} · sales, COGS, profit & payment mix`}>
         <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="h-9 rounded-lg border px-2 text-xs" />
         <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="h-9 rounded-lg border px-2 text-xs" />
         <button onClick={load} className="flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold hover:bg-gray-50"><RefreshCcw className="h-3.5 w-3.5" /></button>
@@ -55,9 +55,8 @@ export function FinancialModule({ token }: { token: string }) {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard icon={null as never} label="Gross Sales" value={formatINR(s.gross)} sub={`${s.orders} orders`} color="#111111" />
-        <StatCard icon={null as never} label="Net Revenue" value={formatINR(s.net)} sub={`after ${formatINR(s.discounts)} discounts + GST`} color="#1d4ed8" />
+        <StatCard icon={null as never} label="Net Revenue" value={formatINR(s.net)} sub={`after ${formatINR(s.discounts)} discounts`} color="#1d4ed8" />
         <StatCard icon={null as never} label="Gross Profit" value={formatINR(s.grossProfit)} sub={`margin ${s.profitMargin}% (COGS ${formatINR(s.cogs)})`} color="#059669" />
-        <StatCard icon={null as never} label="GST Collected" value={formatINR(s.gst)} sub="18% blended" color="#b45309" />
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -139,7 +138,6 @@ const REPORT_TYPES = [
   ["inventory", "Inventory & Stock Value"],
   ["customers", "Customer Report"],
   ["offers", "Offers & Coupons Report"],
-  ["gst", "GST Register"],
 ] as const;
 
 const RANGES = [

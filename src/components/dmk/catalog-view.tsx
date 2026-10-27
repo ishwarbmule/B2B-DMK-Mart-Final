@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { SlidersHorizontal, X, ChevronLeft, ChevronRight } from "lucide-react";
 import type { DProduct, TopCategoryNode, BrandNode } from "@/lib/types";
-import { useSiteStore } from "@/lib/store";
+import { useCartStore } from "@/lib/store";
 import { ProductCard } from "./product-card";
 
 interface Filters {
@@ -39,8 +39,6 @@ export function CatalogView({
   const [data, setData] = useState<{ products: DProduct[]; total: number; pages: number }>({ products: [], total: 0, pages: 1 });
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
-  const gst = useSiteStore((s) => s.gstEnabled);
-  useEffect(() => { useSiteStore.getState().load(); }, []);
 
   const setF = (patch: Partial<Filters>) => {
     setLoading(true);
@@ -144,7 +142,7 @@ export function CatalogView({
       <div className="mb-3 flex items-center justify-between">
         <div>
           {title ? <h2 className="text-lg font-black text-gray-900 md:text-xl">{title}</h2> : null}
-          <p className={title ? "text-xs text-gray-500" : "text-xs font-bold text-gray-500"}>{loading ? "Loading…" : `${data.total} SKUs · pieces, packs & bulk cases`}</p>
+          <p className={title ? "text-xs text-gray-500" : "text-xs font-bold text-gray-500"}>{loading ? "Loading…" : `${data.total} SKUs · pieces & packs`}</p>
         </div>
         <div className="flex items-center gap-2">
           <select value={filters.sort} onChange={(e) => setF({ sort: e.target.value })} className="hidden h-9 rounded-lg border border-gray-200 bg-white px-2 text-xs md:block" aria-label="Sort products">
@@ -216,9 +214,7 @@ export function CatalogView({
                 </div>
               )}
               <p className="mt-3 text-center text-[11px] text-gray-400">
-                {gst
-                  ? "Wholesale prices are exclusive of GST · GST invoice on every dispatch"
-                  : "Wholesale prices · Itemised invoice on every dispatch"}
+                Wholesale prices · Itemised invoice on every dispatch
               </p>
             </>
           )}

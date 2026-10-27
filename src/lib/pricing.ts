@@ -1,5 +1,5 @@
 /**
- * Task 15 — DMK Mart pricing engine (shared by server routes and client UI).
+ * DMK Mart pricing engine (shared by server routes and client UI).
  *
  * Business slabs (Customer.customerType → Product tier column):
  *   tier1 = Distributor · tier2 = Wholesale · tier3 = Semi-Wholesale · tier4 = Retailer
@@ -8,10 +8,11 @@
  *   - Logged-out visitors see WHOLESALE (tier2) piece prices.
  *   - Logged-in buyers see their own slab's piece price.
  *   - TWO rates on every product:
- *       Pickup   = actual per-PIECE slab price (buyer collects from nearest warehouse)
- *       Delivery = per-PACK price (packPrice when the admin set one, else piece × packQty × 0.94)
- *   - Pickup orders are billed at the flat piece rate (no pack discount),
- *     delivery orders use pack/case pricing.
+ *       Delivery = SINGLE-PIECE pricing (the flat slab piece rate — no pack economics)
+ *       Pickup   = PACK rate (packPrice when the admin set one, else piece × packQty × 0.94 —
+ *                  the buyer saves DMK Mart the delivery, wholesale pack economics is the promise)
+ *   - Delivery orders bill the flat piece rate; pickup orders use pack pricing.
+ *   - No GST anywhere: DMK Mart does not charge or provide GST.
  */
 
 export const GUEST_TIER = "tier2"; // wholesale prices for logged-out visitors (owner rule)
@@ -55,30 +56,37 @@ export function piecesForUnit(unitType: string, packQty = 1, piecesPerBox = 0): 
 }
 
 /**
- * PICKUP rate — flat per-piece slab price × pieces in the unit (no pack discount:
- * the buyer saves DMK Mart the delivery, the piece rate is the promise).
+ * PICKUP rate — PACK pricing (wholesale economics; the buyer collects from the warehouse):
+ *   SINGLE → per-piece pack rate: packPrice ÷ packQty when admin set one, else piece × 0.94
+ *   PACK   → packPrice when admin set one, else piece × packQty × 0.94
+ *   BULK   → piece × casePieces × 0.88 (legacy rows only — bulk cases are no longer offered)
  */
 export function pickupUnitPrice(p: TieredProduct, tier: string, unitType: string): number {
   const piece = piecePriceOf(p, tier);
-  const ppu = piecesForUnit(unitType, p.packQty, p.piecesPerBox);
-  return round2(piece * ppu);
-}
-
-/**
- * DELIVERY rate — pack-based pricing:
- *   SINGLE → per-piece slab price (deal override handled by the caller)
- *   PACK   → packPrice when admin set one, else piece × packQty × 0.94
- *   BULK   → piece × casePieces × 0.88
- */
-export function deliveryUnitPrice(p: TieredProduct, tier: string, unitType: string): number {
-  const piece = piecePriceOf(p, tier);
-  if (unitType === "SINGLE") return round2(piece);
+  if (unitType === "SINGLE") {
+    if (p.packPrice && p.packPrice > 0 && (p.packQty || 0) > 0) return round2(p.packPrice / Math.max(1, p.packQty || 1));
+    return round2(piece * 0.94);
+  }
   if (unitType === "PACK") {
     if (p.packPrice && p.packPrice > 0) return round2(p.packPrice);
     return round2(piece * Math.max(1, p.packQty || 1) * 0.94);
   }
   const casePieces = piecesForUnit("BULK", p.packQty, p.piecesPerBox);
   return round2(piece * casePieces * 0.88);
+}
+
+/**
+ * DELIVERY rate — SINGLE-PIECE pricing (flat slab piece rate, no pack economics):
+ *   SINGLE → per-piece slab price (deal override handled by the caller)
+ *   PACK   → piece × packQty
+ *   BULK   → piece × casePieces (legacy rows only — bulk cases are no longer offered)
+ */
+export function deliveryUnitPrice(p: TieredProduct, tier: string, unitType: string): number {
+  const piece = piecePriceOf(p, tier);
+  if (unitType === "SINGLE") return round2(piece);
+  if (unitType === "PACK") return round2(piece * Math.max(1, p.packQty || 1));
+  const casePieces = piecesForUnit("BULK", p.packQty, p.piecesPerBox);
+  return round2(piece * casePieces);
 }
 
 /** unit price for a line under a fulfillment mode */

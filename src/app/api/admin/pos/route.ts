@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     }
     const itemTotal = Math.round(orderItems.reduce((s, l) => s + l.total, 0) * 100) / 100;
     const discount = Math.min(itemTotal, Number(body.discount) || 0);
-    const gstAmount = Math.round((itemTotal - discount) * 0.18 * 100) / 100;
+    const gstAmount = 0; // No GST — DMK Mart does not charge or provide GST.
     const grandTotal = Math.round((itemTotal - discount + gstAmount) * 100) / 100;
     const invoiceNo = `DMK/2026-27/INV/${2001 + (await db.order.count())}`;
     const otp = String(1000 + Math.floor(Math.random() * 9000));

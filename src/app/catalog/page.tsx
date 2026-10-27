@@ -6,7 +6,7 @@ import { CatalogClient } from "@/components/dmk/catalog-client";
 export const metadata: Metadata = {
   title: "Wholesale Catalog — 2,200+ SKUs from 39 Brands | DMK Mart B2B",
   description:
-    "Browse the full DMK Mart wholesale catalog — plastic household, kitchenware, furniture, planters and appliances. Filter by brand, department and price. Pieces, packs & bulk cases.",
+    "Browse the full DMK Mart wholesale catalog — plastic household, kitchenware, furniture, planters and appliances. Filter by brand, department and price. Pieces & packs.",
   keywords: ["wholesale catalog", "plastic household bulk", "b2b kitchenware", "dmk mart catalog"],
 };
 

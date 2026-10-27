@@ -511,7 +511,7 @@ export function OrdersModule({ token }: { token: string }) {
           <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <p className="flex items-center gap-2 text-sm font-black text-gray-900"><PencilLine className="h-4 w-4 text-yellow-600" /> Edit Order — pricing, quantity, remove lines</p>
             <p className="mt-1 text-[11px] text-gray-500">
-              Change qty and rate per line, or remove lines. Totals, slabs, GST and delivery fee recalculate automatically.
+              Change qty and rate per line, or remove lines. Totals, slabs and delivery fee recalculate automatically.
               {stock.order.status === "CONFIRMED" && " This order is confirmed — stock changes and buyer credit adjustments reconcile automatically."}
             </p>
             <div className="mt-3 space-y-2">

@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const p = await getProduct(slug);
   if (!p) return { title: "Product not found | DMK Mart" };
   const title = p.seoTitle || `${p.name} — ${p.brand.name} | DMK Mart B2B`;
-  const description = p.seoDesc || `Buy ${p.name} (${p.brand.name}) at wholesale price on DMK Mart. Single pieces, packs & bulk cases with GST invoice.`;
+  const description = p.seoDesc || `Buy ${p.name} (${p.brand.name}) at wholesale price on DMK Mart. Single pieces & packs. Itemised invoice, OTP-verified delivery.`;
   return {
     title,
     description,

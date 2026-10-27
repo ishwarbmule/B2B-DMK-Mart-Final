@@ -30,7 +30,7 @@ const FLAGS = [
 const EMPTY_FORM = {
   name: "", sku: "", brandId: "", brandName: "", topId: "", midId: "", endId: "",
   dealerPrice: "", mrp: "", purchaseCost: "", tier1: "", tier2: "", tier3: "", tier4: "", tier5: "", packPrice: "",
-  packQty: "1", piecesPerBox: "", stock: "", barcode: "", hsn: "", gst: "18", image: "", description: "",
+  packQty: "1", piecesPerBox: "", stock: "", barcode: "", hsn: "", image: "", description: "",
   isHot: false, isTop: false, isFeatured: false, isDeal: false, active: true,
 };
 
@@ -159,7 +159,7 @@ export function ProductsModule({ token }: { token: string }) {
           name: editRow.name, sku: editRow.sku, dealerPrice: editRow.dealerPrice, mrp: editRow.mrp,
           purchaseCost: editRow.purchaseCost, stock: editRow.stock, packQty: editRow.packQty, packPrice: editRow.packPrice,
           tier1: editRow.tier1, tier2: editRow.tier2, tier3: editRow.tier3, tier4: editRow.tier4,
-          barcode: editRow.barcode, hsn: editRow.hsn, gst: editRow.gst, image: editRow.image,
+          barcode: editRow.barcode, hsn: editRow.hsn, image: editRow.image,
           isTop: editRow.isTop, isFeatured: editRow.isFeatured, isHot: editRow.isHot, isDeal: editRow.isDeal, active: editRow.active,
         }),
       });
@@ -349,11 +349,10 @@ export function ProductsModule({ token }: { token: string }) {
               <input value={form.purchaseCost} onChange={(e) => setForm((f) => ({ ...f, purchaseCost: e.target.value }))} placeholder="Purchase cost (admin only)" className="h-9 rounded-lg border px-3 text-xs" />
               <input value={form.dealerPrice} onChange={(e) => setForm((f) => ({ ...f, dealerPrice: e.target.value }))} placeholder="Selling price (tier4) *" className="h-9 rounded-lg border px-3 text-xs" />
               <input value={form.mrp} onChange={(e) => setForm((f) => ({ ...f, mrp: e.target.value }))} placeholder="MRP *" className="h-9 rounded-lg border px-3 text-xs" />
-              <input value={form.packPrice} onChange={(e) => setForm((f) => ({ ...f, packPrice: e.target.value }))} placeholder="Delivery pack price ₹/pack (Task 15)" className="h-9 rounded-lg border px-3 text-xs" />
+              <input value={form.packPrice} onChange={(e) => setForm((f) => ({ ...f, packPrice: e.target.value }))} placeholder="Pack price ₹/pack (pickup pack rate)" className="h-9 rounded-lg border px-3 text-xs" />
               <input value={form.packQty} onChange={(e) => setForm((f) => ({ ...f, packQty: e.target.value }))} placeholder="Pack qty (pcs)" className="h-9 rounded-lg border px-3 text-xs" />
               <input value={form.stock} onChange={(e) => setForm((f) => ({ ...f, stock: e.target.value }))} placeholder="Stock" className="h-9 rounded-lg border px-3 text-xs" />
               <input value={form.hsn} onChange={(e) => setForm((f) => ({ ...f, hsn: e.target.value }))} placeholder="HSN" className="h-9 rounded-lg border px-3 text-xs" />
-              <input value={form.gst} onChange={(e) => setForm((f) => ({ ...f, gst: e.target.value }))} placeholder="GST %" className="h-9 rounded-lg border px-3 text-xs" />
               <input value={form.barcode} onChange={(e) => setForm((f) => ({ ...f, barcode: e.target.value }))} placeholder="Barcode (auto SKU)" className="h-9 rounded-lg border px-3 text-xs" />
               <input value={form.image} onChange={(e) => setForm((f) => ({ ...f, image: e.target.value }))} placeholder="Image URL (Cloudinary)" className="col-span-2 h-9 rounded-lg border px-3 text-xs" />
               <textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Description" className="col-span-2 h-16 rounded-lg border px-3 py-2 text-xs" />
@@ -378,11 +377,11 @@ export function ProductsModule({ token }: { token: string }) {
               {([
                 ["name", "Name", "text"], ["sku", "SKU", "text"],
                 ["purchaseCost", "Purchase Cost (hidden)", "number"], ["dealerPrice", "Selling Price (tier4)", "number"],
-                ["mrp", "MRP", "number"], ["packPrice", "Delivery Pack Price ₹/pack", "number"],
+                ["mrp", "MRP", "number"], ["packPrice", "Pack Price ₹/pack", "number"],
                 ["tier1", "Tier 1 — Distributor ₹", "number"], ["tier2", "Tier 2 — Wholesale ₹", "number"],
                 ["tier3", "Tier 3 — Semi-Wholesale ₹", "number"], ["tier4", "Tier 4 — Retailer ₹", "number"],
                 ["stock", "Stock", "number"],
-                ["packQty", "Pack Qty", "number"], ["gst", "GST %", "number"],
+                ["packQty", "Pack Qty", "number"],
                 ["barcode", "Barcode", "text"], ["hsn", "HSN", "text"], ["image", "Image URL", "text"],
               ] as const).map(([key, label, type]) => (
                 <label key={key} className="block">

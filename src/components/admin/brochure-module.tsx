@@ -56,7 +56,7 @@ export function BrochureModule({ token }: { token: string }) {
             <Image src="/dmk-logo.png" alt="DMK Mart" width={48} height={48} className="h-12 w-12 rounded-full" unoptimized />
             <div>
               <h2 className="text-lg font-black">DMK MART — Wholesale Dealer Catalog</h2>
-              <p className="text-[11px] text-gray-500">{rows.length} SKUs {company ? `· ${brands.find((c) => c.id === company)?.name}` : "· all brands"} · prices exclusive of 18% GST · valid while stocks last</p>
+              <p className="text-[11px] text-gray-500">{rows.length} SKUs {company ? `· ${brands.find((c) => c.id === company)?.name}` : "· all brands"} · wholesale prices · valid while stocks last</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-4">

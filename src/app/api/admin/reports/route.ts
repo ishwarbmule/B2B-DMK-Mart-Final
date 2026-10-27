@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
       select: { invoiceNo: true, createdAt: true, customerName: true, customerType: true, phone: true, city: true, paymentMethod: true, paymentStatus: true, status: true, itemTotal: true, gstAmount: true, discount: true, grandTotal: true, couponCode: true, otp: true },
     });
-    return NextResponse.json({ range, type, columns: ["Invoice", "Date", "Customer", "Type", "Phone", "City", "Payment", "PayStatus", "OrderStatus", "ItemTotal", "GST", "Discount", "GrandTotal", "Coupon", "OTP"], rows: orders.map((o) => [o.invoiceNo, new Date(o.createdAt).toLocaleDateString("en-IN"), o.customerName, o.customerType, o.phone, o.city, o.paymentMethod, o.paymentStatus, o.status, o.itemTotal, o.gstAmount, o.discount, o.grandTotal, o.couponCode, o.otp]) });
+    return NextResponse.json({ range, type, columns: ["Invoice", "Date", "Customer", "Type", "Phone", "City", "Payment", "PayStatus", "OrderStatus", "ItemTotal", "Discount", "GrandTotal", "Coupon", "OTP"], rows: orders.map((o) => [o.invoiceNo, new Date(o.createdAt).toLocaleDateString("en-IN"), o.customerName, o.customerType, o.phone, o.city, o.paymentMethod, o.paymentStatus, o.status, o.itemTotal, o.discount, o.grandTotal, o.couponCode, o.otp]) });
   }
 
   if (type === "products") {
@@ -65,18 +65,6 @@ export async function GET(req: NextRequest) {
       ...coupons.map((c) => ["COUPON", c.code, c.headline, c.type, `${c.type} ${c.value}`, c.scopeType, c.showOnHome ? "Homepage" : "-", c.active ? "Active" : "Inactive", "-", `${c.usedCount}/${c.usageLimit || "∞"} used`]),
     ];
     return NextResponse.json({ range, type, columns: ["Kind", "Name/Code", "Headline", "Type", "Value", "Scope", "Placement", "Status", "Dates", "Usage"], rows });
-  }
-
-  if (type === "gst") {
-    const orders = await db.order.findMany({
-      where: { createdAt: { gte: from, lte: to } },
-      select: { invoiceNo: true, createdAt: true, customerName: true, itemTotal: true, gstAmount: true, grandTotal: true },
-    });
-    const rows = orders.map((o) => {
-      const taxable = o.itemTotal - o.discount;
-      return [o.invoiceNo, new Date(o.createdAt).toLocaleDateString("en-IN"), o.customerName, Math.round(taxable * 100) / 100, "18%", Math.round(taxable * 0.09 * 100) / 100, Math.round(taxable * 0.09 * 100) / 100, Math.round(taxable * 0.18 * 100) / 100, o.grandTotal];
-    });
-    return NextResponse.json({ range, type, columns: ["Invoice", "Date", "Party", "Taxable", "Rate", "CGST", "SGST", "TotalGST", "InvoiceTotal"], rows });
   }
 
   return jsonError("Unknown report type", 400);
