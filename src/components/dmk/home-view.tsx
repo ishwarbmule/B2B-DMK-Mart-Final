@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -80,8 +80,39 @@ const PROMO_ZONES: Record<string, string> = {
   "BOTTOM-RIGHT": "justify-end items-end text-right",
 };
 
+/* ── Offer style v2 helpers — admin px sizes with SEPARATE laptop & mobile values ── */
+const numOr = (v: number | undefined, dflt: number) => (typeof v === "number" && Number.isFinite(v) ? v : dflt);
+/** Admin px → responsive font-size. Laptop+mobile set → clamp between them; laptop only → fluid mobile (~55%);
+    mobile only → fixed px; neither → undefined (theme classes stay in charge). */
+function offerFontSize(desk: number | undefined, mob: number | undefined): CSSProperties | undefined {
+  const d = numOr(desk, 0);
+  const m = numOr(mob, 0);
+  const clampStyle = (mm: number, dd: number): CSSProperties => ({
+    fontSize: `clamp(${mm.toFixed(1)}px, calc(${mm.toFixed(1)}px + ${(dd - mm).toFixed(1)} * (100vw - 360px) / 664), ${dd}px)`,
+  });
+  if (d > 0 && m > 0) return clampStyle(Math.min(m, d), d);
+  if (d > 0) return clampStyle(d * 0.55, d);
+  if (m > 0) return { fontSize: `${m}px` };
+  return undefined;
+}
+/** Mobile padding: admin-set px wins, otherwise auto-derive from desktop (brand 14–24px). */
+const offerMobPad = (deskPx: number, adminM: number | undefined) =>
+  numOr(adminM, 0) > 0 ? Math.max(8, numOr(adminM, 0)) : Math.max(14, Math.min(24, Math.round(deskPx * 0.4)));
+
 function OfferPromo({ offer }: { offer: OfferNode }) {
   const zone = PROMO_ZONES[offer.contentPosition || "TOP-LEFT"] ?? PROMO_ZONES["TOP-LEFT"];
+  // per-side content padding — laptop from admin (default 50px), mobile admin-set or auto 14–24px
+  const pad = { t: numOr(offer.padTop, 50), r: numOr(offer.padRight, 50), b: numOr(offer.padBottom, 50), l: numOr(offer.padLeft, 50) };
+  const padVars = {
+    "--pt": `${pad.t}px`,
+    "--pr": `${pad.r}px`,
+    "--pb": `${pad.b}px`,
+    "--pl": `${pad.l}px`,
+    "--ptm": `${offerMobPad(pad.t, offer.padTopM)}px`,
+    "--prm": `${offerMobPad(pad.r, offer.padRightM)}px`,
+    "--pbm": `${offerMobPad(pad.b, offer.padBottomM)}px`,
+    "--plm": `${offerMobPad(pad.l, offer.padLeftM)}px`,
+  } as CSSProperties;
   return (
     <motion.section
       initial={{ opacity: 0, y: -16 }}
@@ -90,13 +121,13 @@ function OfferPromo({ offer }: { offer: OfferNode }) {
       className="relative overflow-hidden bg-black"
       style={{ background: offer.bannerImage ? undefined : offer.bgColor }}
     >
-      {/* 16:9 cinematic frame — only this frame size is accepted in admin */}
-      <div className="relative aspect-video max-h-[560px] w-full">
+      {/* 16:9 cinematic frame — only this frame size is accepted in admin; pad vars live here so the copy block inherits them */}
+      <div className="relative aspect-video max-h-[560px] w-full" style={padVars}>
         {offer.bannerImage ? (
           <Image src={offer.bannerImage} alt={offer.headline} fill sizes="100vw" className="object-cover object-center" priority unoptimized />
         ) : null}
-        {/* copy sits where admin chose — 50px from every side on wide screens, no hiding overlay */}
-        <div className={`absolute inset-0 flex flex-col p-5 sm:p-[50px] ${zone}`}>
+        {/* copy sits where admin chose — per-side admin padding (laptop default 50px, phones 14–24px), no hiding overlay */}
+        <div className={`absolute inset-0 flex flex-col pt-[var(--ptm)] pr-[var(--prm)] pb-[var(--pbm)] pl-[var(--plm)] sm:pt-[var(--pt)] sm:pr-[var(--pr)] sm:pb-[var(--pb)] sm:pl-[var(--pl)] ${zone}`}>
           <motion.div
             initial="hidden"
             animate="show"
@@ -106,14 +137,14 @@ function OfferPromo({ offer }: { offer: OfferNode }) {
             <motion.p
               variants={{ hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 120, damping: 16 } } }}
               className="text-[10px] font-extrabold uppercase tracking-[0.22em] sm:text-xs"
-              style={{ color: offer.textColor }}
+              style={{ color: offer.kickerColor || offer.textColor, ...offerFontSize(offer.kickerSize, offer.kickerSizeM) }}
             >
               <Sparkles className="mr-1.5 inline h-3.5 w-3.5" /> Limited Period Campaign
             </motion.p>
             <motion.h2
               variants={{ hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 120, damping: 16 } } }}
               className="max-w-lg text-2xl font-black leading-[1.06] tracking-tight drop-shadow-[0_1px_10px_rgba(0,0,0,0.35)] sm:text-4xl md:text-5xl"
-              style={{ color: offer.textColor }}
+              style={{ color: offer.headlineColor || offer.textColor, ...offerFontSize(offer.headlineSize, offer.headlineSizeM) }}
             >
               {offer.headline}
             </motion.h2>
@@ -121,7 +152,7 @@ function OfferPromo({ offer }: { offer: OfferNode }) {
               <motion.p
                 variants={{ hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 120, damping: 16 } } }}
                 className="max-w-md text-[11px] font-semibold leading-snug drop-shadow-[0_1px_6px_rgba(0,0,0,0.4)] sm:text-sm"
-                style={{ color: offer.textColor }}
+                style={{ color: offer.subColor || offer.textColor, ...offerFontSize(offer.subSize, offer.subSizeM) }}
               >
                 {offer.subText}
               </motion.p>
@@ -131,7 +162,12 @@ function OfferPromo({ offer }: { offer: OfferNode }) {
             >
               <Link
                 href={offer.ctaUrl || "/catalog"}
-                className="mt-1 flex w-fit items-center gap-2 rounded-xl bg-black px-5 py-2.5 text-xs font-extrabold text-yellow-400 shadow-lg shadow-black/25 transition-all duration-200 hover:scale-[1.04] hover:bg-gray-900 active:scale-95 sm:px-7 sm:py-3 sm:text-sm"
+                className={`mt-1 flex w-fit items-center gap-2 rounded-xl px-5 py-2.5 font-extrabold shadow-lg shadow-black/25 transition-all duration-200 hover:scale-[1.04] active:scale-95 sm:px-7 sm:py-3 ${offer.buttonBg ? "" : "bg-black hover:bg-gray-900"} ${offer.buttonTextColor ? "" : "text-yellow-400"}`}
+                style={{
+                  ...(offer.buttonBg ? { background: offer.buttonBg } : {}),
+                  ...(offer.buttonTextColor ? { color: offer.buttonTextColor } : {}),
+                  ...offerFontSize(offer.buttonSize, offer.buttonSizeM),
+                }}
               >
                 {offer.ctaText || "Shop Now"}
                 <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" strokeWidth={2.6} />
@@ -158,13 +194,13 @@ function SaleMarquee({ offer }: { offer: OfferNode }) {
       {bits.map((b, i) => (
         <span key={i} className="flex items-center">
           <Sparkles className="mx-4 h-3.5 w-3.5 shrink-0" />
-          <span className="whitespace-nowrap text-xs font-black uppercase tracking-wide sm:text-sm">{b}</span>
+          <span className="whitespace-nowrap text-xs font-black uppercase tracking-wide sm:text-sm" style={offerFontSize(offer.marqueeSize, offer.marqueeSizeM)}>{b}</span>
         </span>
       ))}
     </span>
   );
   return (
-    <div className="overflow-hidden bg-yellow-400 py-2.5 text-black">
+    <div className="overflow-hidden py-2.5" style={{ background: offer.marqueeBg || "#facc15", color: offer.marqueeTextColor || "#000" }}>
       <div className="flex w-max animate-dmk-marquee-slim hover:[animation-play-state:paused]">
         <Seq /><Seq /><Seq />
       </div>
