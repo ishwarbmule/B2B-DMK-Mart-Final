@@ -24,7 +24,6 @@ const secColor = (c?: string) => (c || undefined) as string | undefined;
 export const HOME_SECTIONS: { id: string; label: string; hasTitle: boolean; hasSub: boolean }[] = [
   { id: "offerHero", label: "Offer Hero (auto from Offers)", hasTitle: false, hasSub: false },
   { id: "brandStrip", label: "Shop by Brand", hasTitle: true, hasSub: false },
-  { id: "couponStrip", label: "Live Coupons", hasTitle: true, hasSub: false },
   { id: "categoryGrid", label: "Shop by Category", hasTitle: true, hasSub: true },
   { id: "dealsRail", label: "Deals of the Day", hasTitle: true, hasSub: true },
   { id: "tabbedShowcase", label: "Product Showcase (tabs)", hasTitle: false, hasSub: false },
@@ -88,7 +87,7 @@ function OfferPromo({ offer }: { offer: OfferNode }) {
       initial={{ opacity: 0, y: -16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
-      className="relative overflow-hidden rounded-2xl bg-black"
+      className="relative overflow-hidden bg-black"
       style={{ background: offer.bannerImage ? undefined : offer.bgColor }}
     >
       {/* 16:9 cinematic frame — only this frame size is accepted in admin */}
@@ -165,7 +164,7 @@ function SaleMarquee({ offer }: { offer: OfferNode }) {
     </span>
   );
   return (
-    <div className="overflow-hidden rounded-full bg-yellow-400 py-2.5 text-black shadow-sm">
+    <div className="overflow-hidden bg-yellow-400 py-2.5 text-black">
       <div className="flex w-max animate-dmk-marquee-slim hover:[animation-play-state:paused]">
         <Seq /><Seq /><Seq />
       </div>
@@ -256,37 +255,6 @@ function BrandStrip({ cfg, title }: { cfg?: HomeSectionCfg; title?: string }) {
             <span className="line-clamp-1 text-[11px] font-bold text-gray-800">{b.name}</span>
             <span className="text-[10px] text-gray-400">{b._count?.products ?? 0} SKUs</span>
           </Link>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ─────────────── Coupon creatives (auto from admin) ─────────────── */
-function CouponStrip({ cfg, title }: { cfg?: HomeSectionCfg; title?: string }) {
-  const catalog = useCatalog();
-  const coupons = catalog?.homeCoupons ?? [];
-  if (!coupons.length) return null;
-  return (
-    <section>
-      <div className={`mb-3 flex items-center justify-between`}>
-        <h2 className={`flex items-center gap-2 ${secSize(cfg?.size)} font-black`} style={{ color: secColor(cfg?.color) }}>
-          <BadgePercent className="h-5 w-5 text-yellow-500" /> {title || "Live Coupons — apply at checkout"}
-        </h2>
-        <Link href="/catalog" className="text-xs font-bold text-yellow-600 hover:underline">Start ordering →</Link>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {coupons.map((c) => (
-          <div key={c.id} className="relative overflow-hidden rounded-2xl p-4 shadow-md" style={{ background: c.bgColor, color: c.textColor }}>
-            <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full border-4 border-white/10" />
-            <div className="pointer-events-none absolute -bottom-8 -left-4 h-24 w-24 rounded-full border-4 border-white/10" />
-            <p className="text-lg font-black leading-tight">{c.headline}</p>
-            <p className="mt-1 text-[11px] opacity-80">{c.subText}</p>
-            <div className="mt-3 flex items-center justify-between">
-              <span className="rounded-lg border border-dashed border-current px-3 py-1 text-sm font-black tracking-widest">{c.code}</span>
-              <span className="text-[10px] opacity-70">Min {formatINR(c.minOrder)}</span>
-            </div>
-          </div>
         ))}
       </div>
     </section>
@@ -604,16 +572,21 @@ export function HomeView() {
   const coupons = catalog?.homeCoupons ?? [];
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-8 px-3 py-5 md:px-6">
-      {/* Big Sale / Offer engine — banner + yellow marquee render ONLY while an offer is active (auto-hide otherwise) */}
-      {offer && <OfferPromo offer={offer} />}
-      {offer && <SaleMarquee offer={offer} />}
+    <>
+      {/* Big Sale / Offer engine — full-bleed banner stretching edge-to-edge with the yellow marquee attached directly
+          underneath (zero gap); renders ONLY while an offer is active (auto-hide otherwise) */}
+      {offer && (
+        <div className="w-full">
+          <OfferPromo offer={offer} />
+          <SaleMarquee offer={offer} />
+        </div>
+      )}
+      <div className="mx-auto max-w-[1400px] space-y-8 px-3 py-5 md:px-6">
       {cfg.map((s) => {
         if (!s.visible) return null;
         switch (s.id) {
           case "offerHero": return <OfferHero key={s.id} />;
           case "brandStrip": return <BrandStrip key={s.id} cfg={s} title={s.title} />;
-          case "couponStrip": return <CouponStrip key={s.id} cfg={s} title={s.title} />;
           case "categoryGrid": return <CategoryGrid key={s.id} cfg={s} title={s.title} sub={s.sub} />;
           case "dealsRail": return (
             <div key={s.id} className="space-y-8">
@@ -631,6 +604,7 @@ export function HomeView() {
           default: return null;
         }
       })}
-    </div>
+      </div>
+    </>
   );
 }
