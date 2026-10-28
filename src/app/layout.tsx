@@ -51,10 +51,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${spaceGrotesk.variable} ${geistMono.variable} ${caveat.variable} antialiased bg-background text-foreground`}
-      >
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${spaceGrotesk.variable} ${geistMono.variable} ${caveat.variable}`}
+    >
+      <body className="antialiased bg-background text-foreground">
         {children}
         <Toaster />
         <SonnerToaster position="bottom-center" richColors closeButton />

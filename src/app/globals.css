@@ -116,6 +116,13 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Primary site font — the next/font variables live on <html>, so the var() resolves
+     at root scope and inherits everywhere (Tailwind preflight consumes it here).
+     Without this, preflight falls back to the system font stack and the webfont
+     loads but never renders. */
+  html {
+    font-family: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  }
   body {
     @apply bg-background text-foreground;
   }
