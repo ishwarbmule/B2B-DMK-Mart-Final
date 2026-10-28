@@ -29,6 +29,6 @@ export async function GET(req: NextRequest) {
     for (const s of stocks) availability[s.warehouseId] = s.qty > 0 ? "IN_STOCK" : "OUT";
   }
   const res = NextResponse.json({ warehouses, ...(availability ? { availability } : {}) });
-  res.headers.set("Cache-Control", productId ? "no-store" : "public, s-maxage=300, stale-while-revalidate=600");
+  res.headers.set("Cache-Control", productId ? "no-store" : "public, s-maxage=60");
   return res;
 }

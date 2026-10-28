@@ -56,8 +56,9 @@ export async function GET() {
     homeCoupons,
     footerPages: pages,
   });
-  // Storefront bootstrap changes rarely — serve from Vercel edge CDN for instant loads.
-  // Fresh data still lands within ~1 min (s-maxage) while SWR refreshes in the background.
-  res.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
+  // Short edge cache only — NO stale-while-revalidate (SWR served the previous
+  // copy first, making the site flash old banners/offers for a few seconds).
+  // 15s window keeps admin edits near-instant while still absorbing traffic bursts.
+  res.headers.set("Cache-Control", "public, s-maxage=15");
   return res;
 }
