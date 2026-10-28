@@ -7,7 +7,7 @@
  *          DELIVERY (single-piece pricing) + nearest-warehouse picker for pickup
  *   address → delivery address form (delivery only)
  *   pay  → PICKUP: order details + confirm order ONLY (no payment options, no dispatch preference)
- *          DELIVERY: payment + dispatch preference + final totals
+ *          DELIVERY: order details + dispatch preference + confirm (no payment options anywhere)
  *   No GST anywhere — DMK Mart does not charge or provide GST.
  */
 import { useEffect, useMemo, useState } from "react";
@@ -23,12 +23,8 @@ import { useCustomerSession, type SessionWarehouse } from "@/lib/customer-client
 import type { Fulfillment } from "@/lib/pricing";
 
 const SLOTS = ["Standard dispatch (48h)", "Express 2-day", "Weekly scheduled"];
-const PAYMENTS = [
-  ["UPI", "UPI / QR", "GPay, PhonePe, Paytm"],
-  ["CARD", "Card", "Credit / Debit / RuPay"],
-  ["COD", "Cash on Delivery", "Pay when your order arrives"],
-  ["CREDIT", "B2B Credit", "7-day credit for approved stores"],
-];
+// No payment methods anywhere — DMK Mart does not collect payments online.
+// "UPI" is sent silently for API/database compatibility only, never shown to customers.
 
 interface Props {
   open: boolean;
@@ -195,7 +191,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
             {step === "gate" ? "Login required"
               : step === "mode" ? "How would you like your order?"
               : step === "address" ? "Delivery details"
-              : step === "pay" ? (fulfillment === "PICKUP" ? "Confirm your order" : "Payment")
+              : step === "pay" ? "Confirm your order"
               : "Order Confirmed"} · {step === "done" && result ? formatINR(result.grandTotal) : formatINR(grand)}
           </p>
           <p className="text-[10px] text-gray-400">
@@ -370,7 +366,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
           </div>
         )}
 
-        {/* ── DELIVERY: payment + dispatch preference ── */}
+        {/* ── DELIVERY: order details + dispatch preference (no payment options) ── */}
         {step === "pay" && fulfillment === "DELIVERY" && (
           <div className="space-y-3 p-5">
             <div className="rounded-xl border bg-gray-50 p-3 text-[11px] leading-relaxed text-gray-600">
@@ -378,23 +374,6 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
               <br />Single piece prices applied · free delivery above ₹5,000.
             </div>
             {hydrated && orderDetails}
-            <div className="space-y-2">
-              {PAYMENTS.map(([val, label, hint]) => (
-                <button
-                  key={val}
-                  onClick={() => setForm((f) => ({ ...f, paymentMethod: val }))}
-                  className={`flex w-full items-center justify-between rounded-xl border p-3 text-left transition ${
-                    form.paymentMethod === val ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  <span>
-                    <span className="block text-sm font-bold text-gray-900">{label}</span>
-                    <span className="block text-[11px] text-gray-500">{hint}</span>
-                  </span>
-                  {form.paymentMethod === val && <BadgeCheck className="h-5 w-5 text-yellow-500" />}
-                </button>
-              ))}
-            </div>
             <div>
               <label className="mb-1 block text-[11px] font-semibold text-gray-600">Dispatch preference</label>
               <select
