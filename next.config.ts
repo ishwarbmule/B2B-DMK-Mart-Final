@@ -13,30 +13,35 @@ const nextConfig: NextConfig = {
   // data (auth/cart/pricing) is client-side via APIs, so the HTML is identical
   // for every visitor and safe to cache at the edge per URL. Deployments purge
   // the CDN cache automatically. ERP sync refreshes on its own 15-30 min cycle.
+  //
+  // NO stale-while-revalidate anywhere: SWR serves the previous (stale) copy
+  // instantly and refreshes in the background, which made the site visibly
+  // show the old version for a few seconds first. Plain short s-maxage means
+  // users always get the current version once the window expires.
   async headers() {
     return [
       {
         source: "/product/:slug",
         headers: [
-          { key: "Cache-Control", value: "public, s-maxage=120, stale-while-revalidate=600" },
+          { key: "Cache-Control", value: "public, s-maxage=60" },
         ],
       },
       {
         source: "/brand/:slug",
         headers: [
-          { key: "Cache-Control", value: "public, s-maxage=300, stale-while-revalidate=1800" },
+          { key: "Cache-Control", value: "public, s-maxage=120" },
         ],
       },
       {
         source: "/brands",
         headers: [
-          { key: "Cache-Control", value: "public, s-maxage=300, stale-while-revalidate=1800" },
+          { key: "Cache-Control", value: "public, s-maxage=120" },
         ],
       },
       {
         source: "/page/:slug",
         headers: [
-          { key: "Cache-Control", value: "public, s-maxage=60, stale-while-revalidate=300" },
+          { key: "Cache-Control", value: "public, s-maxage=60" },
         ],
       },
     ];

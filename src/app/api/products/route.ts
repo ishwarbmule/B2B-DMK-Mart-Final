@@ -90,8 +90,9 @@ export async function GET(req: NextRequest) {
   });
   // Cacheable browsing (category/brand/flag pages) → served from Vercel edge CDN in ~100ms.
   // Admin (all=1) and live search stay uncached so results are always fresh.
+  // 15s, no stale-while-revalidate — SWR made old product grids show first.
   if (!includeInactive && !q) {
-    res.headers.set("Cache-Control", "public, s-maxage=30, stale-while-revalidate=120");
+    res.headers.set("Cache-Control", "public, s-maxage=15");
   } else {
     res.headers.set("Cache-Control", "private, no-store");
   }
