@@ -15,6 +15,7 @@ export interface SessionCustomer {
   name: string;
   shopName: string;
   phone: string;
+  email?: string;
   customerType: string;
   tier: string;
   status: string;
