@@ -189,9 +189,11 @@ function SaleMarquee({ offer }: { offer: OfferNode }) {
     arr.push(offer.ctaText || "Shop Now");
     return arr.filter(Boolean);
   }, [offer]);
+  // Seamless infinite loop: exactly 2 identical copies animated to translateX(-50%).
+  // Content is doubled inside each copy so one copy always spans wider than any screen.
   const Seq = () => (
     <span className="flex shrink-0 items-center">
-      {bits.map((b, i) => (
+      {[...bits, ...bits].map((b, i) => (
         <span key={i} className="flex items-center">
           <Sparkles className="mx-4 h-3.5 w-3.5 shrink-0" />
           <span className="whitespace-nowrap text-xs font-black uppercase tracking-wide sm:text-sm" style={offerFontSize(offer.marqueeSize, offer.marqueeSizeM)}>{b}</span>
@@ -202,7 +204,7 @@ function SaleMarquee({ offer }: { offer: OfferNode }) {
   return (
     <div className="overflow-hidden py-2.5" style={{ background: offer.marqueeBg || "#facc15", color: offer.marqueeTextColor || "#000" }}>
       <div className="flex w-max animate-dmk-marquee-slim hover:[animation-play-state:paused]">
-        <Seq /><Seq /><Seq />
+        <Seq /><Seq />
       </div>
     </div>
   );
@@ -213,8 +215,9 @@ function SaleMarquee({ offer }: { offer: OfferNode }) {
 function CouponMarquee({ coupons }: { coupons: CouponNode[] }) {
   const [copied, setCopied] = useState<string | null>(null);
   if (!coupons.length) return null;
-  // one coupon → repeat it across the strip so the ticker never runs empty
-  const base = coupons.length === 1 ? Array.from({ length: 6 }, () => coupons[0]) : coupons;
+  // one coupon → repeat it across the strip so the ticker never runs empty;
+  // multiple coupons → doubled so each loop copy stays wider than any viewport
+  const base = coupons.length === 1 ? Array.from({ length: 6 }, () => coupons[0]) : [...coupons, ...coupons];
 
   const copy = async (code: string) => {
     try {

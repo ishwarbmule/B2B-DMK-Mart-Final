@@ -10,7 +10,6 @@ import { Separator } from "@/components/ui/separator";
 import {
   MapPinHouse,
   Clock,
-  Wallet,
   ChevronLeft,
   CheckCircle2,
   Loader2,
@@ -29,12 +28,8 @@ const SLOTS = [
   { id: "tom-5pm", label: "Tomorrow", detail: "5:00 PM - 8:00 PM", tag: "" },
 ];
 
-const PAYMENTS = [
-  { id: "UPI", label: "UPI (GPay / PhonePe / Paytm)", emoji: "📲", note: "Pay instantly via any UPI app" },
-  { id: "CARD", label: "Credit / Debit Card", emoji: "💳", note: "Visa, Mastercard, RuPay accepted" },
-  { id: "COD", label: "Cash on Delivery", emoji: "💵", note: "Pay cash when order arrives" },
-  { id: "DMART_WALLET", label: "DMK Wallet", emoji: "👛", note: "Balance: ₹0.00 — top up to use" },
-];
+// No payment methods anywhere — orders are confirmed without online payment selection.
+// "UPI" is sent silently for API/database compatibility only, never shown to customers.
 
 interface Address {
   customerName: string;
@@ -66,7 +61,6 @@ export function CheckoutDialog({
   });
   const [errors, setErrors] = useState<Partial<Record<keyof Address, string>>>({});
   const [slot, setSlot] = useState("today-2pm");
-  const [payment, setPayment] = useState("UPI");
   const [placing, setPlacing] = useState(false);
   const [order, setOrder] = useState<PlacedOrder | null>(null);
 
@@ -103,7 +97,7 @@ export function CheckoutDialog({
         body: JSON.stringify({
           ...address,
           slot: slotLabel,
-          paymentMethod: payment,
+          paymentMethod: "UPI",
           items: items.map((i) => ({
             productId: i.productId,
             name: i.name,
@@ -123,7 +117,7 @@ export function CheckoutDialog({
       }
       const data = await res.json();
       setOrder(data.order);
-      setStep(3);
+      setStep(2);
       clearCart();
       toast({ title: "Order placed successfully! 🎉", description: `Order ID: ${data.order.id.slice(0, 10).toUpperCase()}` });
     } catch (err) {
@@ -142,7 +136,7 @@ export function CheckoutDialog({
     return s ? `${s.label}, ${s.detail}` : slot;
   })();
 
-  const steps = ["Address", "Slot", "Payment", "Done"];
+  const steps = ["Address", "Slot", "Done"];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -258,42 +252,6 @@ export function CheckoutDialog({
                   </label>
                 ))}
               </RadioGroup>
-              <div className="flex gap-2 mt-4">
-                <Button variant="outline" onClick={() => setStep(0)} className="flex-1 h-11">
-                  <ChevronLeft className="h-4 w-4 mr-1" /> Back
-                </Button>
-                <Button onClick={() => setStep(2)} className="flex-[2] bg-black hover:bg-[#2c2c2c] text-[#ffd400] font-bold h-11">
-                  Continue to Payment
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* ---- Step 2: Payment ---- */}
-          {step === 2 && (
-            <div>
-              <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2 mb-3">
-                <Wallet className="h-4 w-4 text-[#f0b800]" /> Payment Method
-              </h3>
-              <RadioGroup value={payment} onValueChange={setPayment} className="space-y-2">
-                {PAYMENTS.map((p) => (
-                  <label
-                    key={p.id}
-                    className={cn(
-                      "flex items-center gap-3 rounded-xl border-2 p-3 cursor-pointer transition-colors",
-                      payment === p.id ? "border-black bg-yellow-50" : "border-slate-200 hover:border-slate-300"
-                    )}
-                  >
-                    <RadioGroupItem value={p.id} id={p.id} />
-                    <span className="text-xl" aria-hidden>{p.emoji}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-800 truncate">{p.label}</p>
-                      <p className="text-xs text-slate-400">{p.note}</p>
-                    </div>
-                  </label>
-                ))}
-              </RadioGroup>
-
               <Separator className="my-3" />
               <div className="bg-slate-50 rounded-xl p-3 text-sm space-y-1">
                 <div className="flex justify-between text-slate-600">
@@ -309,9 +267,8 @@ export function CheckoutDialog({
                   <span>{formatINR(t.grandTotal)}</span>
                 </div>
               </div>
-
               <div className="flex gap-2 mt-4">
-                <Button variant="outline" onClick={() => setStep(1)} className="flex-1 h-11">
+                <Button variant="outline" onClick={() => setStep(0)} className="flex-1 h-11">
                   <ChevronLeft className="h-4 w-4 mr-1" /> Back
                 </Button>
                 <Button
@@ -331,8 +288,8 @@ export function CheckoutDialog({
             </div>
           )}
 
-          {/* ---- Step 3: Success ---- */}
-          {step === 3 && order && (
+          {/* ---- Step 2: Success ---- */}
+          {step === 2 && order && (
             <div className="text-center py-4">
               <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-3">
                 <CheckCircle2 className="h-9 w-9 text-green-600" />
@@ -355,13 +312,7 @@ export function CheckoutDialog({
                   <span className="font-medium text-slate-800">{order.slot}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Payment</span>
-                  <span className="font-medium text-slate-800">
-                    {PAYMENTS.find((p) => p.id === order.paymentMethod)?.label ?? order.paymentMethod}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Amount paid</span>
+                  <span className="text-slate-500">Amount to pay</span>
                   <span className="font-bold text-[#b8860b]">{formatINR(order.grandTotal)}</span>
                 </div>
                 {order.totalSavings > 0 && (

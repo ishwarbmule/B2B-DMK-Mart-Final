@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Search, ShoppingCart, User, Phone, ShieldCheck, ChevronRight, X, Building2, Zap } from "lucide-react";
+import { ChevronDown, Search, ShoppingCart, User, Phone, Mail, ChevronRight, X, Building2, Zap } from "lucide-react";
 import { useCartStore } from "@/lib/store";
 import { useHydrated } from "@/hooks/use-hydrated";
 import type { CatalogPayload } from "@/lib/types";
@@ -38,9 +38,11 @@ export function SiteHeaderV2() {
 
   const tops = catalog?.tops ?? [];
   const brands = catalog?.brands ?? [];
-  const announcement = catalog?.activeOffer
-    ? `${catalog.activeOffer.headline} — ${catalog.activeOffer.subText}`
-    : "B2B wholesale rates on 2,200+ SKUs · Itemised invoice on every order · Delivery OTP verified handover";
+  // Top utility bar = business contact details ONLY (email + phone), nothing else.
+  // Admin-editable settings win when set; fallbacks match the footer's business contact.
+  const bizEmail = catalog?.settings?.support_email || catalog?.settings?.firm_email || "dmkmartdata@gmail.com";
+  const bizPhone = catalog?.settings?.support_phone || catalog?.settings?.firm_phone || "+91 98220 12345";
+  const bizPhoneRaw = bizPhone.replace(/[^\d+]/g, "");
 
   const submit = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -57,21 +59,14 @@ export function SiteHeaderV2() {
 
   return (
     <header className="sticky top-0 z-40 w-full">
-      {/* utility bar */}
+      {/* utility bar — business contact details only (email + phone) */}
       <div className="hidden items-center justify-between bg-black px-4 py-1.5 text-[11px] text-gray-300 md:flex">
-        <p className="flex items-center gap-2">
-          <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-yellow-400" />
-          <span className="truncate">{announcement}</span>
-        </p>
-        <div className="flex items-center gap-4">
-          <a href="tel:+919822012345" className="flex items-center gap-1 hover:text-yellow-400">
-            <Phone className="h-3 w-3" /> +91 98220 12345
-          </a>
-          <Link href="/account" className="hover:text-yellow-400">B2B Account</Link>
-          <Link href="/admin" className="font-semibold text-yellow-400 hover:underline">
-            Admin Login
-          </Link>
-        </div>
+        <a href={`mailto:${bizEmail}`} className="flex items-center gap-1.5 hover:text-yellow-400">
+          <Mail className="h-3 w-3 shrink-0 text-yellow-400" /> {bizEmail}
+        </a>
+        <a href={`tel:${bizPhoneRaw}`} className="flex items-center gap-1.5 hover:text-yellow-400">
+          <Phone className="h-3 w-3 shrink-0 text-yellow-400" /> {bizPhone}
+        </a>
       </div>
 
       {/* main header */}
