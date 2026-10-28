@@ -76,6 +76,16 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
     }
   }, [open, sessionLoaded, customer]);
 
+  // Login gate → /account with a return path that re-opens checkout after login
+  // (only computed on the client, at gate-render time — never during SSR)
+  const loginNextHref = useMemo(() => {
+    if (typeof window === "undefined") return "/account";
+    const u = new URL(window.location.href);
+    u.searchParams.set("next", "checkout");
+    const qs = u.searchParams.toString();
+    return `/account?next=${encodeURIComponent(qs ? `${u.pathname}?${qs}` : u.pathname)}`;
+  }, [open]);
+
   // totals under the chosen fulfillment mode (pickup = pack rates · delivery = single-piece prices)
   const t = useMemo(() => cartTotals(items, fulfillment), [items, fulfillment]);
   const chosenWh = warehouses.find((w) => w.id === pickupWh) ?? warehouses[0] ?? null;
@@ -214,8 +224,10 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
               </p>
             </div>
             <div className="space-y-2">
+              {/* next=… chains the return: account page redirects back here with ?next=checkout,
+                  and StoreChrome auto-reopens checkout once the session is confirmed */}
               <Link
-                href="/account"
+                href={loginNextHref}
                 className="block w-full rounded-xl bg-black py-3 text-sm font-bold uppercase tracking-wide text-yellow-400 hover:bg-gray-800"
               >
                 Login / Create Account

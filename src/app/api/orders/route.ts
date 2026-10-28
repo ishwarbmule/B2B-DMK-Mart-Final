@@ -1,7 +1,8 @@
 /**
  * POST /api/orders — place a B2B order (unit-aware lines, tier pricing, coupon validation, delivery OTP).
  * Task 15 + pricing swap: fulfillment = DELIVERY (single-piece pricing) | PICKUP (pack rate from a chosen
- * warehouse, no delivery fee). Logged-out buyers are priced on the WHOLESALE (tier2) slab.
+ * warehouse, no delivery fee). LOGIN REQUIRED: unauthenticated calls are refused with 401 — guests may
+ * browse and fill a cart, but only logged-in customers can place orders (owner rule).
  * No GST — DMK Mart does not charge or provide GST (gstAmount always 0).
  * GET  /api/orders?id=|phone= — order lookup.
  */
@@ -73,17 +74,25 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // authenticated customer → their slab; logged-out → WHOLESALE (tier2) prices (owner rule)
+    // LOGIN REQUIRED to place any order — guests may browse and fill a cart, but this API
+    // refuses unauthenticated calls (owner rule: login / signup first, then purchase).
     const customerId = customerFromReq(req);
-    let priceTier = GUEST_TIER;
-    let customerType = "GUEST";
-    if (customerId) {
-      const cust = await db.customer.findUnique({ where: { id: customerId } });
-      if (cust && cust.status === "APPROVED") {
-        priceTier = cust.tier;
-        customerType = cust.customerType;
-      }
+    if (!customerId) {
+      return NextResponse.json(
+        { error: "Please login or create an account to place your order", code: "AUTH_REQUIRED" },
+        { status: 401 },
+      );
     }
+    const cust = await db.customer.findUnique({ where: { id: customerId } });
+    if (!cust) {
+      return NextResponse.json(
+        { error: "Your session has expired — please login again", code: "AUTH_REQUIRED" },
+        { status: 401 },
+      );
+    }
+    // approved customers buy on their own slab; logged-in but not yet approved → WHOLESALE (tier2)
+    const priceTier = cust.status === "APPROVED" ? cust.tier : GUEST_TIER;
+    const customerType = cust.status === "APPROVED" ? cust.customerType : "GUEST";
 
     const ids = d.items.map((i) => i.id);
     const products = await db.product.findMany({

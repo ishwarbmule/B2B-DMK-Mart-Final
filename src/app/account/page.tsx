@@ -12,6 +12,7 @@ import { StoreChrome } from "@/components/dmk/store-chrome";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { formatINR } from "@/lib/store";
 import { clearCustomerToken, getCustomerToken, setCustomerToken } from "@/lib/customer-session";
+import { useCustomerSession } from "@/lib/customer-client";
 import { Checkbox } from "@/components/ui/checkbox";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
@@ -133,6 +134,7 @@ function AccountInner() {
 
   const finishLogin = async (token: string, shop: string) => {
     setCustomerToken(token, remember);
+    useCustomerSession.getState().refresh(); // sync the global session store → header profile updates instantly
     await loadMe(token);
     toast.success(`Welcome back, ${shop}!`);
     if (next && next.startsWith("/")) router.push(next);
@@ -141,6 +143,8 @@ function AccountInner() {
 
   const logout = () => {
     clearCustomerToken();
+    // reset the global session store too, so the header flips back to Login / Signup
+    useCustomerSession.setState({ customer: null, nearestWarehouse: null, warehouses: [], loaded: true, loading: false });
     setCustomer(null);
     setOrders([]);
     setStep("identify");
@@ -356,7 +360,7 @@ function AccountInner() {
                 </div>
               </div>
 
-              <div className="overflow-hidden rounded-2xl border bg-white">
+              <div id="recent-orders" className="overflow-hidden rounded-2xl border bg-white">
                 <p className="border-b bg-gray-50 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-gray-600">Recent Orders</p>
                 {orders.length === 0 ? (
                   <p className="p-6 text-center text-xs text-gray-400">No orders yet — <Link href="/catalog" className="font-bold text-yellow-600">start ordering →</Link></p>

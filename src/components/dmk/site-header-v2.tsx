@@ -4,9 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Search, ShoppingCart, User, Phone, Mail, ChevronRight, X, Building2, Zap } from "lucide-react";
+import { ChevronDown, Search, ShoppingCart, User, Phone, Mail, ChevronRight, X, Building2, Zap, LogOut, Package, UserRound } from "lucide-react";
+import { toast } from "sonner";
 import { useCartStore } from "@/lib/store";
 import { useHydrated } from "@/hooks/use-hydrated";
+import { useCustomerSession, customerTypeLabel } from "@/lib/customer-client";
+import { clearCustomerToken } from "@/lib/customer-session";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { CatalogPayload } from "@/lib/types";
 
 let cachedCatalog: CatalogPayload | null = null;
@@ -35,6 +39,17 @@ export function SiteHeaderV2() {
   const [q, setQ] = useState("");
   const [mega, setMega] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // auth-aware header: load the customer session once on mount; profile chip replaces
+  // the Login / Signup button the moment a session is present.
+  const customer = useCustomerSession((s) => s.customer);
+  useEffect(() => { useCustomerSession.getState().load(); }, []);
+
+  const logout = () => {
+    clearCustomerToken();
+    useCustomerSession.setState({ customer: null, nearestWarehouse: null, warehouses: [], loaded: true, loading: false });
+    toast.success("Logged out — see you soon!");
+  };
 
   const tops = catalog?.tops ?? [];
   const brands = catalog?.brands ?? [];
@@ -98,12 +113,60 @@ export function SiteHeaderV2() {
         </form>
 
         <nav className="flex shrink-0 items-center gap-1">
-          <Link
-            href="/account"
-            className="hidden items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-yellow-50 lg:flex"
-          >
-            <User className="h-4 w-4" /> Account
-          </Link>
+          {hydrated && customer ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-yellow-50"
+                  aria-label="Your account menu"
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-yellow-400 text-sm font-black text-black">
+                    {(customer.shopName || customer.name).trim().slice(0, 1).toUpperCase() || "U"}
+                  </span>
+                  <span className="hidden min-w-0 lg:block">
+                    <span className="block text-[10px] leading-none text-gray-500">Hello,</span>
+                    <span className="block max-w-[130px] truncate text-xs font-bold leading-tight text-black">
+                      {customer.shopName || customer.name}
+                    </span>
+                  </span>
+                  <ChevronDown className="hidden h-3.5 w-3.5 shrink-0 text-gray-500 lg:block" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64 rounded-xl">
+                <div className="px-3 py-2.5">
+                  <p className="truncate text-sm font-black text-black">{customer.shopName || customer.name}</p>
+                  <p className="truncate text-[11px] text-gray-500">{customer.name} · {customer.phone}</p>
+                  <span className="mt-1.5 inline-block rounded bg-yellow-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-yellow-700">
+                    {customerTypeLabel(customer.customerType)}
+                  </span>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/account" className="cursor-pointer">
+                    <UserRound className="mr-2 h-4 w-4 text-gray-500" /> My Account
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/account#recent-orders" className="cursor-pointer">
+                    <Package className="mr-2 h-4 w-4 text-gray-500" /> My Orders
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={logout} className="cursor-pointer text-red-600 focus:text-red-700">
+                  <LogOut className="mr-2 h-4 w-4" /> Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Link
+              href="/account"
+              aria-label="Login or create account"
+              className="flex items-center gap-1.5 rounded-lg bg-yellow-400 px-3 py-2 text-xs font-bold text-black transition hover:bg-yellow-500"
+            >
+              <User className="h-4 w-4" />
+              <span className="hidden sm:block">Login / Signup</span>
+            </Link>
+          )}
           <button
             onClick={openCart}
             aria-label={`Open cart with ${count} items`}
