@@ -25,7 +25,7 @@ export type SeedPage = {
   blocks: SeedBlock[];
 };
 
-export const UPDATED = "24 October 2026";
+export const UPDATED = "28 October 2026";
 export const BIZ = "DMK Mart";
 export const ADDR = "Plot 14, MIDC Industrial Area, Solapur Road, Pune 411019, Maharashtra, India";
 export const EMAIL = "dmkmartdata@gmail.com";
@@ -52,7 +52,7 @@ export const terms: SeedPage = {
   title: "Terms & Conditions",
   type: "LEGAL",
   metaTitle: "Terms & Conditions",
-  metaDescription: "The terms governing your use of DMK Mart — India's B2B wholesale marketplace for plastic goods and home appliances. Covers eligibility, orders, pricing, GST, payments, B2B credit, delivery, returns and liability.",
+  metaDescription: "The terms governing your use of DMK Mart — India's B2B wholesale marketplace for plastic goods and home appliances. Covers eligibility, orders, pricing, GST, invoicing, delivery, returns and liability.",
   keywords: "dmk mart terms, b2b wholesale terms and conditions, wholesale marketplace india terms, bulk order terms",
   inFooter: false,
   sortOrder: 10,
@@ -66,7 +66,7 @@ export const terms: SeedPage = {
     ul([
       "You are purchasing in the course of business (as a retailer, wholesaler, distributor, institution or reseller) and not as a consumer buying for personal use.",
       "All information you provide — business name, GSTIN (if applicable), contact details and delivery address — is accurate and belongs to you or your business.",
-      "You are authorised to make the purchase using the payment method you select.",
+      "You are authorised to place the order on behalf of your business.",
       "You will not resell platform content, price lists or catalogue data as your own service.",
     ]),
     p("We may refuse service, cancel orders or suspend accounts where we reasonably believe a purchase is not a bona fide business transaction, involves fraud or misuse, or breaches these Terms."),
@@ -94,20 +94,14 @@ export const terms: SeedPage = {
         ["₹1,00,000 and above", "10% off"],
       ]
     ),
-    p("Prices, offers and discounts may change without prior notice. The price that applies to your order is the price displayed at the moment we accept the order. In the rare case of a pricing or data error (including ERP sync glitches), we will contact you before processing; we will not honour manifest pricing errors, but you may cancel at no cost. More detail is set out in our Pricing & Payment Policy."),
+    p("Prices, offers and discounts may change without prior notice. The price that applies to your order is the price displayed at the moment we accept the order. In the rare case of a pricing or data error (including ERP sync glitches), we will contact you before processing; we will not honour manifest pricing errors, but you may cancel at no cost. More detail is set out in our Pricing & Billing Policy."),
 
     h2("5. Orders & Acceptance"),
     p("Placing an order on the Platform is an offer to purchase. A contract is formed only when we accept the order — confirmed via on-screen acknowledgement, WhatsApp message, email or invoice. We may decline or partially accept any order (for example, where stock, pricing or delivery constraints exist). Orders are typically dispatched in case-level packaging; individual piece picks are subject to product MOQs shown on each listing."),
 
-    h2("6. Payment Terms"),
-    p("We currently accept the following payment methods:"),
-    ul([
-      "UPI / QR — Google Pay, PhonePe, Paytm and other UPI apps.",
-      "Cards — credit, debit and RuPay cards.",
-      "Cash on Delivery (COD) — pay in cash when the order arrives, subject to COD eligibility and value limits.",
-      "B2B Credit — 7-day credit terms for approved stores, granted at our sole discretion after verification.",
-    ]),
-    p("For B2B Credit accounts, payment of the invoiced amount is due within 7 days of invoice date unless separately agreed in writing. Late payments may attract suspension of credit facilities and further orders until dues are cleared. Orders unpaid where payment is required at confirmation may be cancelled after reasonable attempts to reach you. Full details: Pricing & Payment Policy."),
+    h2("6. Order Confirmation & Settlement"),
+    p("Placing an order on the Platform does not involve any online payment — orders are confirmed by our wholesale desk without collecting payment details on the Platform. Once your order is confirmed, the desk shares the itemised invoice with settlement instructions on WhatsApp or email. Settle only through the channels verified with our desk, and never through unofficial links or unknown accounts."),
+    p("Where a settlement becomes overdue, we may pause further dispatches until dues are cleared. Orders that remain unconfirmed may be cancelled after reasonable attempts to reach you. Full details: Pricing & Billing Policy."),
 
     h2("7. Invoicing & GST"),
     p("A GST invoice is issued for every order and shared via WhatsApp/email and in the delivery documents. If you require a GST input claim, provide a valid GSTIN and business details at checkout — details entered after dispatch may not be adjustable. Prices on the Platform are exclusive of GST unless a listing states otherwise. Any TDS/TCS or other statutory deduction applicable to your business must be raised with us before payment with the relevant legal reference; statutory changes in tax rates will be passed through to invoices as required by law."),
@@ -122,7 +116,7 @@ export const terms: SeedPage = {
     p("When using the Platform you agree not to:"),
     ul([
       "Place fraudulent, speculative or bulk-hoarding orders intended to disrupt supply.",
-      "Abuse COD by repeatedly refusing consignments, or misuse B2B Credit beyond sanctioned terms.",
+      "Repeatedly refuse consignments without cause, or misuse any facility extended by us.",
       "Scrape, copy or reuse catalogue data, images, price lists or software for a competing service.",
       "Interfere with the Platform, attempt unauthorised access, or use it to distribute malware or unlawful content.",
       "Misrepresent your identity, business, GSTIN or payment instruments.",
@@ -154,7 +148,7 @@ export const terms: SeedPage = {
     p("These Terms are governed by the laws of India. Any dispute will first be addressed through good-faith negotiation with our support desk for 30 days. Unresolved disputes will be referred to arbitration by a sole arbitrator under the Arbitration and Conciliation Act, 1996, seated in Pune, Maharashtra, with proceedings in English. Subject to arbitration, courts at Pune, Maharashtra have exclusive jurisdiction. The DPDP Act grievance process (for data matters) is set out in our Privacy Policy."),
 
     h2("17. Changes to These Terms"),
-    p("We may update these Terms as our services, payment options or laws evolve. The revised version is posted on this page with a new 'Last updated' date, and material changes will be communicated on the Platform or via WhatsApp/email. Continued use of the Platform or placing of orders after changes take effect constitutes acceptance of the updated Terms."),
+    p("We may update these Terms as our services or laws evolve. The revised version is posted on this page with a new 'Last updated' date, and material changes will be communicated on the Platform or via WhatsApp/email. Continued use of the Platform or placing of orders after changes take effect constitutes acceptance of the updated Terms."),
 
     divider(),
     h2("18. Questions & Grievance"),
@@ -197,7 +191,7 @@ export const privacy: SeedPage = {
     h3("b) Order & transaction data"),
     ul([
       "Products ordered, quantities (cases/pieces), order value, tier and slab discounts applied.",
-      "Payment method (UPI / Card / COD / B2B Credit), payment status and invoice records.",
+      "Settlement status and invoice records.",
       "Delivery OTP events, dispatch and delivery confirmations, returns and refunds history.",
     ]),
     h3("c) Communications"),
@@ -216,13 +210,13 @@ export const privacy: SeedPage = {
     ul([
       "To process, confirm, pack, dispatch and deliver your orders — including OTP-verified handover.",
       "To send transactional updates by WhatsApp, SMS or email: order confirmation, dispatch, delivery OTP and invoice links.",
-      "To collect payments, prevent fraud, evaluate B2B Credit applications and manage credit limits.",
+      "To settle invoices, prevent fraud and manage customer accounts.",
       "To provide customer support and resolve return/refund claims.",
       "To improve the catalogue, pricing and Platform performance using aggregated analytics.",
       "To comply with legal, tax (GST), accounting and law-enforcement obligations.",
       "With your separate consent — to send occasional wholesale schemes, offers and new-stock alerts you can opt out of at any time.",
     ]),
-    callout("info", "Transactional messages", "Order, payment and delivery OTP messages are service communications required to fulfil your order and are not promotional. You can stop promotional messages at any time without affecting order-related updates."),
+    callout("info", "Transactional messages", "Order, invoice and delivery OTP messages are service communications required to fulfil your order and are not promotional. You can stop promotional messages at any time without affecting order-related updates."),
 
     h2("4. Legal Basis for Processing"),
     p("Under the DPDP Act we process your personal data on the following bases:"),
@@ -235,7 +229,7 @@ export const privacy: SeedPage = {
     p("We share personal data only with parties who need it to run the service, and only to the extent necessary:"),
     ul([
       "Logistics and delivery partners — consignee name, address, phone and OTP verification for delivery.",
-      "Payment processors/banks — the payment instruments and confirmation data needed to settle your transaction (we do not store full card details).",
+      "Banks & settlement partners — the minimal confirmation data needed to settle your invoices.",
       "Communication providers — WhatsApp/SMS/email gateways that deliver your order updates and OTPs.",
       "Technology providers — our hosting, database and image-CDN providers processing data on our instructions.",
       "Professional advisers and authorities — auditors, tax authorities and law-enforcement bodies where required by law or to protect our rights.",
@@ -258,7 +252,7 @@ export const privacy: SeedPage = {
     ]),
 
     h2("9. Security"),
-    p("We protect your data with encryption in transit (HTTPS/TLS), access controls and admin authentication, hashed credentials, least-privilege access for staff, and monitoring of our systems. Payment is handled by the payment provider's secure interface; we never store full card numbers or UPI credentials. No system is perfectly secure — if a data breach affects your rights, we will notify you and the Data Protection Board as required by law."),
+    p("We protect your data with encryption in transit (HTTPS/TLS), access controls and admin authentication, hashed credentials, least-privilege access for staff, and monitoring of our systems. Settlement happens outside the Platform through our wholesale desk — we never store banking or settlement credentials. No system is perfectly secure — if a data breach affects your rights, we will notify you and the Data Protection Board as required by law."),
 
     h2("10. Your Rights"),
     p("Subject to applicable law (including the DPDP Act), you may:"),

@@ -33,10 +33,10 @@ export const about: SeedPage = {
       [
         ["Genuine wholesale rates", "Tier pricing by account type + automatic slabs: ₹5k+ 2%, ₹25k+ 4%, ₹50k+ 7%, ₹1L+ 10%."],
         ["Live stock you can trust", "Catalogue synced with our inventory ERP — what you see is what we can ship."],
-        ["Flexible payments", "UPI, cards, COD and 7-day B2B credit for approved stores."],
+        ["GST-ready paperwork", "Itemised tax invoices with HSN splits — input-credit-ready documentation for your books."],
         ["OTP-verified delivery", "A 4-digit OTP confirms handover of every consignment — no ambiguity."],
-        ["WhatsApp-first support", "One desk for orders, dispatch, claims and credit — fastest replies on WhatsApp."],
-        ["GST-ready paperwork", "Proper tax invoices with HSN splits, e-way bills where required."],
+        ["WhatsApp-first support", "One desk for orders, dispatch and claims — fastest replies on WhatsApp."],
+        ["48-hour claims", "Transit damage or shortfall? Report within 48 hours — replacement first, refund where fitting."],
       ]
     ),
 
@@ -54,13 +54,13 @@ export const contactUs: SeedPage = {
   title: "Contact Us",
   type: "CUSTOM",
   metaTitle: "Contact Us",
-  metaDescription: "Reach the DMK Mart wholesale desk on WhatsApp, phone or email — order support, bulk quotations, B2B credit applications, returns and delivery help. Monday–Saturday, 9:30 am–7 pm IST.",
+  metaDescription: "Reach the DMK Mart wholesale desk on WhatsApp, phone or email — order support, bulk quotations, returns and delivery help. Monday–Saturday, 9:30 am–7 pm IST.",
   keywords: "contact dmk mart, wholesale desk contact, b2b support whatsapp india",
   inFooter: true,
   sortOrder: 80,
   blocks: [
     updated(),
-    p("Talk to a human — our wholesale desk answers on WhatsApp fastest, and the same team handles orders, quotations, delivery updates, returns and B2B credit. Keep your order number handy (it starts right in your order confirmation) and we'll pick up from there."),
+    p("Talk to a human — our wholesale desk answers on WhatsApp fastest, and the same team handles orders, quotations, delivery updates, returns and replacements. Keep your order number handy (it starts right in your order confirmation) and we'll pick up from there."),
 
     h2("Reach the Wholesale Desk"),
     contact([
@@ -76,7 +76,7 @@ export const contactUs: SeedPage = {
       "Bulk quotations & mixed-brand loads — share the SKUs/cases you need and your PIN code.",
       "Order & delivery status — dispatch SLAs, carrier updates, OTP issues.",
       "Returns & claims — 48-hour window, photos/video, replacement or refund.",
-      "B2B Credit applications — store details, trade references, limits.",
+      "Account & tier support — update store details or request a pricing-tier review.",
       "Pricing & invoices — GST details, e-way bills, slab queries.",
     ]),
 

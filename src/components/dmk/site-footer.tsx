@@ -103,7 +103,7 @@ export function SiteFooter() {
             ["/page/refund-returns-policy", "Refund & Returns"],
             ["/page/shipping-delivery-policy", "Shipping & Delivery"],
             ["/page/cancellation-policy", "Cancellation Policy"],
-            ["/page/pricing-payment-policy", "Pricing & Payment"],
+            ["/page/pricing-payment-policy", "Pricing & Billing"],
             ["/page/about-us", "About Us"],
             ["/page/contact-us", "Contact Us"],
           ].map(([href, label], i) => (
