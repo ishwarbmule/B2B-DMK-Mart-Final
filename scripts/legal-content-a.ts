@@ -245,7 +245,7 @@ export const privacy: SeedPage = {
     h2("8. Data Retention"),
     ul([
       "Order, invoice and tax records: retained as long as required under applicable tax and accounting laws (typically 8 years after the financial year).",
-      "Account and contact details: retained while your account is active and for a reasonable period afterwards to handle warranty/credit matters.",
+      "Account and contact details: retained while your account is active and for a reasonable period afterwards to handle warranty and account matters.",
       "WhatsApp/support conversations: retained for up to 24 months for quality and dispute resolution.",
       "Delivery OTP records: retained only for the transaction lifecycle and audit.",
       "Data no longer required is deleted or anonymised securely.",

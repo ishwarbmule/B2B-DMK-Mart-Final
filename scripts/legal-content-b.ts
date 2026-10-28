@@ -162,13 +162,13 @@ export const cancellation: SeedPage = {
   title: "Cancellation Policy",
   type: "LEGAL",
   metaTitle: "Cancellation Policy",
-  metaDescription: "Cancel your DMK Mart wholesale order free before dispatch — plus rules for shipped orders, B2B credit accounts, partial changes and refund timelines for cancelled prepaid orders.",
+  metaDescription: "Cancel your DMK Mart wholesale order free before dispatch — plus rules for shipped orders, order changes and refund timelines for cancelled orders.",
   keywords: "dmk mart cancellation policy, cancel wholesale order, b2b order cancellation india",
   inFooter: false,
   sortOrder: 50,
   blocks: [
     updated(),
-    p("Plans change — stock sells through, a customer pre-book shifts, or a better lot arrives. This Policy explains when and how you can cancel a DMK Mart order, what happens after dispatch, and how cancellations interact with B2B credit terms."),
+    p("Plans change — stock sells through, a customer pre-book shifts, or a better lot arrives. This Policy explains when and how you can cancel a DMK Mart order, what happens after dispatch, and how refunds for cancelled orders are handled."),
 
     h2("1. Cancelling Before Dispatch"),
     p("Orders can be cancelled free of charge any time before they are dispatched from our Pune warehouse. Simply message the wholesale desk on WhatsApp or email with your order number; we confirm the cancellation on the same channel. Because Standard orders are packed within 48 working hours, the cancellation window is widest for Weekly scheduled dispatches and narrowest for Express 2-day ones."),
