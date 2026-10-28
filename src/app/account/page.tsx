@@ -606,7 +606,7 @@ function AccountInner() {
             <div className="mt-6 flex items-start gap-2.5 rounded-2xl border bg-white p-4 text-[12px] text-gray-600">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-yellow-600" />
               <p>
-                <span className="font-bold text-gray-900">Wholesale pricing, itemised invoices &amp; credit terms.</span>{" "}
+                <span className="font-bold text-gray-900">Wholesale pricing &amp; itemised invoices.</span>{" "}
                 DMK Mart accounts are for verified businesses only — your details stay private and are used solely for order fulfilment.
               </p>
             </div>

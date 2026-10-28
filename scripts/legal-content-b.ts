@@ -58,20 +58,20 @@ export const refund: SeedPage = {
       ]
     ),
 
-    h2("6. Refund Method & Timelines"),
+    h2("6. Refund Timelines"),
     ul([
-      "UPI / Card orders — refund reversed to the original payment source within 5–7 business days of claim approval (bank posting times vary).",
-      "COD orders — refunded by UPI or bank transfer to the account you nominate, typically within 5–7 business days of sharing account details.",
-      "B2B Credit accounts — refunds are credited against your ledger balance, or adjusted against the pending invoice, as you prefer.",
+      "Verified refunds are issued within 5–7 business days of claim approval (bank posting times vary).",
+      "Refunds go to the bank account or settlement channel you nominate — our desk confirms the details with you on WhatsApp/email before posting.",
+      "Where the affected amount was already settled, the refund is reversed to the same source.",
       "Coupon-funded discounts — refunds are net of the discount actually availed on the order.",
     ]),
     callout("info", "One honest note", "Refund clocks start from claim approval, not from the report date — because the desk must verify evidence first. Providing clear photos/video at filing is the fastest route to your money back."),
 
     h2("7. Failed Deliveries & Refused Consignments"),
-    p("Where a consignment cannot be delivered after three attempts (unreachable consignee, wrong address) and is returned to origin, prepaid orders are refunded minus two-way freight, or re-shipped at actual freight cost. COD consignments refused without cause may make the Buyer liable for forward and return freight, and repeated refusals can disable COD for the account."),
+    p("Where a consignment cannot be delivered after three attempts (unreachable consignee, wrong address) and is returned to origin, the order value is refunded minus two-way freight, or re-shipped at actual freight cost. Consignments refused without cause may make the Buyer liable for forward and return freight."),
 
     h2("8. Chargebacks & Disputes"),
-    p("Please talk to us before raising a bank chargeback — nearly every claim is resolved faster directly with the desk. Orders under dispute should have supporting evidence shared with our team; we cooperate fully with payment providers and card networks during any formal review."),
+    p("Please talk to us before raising a bank chargeback — nearly every claim is resolved faster directly with the desk. Orders under dispute should have supporting evidence shared with our team; we cooperate fully with banks during any formal review."),
 
     divider(),
     h2("9. Contact for Returns & Refunds"),
@@ -114,7 +114,7 @@ export const shipping: SeedPage = {
 
     h2("2. Shipping Charges"),
     ul([
-      "A flat delivery fee of ₹250 is applied per order and shown transparently at checkout before payment.",
+      "A flat delivery fee of ₹250 is applied per order and shown transparently at checkout before you confirm the order.",
       "Bulk and very heavy consignments (multi-case furniture, commercial kitchen equipment) may attract actual-freight pricing — our desk always confirms the final freight on WhatsApp before dispatching such orders.",
       "There are no hidden handling, packing or OTP charges.",
     ]),
@@ -137,7 +137,7 @@ export const shipping: SeedPage = {
     h2("8. Undeliverable & Returned-to-Origin Shipments"),
     ul([
       "Returned-to-origin (RTO) prepaid orders are refunded minus two-way freight, or re-shipped on payment of fresh freight.",
-      "RTO COD orders may attract forward and return freight liability; repeated refusals can disable COD for the account.",
+      "Consignments refused without cause may attract forward and return freight liability.",
       "Re-shipments are prioritised once the corrected address or delivery slot is confirmed on WhatsApp.",
     ]),
 
@@ -175,35 +175,20 @@ export const cancellation: SeedPage = {
     callout("ok", "Fastest route", "WhatsApp your order number to the wholesale desk before the dispatch cut-off — morning requests are almost always cancellable the same day."),
 
     h2("2. Cancelling After Dispatch"),
-    p("Once a consignment is handed to the carrier it is in transit and cannot be cancelled. If you no longer need the goods, you may refuse the delivery at handover — but this is treated as a returned-to-origin shipment under the Shipping & Delivery Policy and may attract two-way freight liability, especially on COD orders. Genuine damage, defect, wrong-item or short-shipment issues discovered at delivery are handled under the Refund & Returns Policy instead of cancellation."),
+    p("Once a consignment is handed to the carrier it is in transit and cannot be cancelled. If you no longer need the goods, you may refuse the delivery at handover — but this is treated as a returned-to-origin shipment under the Shipping & Delivery Policy and may attract two-way freight liability. Genuine damage, defect, wrong-item or short-shipment issues discovered at delivery are handled under the Refund & Returns Policy instead of cancellation."),
 
     h2("3. Changing an Order Instead of Cancelling"),
     p("Before dispatch we can usually add items, remove items, or split an order — subject to pack rules and re-priced automatically under the applicable bulk slab. Message the desk with the order number and the change; any price difference is refunded or collected as appropriate. Changes after dispatch are not possible."),
 
-    h2("4. B2B Credit Accounts"),
-    ul([
-      "Cancelling credit orders is free before dispatch and simply removes the invoice from your ledger.",
-      "Frequent cancellations on sanctioned credit lines may lead us to review limits or request advance payment for future orders.",
-      "Credit orders that are refused in transit are debited two-way freight per the Shipping & Delivery Policy.",
-    ]),
-
-    h2("5. Refunds for Cancelled Orders"),
-    table(
-      ["Payment method", "Cancellation refund"],
-      [
-        ["UPI / QR", "Reversed to the same UPI source within 5–7 business days."],
-        ["Card", "Reversed to the original card within 5–7 business days (bank posting varies)."],
-        ["COD", "Nothing to refund — order simply cancelled; no charges apply."],
-        ["B2B Credit", "Ledger entry removed / amount credited back to the account balance."],
-      ]
-    ),
+    h2("4. Refunds for Cancelled Orders"),
+    p("Refunds for cancelled orders are issued within 5–7 business days of the cancellation confirmation, to the bank account or settlement channel you nominate — no cancellation charges apply before dispatch."),
     p("Partial cancellations (some items only) refund the cancelled value minus any slab discount that no longer applies — e.g. dropping from a 7% slab to a 4% slab adjusts the whole order's discount proportionally."),
 
-    h2("6. Cancellations by DMK Mart"),
-    p("We may cancel an order (with a full refund and, where possible, an alternative suggestion) when: stock becomes unavailable despite live inventory checks; the address or identity cannot be verified; the order appears fraudulent or abusive (e.g. systematic COD refusals); a pricing or data error occurred; or legal or carrier restrictions prevent dispatch. You will always be informed with a reason on your registered channel."),
+    h2("5. Cancellations by DMK Mart"),
+    p("We may cancel an order (with a full refund and, where possible, an alternative suggestion) when: stock becomes unavailable despite live inventory checks; the address or identity cannot be verified; the order appears fraudulent or abusive (e.g. systematic delivery refusals); a pricing or data error occurred; or legal or carrier restrictions prevent dispatch. You will always be informed with a reason on your registered channel."),
 
     divider(),
-    h2("7. Cancellation Support"),
+    h2("6. Cancellation Support"),
     contact([
       "WhatsApp:: +91 98220 12345",
       "Phone:: +91 98220 12345 (wholesale desk)",
@@ -217,19 +202,19 @@ export const cancellation: SeedPage = {
 
 export const pricing: SeedPage = {
   slug: "pricing-payment-policy",
-  title: "Pricing & Payment Policy",
+  title: "Pricing & Billing Policy",
   type: "LEGAL",
-  metaTitle: "Pricing & Payment Policy",
-  metaDescription: "How DMK Mart pricing works — GST-exclusive rates, automatic bulk slabs up to 10% off, tier pricing for retailers and distributors, payment methods (UPI, Card, COD, B2B Credit) and GST invoicing.",
-  keywords: "dmk mart pricing, b2b payment methods india, gst wholesale invoice, bulk discount slabs",
+  metaTitle: "Pricing & Billing Policy",
+  metaDescription: "How DMK Mart pricing works — GST-exclusive rates, automatic bulk slabs up to 10% off, tier pricing for retailers and distributors, GST invoicing and live ERP-synced prices.",
+  keywords: "dmk mart pricing, b2b wholesale pricing india, gst wholesale invoice, bulk discount slabs",
   inFooter: false,
   sortOrder: 60,
   blocks: [
     updated(),
-    p("This Policy explains how prices are displayed, how bulk discounts and tier pricing work, which payment methods we accept, and how GST invoicing is handled. It complements the Terms & Conditions; capitalised terms have the meanings given there."),
+    p("This Policy explains how prices are displayed, how bulk discounts and tier pricing work, and how GST invoicing is handled. It complements the Terms & Conditions; capitalised terms have the meanings given there."),
 
     h2("1. Pricing Basis — GST Exclusive"),
-    p("Listed prices are wholesale trade rates in Indian Rupees (INR) and are exclusive of GST unless a listing explicitly states otherwise. The cart shows item total, slab discount, delivery fee and applicable GST separately before you pay, so there are no surprises on the invoice. Manufacturer MRP (where printed) applies to your resale channel, not to our B2B rates."),
+    p("Listed prices are wholesale trade rates in Indian Rupees (INR) and are exclusive of GST unless a listing explicitly states otherwise. The cart shows item total, slab discount, delivery fee and applicable GST separately before you confirm the order, so there are no surprises on the invoice. Manufacturer MRP (where printed) applies to your resale channel, not to our B2B rates."),
 
     h2("2. Automatic Bulk Slabs"),
     p("Discounts apply automatically in the cart based on order value — no codes needed:"),
@@ -247,38 +232,17 @@ export const pricing: SeedPage = {
     h2("3. Tier Pricing for Account Types"),
     p("Beyond open slabs, registered B2B accounts are assigned a pricing tier — Retailer, Wholesaler or Distributor — reflecting relationship depth and volumes. Tier members see improved per-unit rates on eligible catalogues. Tier assignment and revision are at our discretion and communicated on your registered WhatsApp/email. Guest checkout always prices at the standard wholesale tier."),
 
-    h2("4. Payment Methods"),
-    table(
-      ["Method", "How it works"],
-      [
-        ["UPI / QR", "Pay via GPay, PhonePe, Paytm or any UPI app — fastest confirmation."],
-        ["Card", "Credit, Debit and RuPay cards through our payment gateway."],
-        ["Cash on Delivery", "Pay cash when the order arrives; subject to eligibility, PIN serviceability and value limits communicated at checkout."],
-        ["B2B Credit", "7-day credit for approved stores — sanctioned after verification, managed against your ledger."],
-      ]
-    ),
-    p("We never ask for payment over unofficial links. Pay only through the Platform checkout, the official payment link shared by the desk, or the verified QR at delivery."),
-
-    h2("5. B2B Credit Terms"),
-    ul([
-      "Credit lines (7 days) are granted at our discretion to verified stores with satisfactory order history.",
-      "Invoices are due within 7 days of the invoice date unless a separate written agreement says otherwise.",
-      "Overdue accounts may be suspended from further dispatch until cleared, and credit limits revised.",
-      "Credit is a facility, not a right — we may withdraw or modify it with notice where risk profiles change.",
-    ]),
-    callout("warn", "COD refusal abuse", "Repeatedly refusing COD consignments is treated as misuse under the Terms & Conditions and can result in COD being disabled or the account being restricted."),
-
-    h2("6. GST Invoicing"),
+    h2("4. GST Invoicing"),
     p("Every order carries a GST invoice showing HSN codes, taxable value, slab discount, GST rate split (CGST/SGST or IGST) and our GST registration details. Provide your GSTIN and firm details at checkout if you need input-credit documentation — we cannot always adjust invoices after dispatch. E-way bills are generated where required for the consignment value and distance."),
 
-    h2("7. Price Changes, Errors & Live Stock"),
+    h2("5. Price Changes, Errors & Live Stock"),
     p("Catalogue prices and stock are synchronised live from our ERP. Costs from manufacturers change with raw-material cycles, so listed prices may change without notice — but the price we confirm at order acceptance is the price you pay. In the rare event of a manifest pricing or data error, we will contact you before processing; you may confirm at the corrected price or cancel free of charge."),
 
-    h2("8. Taxes & Duties"),
+    h2("6. Taxes & Duties"),
     p("GST is charged at the rate applicable to each product's HSN classification on the invoice date. Any new statutory levy, cess or TCS introduced by law will be shown separately on invoices. Buyers are responsible for their own tax compliance on resale."),
 
     divider(),
-    h2("9. Pricing & Billing Support"),
+    h2("7. Pricing & Billing Support"),
     contact([
       "WhatsApp:: +91 98220 12345",
       "Phone:: +91 98220 12345 (wholesale desk)",

@@ -55,7 +55,7 @@ const LEGAL_LINKS: Array<{ slug: string; label: string }> = [
   { slug: "refund-returns-policy", label: "Refund & Returns" },
   { slug: "shipping-delivery-policy", label: "Shipping & Delivery" },
   { slug: "cancellation-policy", label: "Cancellation" },
-  { slug: "pricing-payment-policy", label: "Pricing & Payment" },
+  { slug: "pricing-payment-policy", label: "Pricing & Billing" },
   { slug: "about-us", label: "About Us" },
   { slug: "contact-us", label: "Contact Us" },
 ];

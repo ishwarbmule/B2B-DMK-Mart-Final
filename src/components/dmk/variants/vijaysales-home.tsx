@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  BadgePercent, CreditCard, Layers, MapPin, ShoppingCart, Timer, Truck, Zap,
+  BadgePercent, Layers, MapPin, ShoppingCart, Timer, Truck, Zap,
 } from "lucide-react";
 import { formatINR } from "@/lib/store";
 import { discountPct, type DProduct, type VariantData } from "@/lib/types";
@@ -200,13 +200,13 @@ export function VijaySalesHome({ data }: { data: VariantData }) {
         </div>
       </section>
 
-      {/* =========================== bank offers ========================== */}
+      {/* =========================== bulk offers ========================== */}
       <section className="mx-auto grid w-full max-w-7xl grid-cols-2 gap-3 px-4 pt-4 md:grid-cols-4">
         {[
-          { icon: CreditCard, t: "10% Off · HDFC Cards", s: "On orders above ₹5,000" },
-          { icon: BadgePercent, t: "No-Cost EMI", s: "3–12 months on bulk carts" },
+          { icon: BadgePercent, t: "Up to 10% Off", s: "Auto slabs on big carts" },
           { icon: Layers, t: "Extra 5% Slab", s: "On 25+ cases per order" },
           { icon: Truck, t: "Free Delivery", s: "Above ₹5,000 · Maharashtra" },
+          { icon: Timer, t: "Deals Refresh Daily", s: "Midnight · limited stock" },
         ].map((o) => (
           <div key={o.t} className="flex items-center gap-3 rounded-xl border bg-white p-3.5">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-50">
@@ -325,9 +325,9 @@ export function VijaySalesHome({ data }: { data: VariantData }) {
             </ul>
           </div>
           <div>
-            <p className="mb-3 text-[11px] font-black uppercase tracking-wider text-yellow-400">We Accept</p>
-            <p className="text-xs leading-relaxed">UPI · Visa · Mastercard · NetBanking · COD</p>
-            <p className="mt-2 text-[10px] text-gray-500">EMI available on 9 leading bank cards</p>
+            <p className="mb-3 text-[11px] font-black uppercase tracking-wider text-yellow-400">DMK Mart B2B</p>
+            <p className="text-xs leading-relaxed">2,400+ SKUs · 39 Brands · Pieces &amp; Packs</p>
+            <p className="mt-2 text-[10px] text-gray-500">GST invoices · OTP-verified delivery</p>
           </div>
         </div>
         <div className="border-t border-white/10 py-4">
