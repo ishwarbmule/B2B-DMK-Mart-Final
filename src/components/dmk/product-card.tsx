@@ -116,15 +116,27 @@ export function ProductCard({ p }: { p: DProduct }) {
               <span className="ml-auto rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-700">Your slab</span>
             )}
           </div>
-          {/* the two rates — Pickup = pack rate · Delivery = single piece price */}
-          <div className="mt-0.5 flex items-center gap-2 text-[11px] text-gray-600">
-            <span className="flex items-center gap-0.5" title="Pack rate — collect from your nearest warehouse">
-              <Store className="h-3 w-3 text-yellow-600" /> Pickup {formatINR(packPerPc)}
-            </span>
-            <span className="flex items-center gap-0.5" title="Single piece price — delivered to your address">
-              <Truck className="h-3 w-3 text-gray-500" /> Delivery {formatINR(priceShown)}
-              <span className="text-gray-400">/pc</span>
-            </span>
+          {/* the two rates — fixed 2-col grid (label line + price line) so every card
+              aligns identically on every device; no mid-price wrapping, no floating /pc */}
+          <div className="mt-1.5 grid grid-cols-2 gap-1.5 rounded-lg bg-gray-50 p-1.5">
+            <div className="min-w-0" title="Pack rate — collect from your nearest warehouse">
+              <p className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide text-gray-500">
+                <Store className="h-3 w-3 shrink-0 text-yellow-600" /> Pickup
+              </p>
+              <p className="mt-0.5 truncate text-xs font-black tabular-nums leading-none text-gray-900">
+                {formatINR(packPerPc)}
+                <span className="ml-0.5 text-[9px] font-semibold text-gray-400">/pc</span>
+              </p>
+            </div>
+            <div className="min-w-0 border-l border-gray-200 pl-2" title="Single piece price — delivered to your address">
+              <p className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide text-gray-500">
+                <Truck className="h-3 w-3 shrink-0 text-gray-500" /> Delivery
+              </p>
+              <p className="mt-0.5 truncate text-xs font-black tabular-nums leading-none text-gray-900">
+                {formatINR(priceShown)}
+                <span className="ml-0.5 text-[9px] font-semibold text-gray-400">/pc</span>
+              </p>
+            </div>
           </div>
           {hydrated && inCart > 0 ? (
             <div className="mt-2 flex items-center justify-between rounded-lg bg-yellow-400 px-1 py-1">
