@@ -1,17 +1,36 @@
 /**
- * A4 Invoice print page — /admin/orders/[id]/invoice?token=...
- * Long product lists flow onto page 2+ automatically (thead repeats, totals on last page).
- * No GST — DMK Mart does not charge or provide GST.
+ * A4 invoice print page — /admin/orders/[id]/invoice?token=...
+ *
+ * Redesigned to the owner's approved demo (Tally-style ESTIMATE stationery):
+ *   centered ESTIMATE title + UPI "SCAN & PAY" QR, bordered firm/buyer block,
+ *   invoice meta grid (invoice no · dated · mode of payment · delivery note ·
+ *   dispatched through · destination · terms of delivery), bordered goods table
+ *   (SL · description+SKU · quantity · rate · per · amount), TOTAL / GRAND TOTAL /
+ *   Previous Balance / Total Balance rows, amount chargeable in words, bank
+ *   details, dashed delivery-verification OTP box, declaration + signatures.
+ *
+ * Long product lists flow onto page 2+ automatically (thead repeats, totals on
+ * last page). No GST — DMK Mart does not charge or provide GST.
  */
 import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
 import { db } from "@/lib/db";
 import { verifyToken } from "@/lib/admin-auth";
 import { PrintButton } from "@/components/admin/print-button";
+import { FIRM, fmtDate, num2, amountInWords, upiQrSvg } from "@/lib/print-docs";
 
 export const dynamic = "force-dynamic";
 
-function inr(n: number) {
-  return "₹" + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+const SANS = 'Arial, "Helvetica Neue", Helvetica, sans-serif';
+const MONO = '"Courier New", ui-monospace, monospace';
+
+function MetaCell({ label, value, className = "" }: { label: string; value: ReactNode; className?: string }) {
+  return (
+    <div className={`px-2 py-1.5 ${className}`}>
+      <p className="text-[8px] font-bold uppercase tracking-wide text-neutral-600">{label}</p>
+      <p className="mt-0.5 text-[10.5px] font-semibold">{value || "—"}</p>
+    </div>
+  );
 }
 
 export default async function InvoicePage({
@@ -29,16 +48,17 @@ export default async function InvoicePage({
   const order = await db.order.findUnique({ where: { id }, include: { items: true } });
   if (!order) notFound();
 
-  const settings = await db.setting.findMany();
-  const S: Record<string, string> = {};
-  for (const s of settings) S[s.key] = s.value;
-
   const credited = order.items.filter((it) => it.lineStatus === "NEXT_PLAN").reduce((s, it) => s + it.total, 0);
+  const totalQty = order.items.reduce((s, it) => s + it.qty, 0);
+  const payable = Math.max(order.grandTotal - credited, 0);
+  const nextPlan = order.items.filter((it) => it.lineStatus === "NEXT_PLAN");
+  const otpSpaced = (order.otp || "----").split("").join(" ");
+  const qr = await upiQrSvg(payable, order.invoiceNo);
 
   return (
-    <div className="mx-auto max-w-[820px] bg-white p-6 print:p-0">
+    <div className="mx-auto w-full bg-white text-black print:p-0" style={{ maxWidth: 830, fontFamily: SANS }}>
       <style>{`
-        @page { size: A4; margin: 12mm; }
+        @page { size: A4; margin: 10mm; }
         @media print {
           .no-print { display: none !important; }
           body { background: #fff; }
@@ -50,121 +70,205 @@ export default async function InvoicePage({
         }
       `}</style>
 
-      <div className="no-print mb-4 flex items-center justify-between">
-        <p className="text-xs font-bold text-gray-500">A4 Invoice · prints multiple pages automatically for long orders</p>
+      <div className="no-print mb-4 flex items-center justify-between rounded-lg bg-white px-3 py-2 shadow">
+        <p className="text-xs font-bold text-gray-500">A4 invoice · demo stationery · long orders print on extra pages automatically</p>
         <PrintButton label="Print Invoice (A4)" />
       </div>
 
-      {/* header */}
-      <div className="flex items-start justify-between border-b-2 border-black pb-3">
-        <div className="flex items-center gap-3">
-          <img src="/dmk-logo.png" alt="DMK Mart" width={56} height={56} />
-          <div>
-            <p className="text-xl font-black tracking-tight">{S.firm_name ?? "DMK Mart"}</p>
-            <p className="text-[10px] text-gray-600">{S.firm_address}</p>
-            <p className="text-[10px] text-gray-600">{S.firm_phone} · {S.firm_email}</p>
+      {/* ── centered title + UPI QR (top-right) ── */}
+      <div className="relative">
+        <div className="text-center">
+          <p className="text-[24px] font-bold leading-none tracking-[0.05em]">ESTIMATE</p>
+          <p className="mt-1 text-[9.5px] text-neutral-600">(Original for Recipient)</p>
+        </div>
+        <div className="absolute right-0 top-0 flex w-[112px] flex-col items-center">
+          <div className="h-[82px] w-[82px] [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: qr }} />
+          <p className="mt-0.5 text-center text-[8.5px] font-bold leading-tight">SCAN &amp; PAY ₹{num2(payable)}</p>
+          <p className="text-center text-[7.5px] leading-tight text-neutral-600">· UPI {FIRM.upi}</p>
+        </div>
+      </div>
+
+      {/* ── firm / buyer block + invoice meta grid ── */}
+      <div className="mt-3 grid grid-cols-2 border border-black">
+        <div className="border-r border-black">
+          <div className="p-2">
+            <p className="text-[13px] font-bold leading-tight">{FIRM.name}</p>
+            <p className="mt-0.5 text-[10px]">{FIRM.address}</p>
+            <p className="text-[10px]">State Name : {FIRM.stateName}, Code : {FIRM.stateCode}</p>
+            <p className="text-[10px]">Ph : {FIRM.phone}</p>
+          </div>
+          <div className="border-t border-black p-2">
+            <p className="text-[9px] font-bold">BUYER (BILL TO)</p>
+            <p className="mt-0.5 text-[11.5px] font-bold">{order.customerName}</p>
+            <p className="text-[10px]">
+              {[order.addressLine, order.city].filter(Boolean).join(", ")}
+              {order.pincode ? ` — ${order.pincode}` : ""}
+            </p>
+            <p className="text-[10px]">State Name : {FIRM.stateName}, Code : {FIRM.stateCode}</p>
+            <p className="text-[10px]">Ph : {order.phone}</p>
           </div>
         </div>
-        <div className="text-right">
-          <p className="text-lg font-black">INVOICE</p>
-          <p className="text-[11px]"><b>Invoice:</b> {order.invoiceNo}</p>
-          <p className="text-[11px]"><b>Date:</b> {new Date(order.createdAt).toLocaleDateString("en-IN")}</p>
-          <p className="inline-block border-2 border-black px-2 py-0.5 text-[10px] font-black tracking-widest">{order.status}</p>
+        <div className="grid grid-cols-2">
+          <MetaCell label="Invoice No." value={order.invoiceNo} className="border-b border-black" />
+          <MetaCell label="Dated" value={fmtDate(order.createdAt)} className="border-b border-l border-black" />
+          <MetaCell label="Mode/Terms of Payment" value={order.paymentMethod} className="border-b border-black" />
+          <MetaCell label="Delivery Note" value="" className="border-b border-l border-black" />
+          <MetaCell label="Dispatched Through" value="" className="border-b border-black" />
+          <MetaCell label="Destination" value={order.city} className="border-b border-l border-black" />
+          <MetaCell label="Terms of Delivery" value="" className="col-span-2" />
         </div>
       </div>
 
-      {/* parties */}
-      <div className="mt-3 grid grid-cols-2 gap-3 text-[11px]">
-        <div className="border p-2.5">
-          <p className="mb-1 text-[9px] font-black uppercase tracking-wider text-gray-500">Billed To</p>
-          <p className="font-bold">{order.customerName}</p>
-          <p className="text-gray-600">{order.addressLine}, {order.city} — {order.pincode}</p>
-          <p className="text-gray-600">Phone: {order.phone} {order.email ? `· ${order.email}` : ""}</p>
-          <p className="text-gray-600">Customer type: {order.customerType} · Tier: {order.priceTier}</p>
-        </div>
-        <div className="border p-2.5">
-          <p className="mb-1 text-[9px] font-black uppercase tracking-wider text-gray-500">Delivery Verification</p>
-          <p className="mt-1 text-2xl font-black tracking-[0.35em]">{order.otp || "----"}</p>
-          <p className="text-[10px] text-gray-600">Delivery OTP — verify at handover. Not valid without OTP confirmation.</p>
-          <p className="mt-1 text-[10px] text-gray-600">Payment: {order.paymentMethod} ({order.paymentStatus})</p>
-        </div>
-      </div>
-
-      {/* items */}
-      <table className="mt-3 w-full border-collapse text-[10.5px]">
+      {/* ── goods table ── */}
+      <table className="mt-2 w-full border-collapse text-[10.5px]">
         <thead>
-          <tr className="bg-black text-white">
-            <th className="border border-black px-1.5 py-1.5 text-left">Sr</th>
-            <th className="border border-black px-1.5 py-1.5 text-left">SKU</th>
-            <th className="border border-black px-1.5 py-1.5 text-left">Product</th>
-            <th className="border border-black px-1.5 py-1.5 text-left">Unit</th>
-            <th className="border border-black px-1.5 py-1.5 text-right">Qty</th>
-            <th className="border border-black px-1.5 py-1.5 text-right">Pcs</th>
-            <th className="border border-black px-1.5 py-1.5 text-right">Rate</th>
-            <th className="border border-black px-1.5 py-1.5 text-right">Amount</th>
-            <th className="border border-black px-1.5 py-1.5 text-left">Status</th>
+          <tr className="text-[9px] font-bold text-neutral-700">
+            <th className="w-10 border border-black px-1 py-1 text-center">SL NO.</th>
+            <th className="border border-black px-1.5 py-1 text-left">DESCRIPTION OF GOODS</th>
+            <th className="w-20 border border-black px-1.5 py-1 text-right">QUANTITY</th>
+            <th className="w-16 border border-black px-1.5 py-1 text-right">RATE</th>
+            <th className="w-12 border border-black px-1 py-1 text-center">PER</th>
+            <th className="w-24 border border-black px-1.5 py-1 text-right">AMOUNT</th>
           </tr>
         </thead>
         <tbody>
           {order.items.map((it, i) => (
-            <tr key={it.id} className={i % 2 ? "bg-gray-50" : ""}>
-              <td className="border border-gray-300 px-1.5 py-1 font-mono font-bold">{it.serialNo || i + 1}</td>
-              <td className="border border-gray-300 px-1.5 py-1 font-mono">{it.sku}</td>
-              <td className="border border-gray-300 px-1.5 py-1">{it.name}</td>
-              <td className="border border-gray-300 px-1.5 py-1">{it.unitType === "SINGLE" ? "Piece" : `Pack of ${it.packQty}`}</td>
-              <td className="border border-gray-300 px-1.5 py-1 text-right">{it.qty}</td>
-              <td className="border border-gray-300 px-1.5 py-1 text-right">{it.pieces}</td>
-              <td className="border border-gray-300 px-1.5 py-1 text-right">{inr(it.unitPrice)}</td>
-              <td className="border border-gray-300 px-1.5 py-1 text-right font-semibold">{inr(it.total)}</td>
-              <td className="border border-gray-300 px-1.5 py-1 text-[9px] font-bold">{it.lineStatus === "NEXT_PLAN" ? "NEXT DELIVERY" : "IN STOCK"}</td>
+            <tr key={it.id}>
+              <td className="border border-black px-1 py-1 text-center align-top">{it.serialNo || i + 1}</td>
+              <td className="border border-black px-1.5 py-1 align-top">
+                {it.name}
+                <span className="mt-0.5 block text-[8px] text-neutral-500" style={{ fontFamily: MONO }}>{it.sku}</span>
+              </td>
+              <td className="border border-black px-1.5 py-1 text-right align-top">{num2(it.qty)}</td>
+              <td className="border border-black px-1.5 py-1 text-right align-top">{num2(it.unitPrice)}</td>
+              <td className="border border-black px-1 py-1 text-center align-top">{it.unitType === "PACK" ? "Pack" : "Pcs"}</td>
+              <td className="border border-black px-1.5 py-1 text-right align-top">{num2(it.total)}</td>
             </tr>
           ))}
+
+          {/* ── totals block (demo rows) ── */}
+          <tr>
+            <td className="border border-black"></td>
+            <td className="border border-black px-1.5 py-1 text-right text-[10px] font-bold">TOTAL</td>
+            <td className="border border-black px-1.5 py-1 text-right">{num2(totalQty)}</td>
+            <td className="border border-black"></td>
+            <td className="border border-black"></td>
+            <td className="border border-black px-1.5 py-1 text-right">{num2(order.itemTotal)}</td>
+          </tr>
+          {order.discount > 0 && (
+            <tr>
+              <td className="border border-black"></td>
+              <td className="border border-black px-1.5 py-1 text-right text-[9.5px]">
+                Discount{order.couponCode ? ` (${order.couponCode})` : ""}
+              </td>
+              <td className="border border-black" colSpan={3}></td>
+              <td className="border border-black px-1.5 py-1 text-right">− {num2(order.discount)}</td>
+            </tr>
+          )}
+          {order.deliveryFee > 0 && (
+            <tr>
+              <td className="border border-black"></td>
+              <td className="border border-black px-1.5 py-1 text-right text-[9.5px]">Delivery / Freight</td>
+              <td className="border border-black" colSpan={3}></td>
+              <td className="border border-black px-1.5 py-1 text-right">{num2(order.deliveryFee)}</td>
+            </tr>
+          )}
+          <tr>
+            <td className="border border-black"></td>
+            <td className="border border-black px-1.5 py-1 text-right text-[10.5px] font-black" colSpan={4}>GRAND TOTAL</td>
+            <td className="border border-black px-1.5 py-1 text-right align-top">
+              <span className="block text-[8px] font-bold leading-none">₹</span>
+              <span className="block text-[15px] font-black leading-tight">{num2(order.grandTotal)}</span>
+            </td>
+          </tr>
+          <tr>
+            <td className="border border-black" colSpan={2}></td>
+            <td className="border border-black px-1.5 py-1 text-right text-[9.5px]" colSpan={3}>Previous Balance</td>
+            <td className="border border-black px-1.5 py-1 text-right align-top">
+              {credited > 0 && <span className="block text-[8px] leading-none">Cr</span>}
+              <span className="block text-[11px] font-semibold leading-tight">{num2(credited)}</span>
+            </td>
+          </tr>
+          <tr>
+            <td className="border border-black" colSpan={2}></td>
+            <td className="border border-black px-1.5 py-1 text-right text-[10.5px] font-bold" colSpan={3}>Total Balance</td>
+            <td className="border border-black px-1.5 py-1 text-right align-top">
+              {payable > 0 && <span className="block text-[8px] font-semibold leading-none">Dr</span>}
+              <span className="block text-[12px] font-black leading-tight">{num2(payable)}</span>
+            </td>
+          </tr>
         </tbody>
       </table>
 
-      {/* next-delivery plan (out-of-stock lines → credited) */}
-      {order.items.some((it) => it.lineStatus === "NEXT_PLAN") && (
-        <div className="mt-3 border-2 border-dashed border-black p-2.5 text-[10.5px]">
-          <p className="font-black uppercase tracking-wide">⚠ Next Delivery Plan{order.nextDeliveryAt ? ` — ${order.nextDeliveryAt}` : ""}</p>
-          <p className="mt-1 leading-relaxed">
-            The following items are currently out of stock and will be delivered in the NEXT delivery:
-            {order.items.filter((it) => it.lineStatus === "NEXT_PLAN").map((it) => ` ${it.name} ×${it.qty} (${inr(it.total)})`).join(";")}.
+      {/* ── next-delivery plan note (out-of-stock lines → credited) ── */}
+      {nextPlan.length > 0 && (
+        <div className="mt-2 border border-dashed border-black px-2 py-1.5 text-[9.5px]">
+          <p className="text-[8.5px] font-bold uppercase tracking-wide">
+            Next Delivery Plan{order.nextDeliveryAt ? ` — ${order.nextDeliveryAt}` : ""}
+          </p>
+          <p className="mt-0.5 leading-snug">
+            Out of stock now — to be delivered in the next delivery:{" "}
+            {nextPlan.map((it) => `${it.name} ×${it.qty} (${num2(it.total)})`).join("; ")}.
           </p>
           {credited > 0 && (
-            <p className="mt-1 font-bold leading-relaxed">
-              Till then, {inr(credited)} for these items has been CREDITED to {order.customerName}&apos;s DMK Mart credit balance (adjustable against future orders).
+            <p className="mt-0.5 font-bold leading-snug">
+              {num2(credited)} for these lines is credited to {order.customerName}&apos;s DMK Mart credit balance —
+              shown above as Previous Balance (Cr) and deducted from the Total Balance.
             </p>
-          )}
-          {credited === 0 && (
-            <p className="mt-1 leading-relaxed">The amount for these items will be credited to the buyer&apos;s DMK Mart credit balance.</p>
           )}
         </div>
       )}
 
-      {/* totals */}
-      <div className="mt-3 flex justify-end">
-        <table className="w-72 border-collapse text-[11px]">
-          <tbody>
-            <tr><td className="border px-2 py-1">Item Total</td><td className="border px-2 py-1 text-right">{inr(order.itemTotal)}</td></tr>
-            {order.discount > 0 && (
-              <tr><td className="border px-2 py-1">Discount {order.couponCode ? `(${order.couponCode})` : ""}</td><td className="border px-2 py-1 text-right">− {inr(order.discount)}</td></tr>
-            )}
-            {order.deliveryFee > 0 && <tr><td className="border px-2 py-1">Delivery / Freight</td><td className="border px-2 py-1 text-right">{inr(order.deliveryFee)}</td></tr>}
-            <tr className="bg-black text-white"><td className="border border-black px-2 py-1.5 font-black">GRAND TOTAL</td><td className="border border-black px-2 py-1.5 text-right font-black">{inr(order.grandTotal)}</td></tr>
-          </tbody>
-        </table>
+      {/* ── amount in words ── */}
+      <div className="mt-2 border border-black px-2 py-1.5">
+        <p className="text-[8.5px] font-bold uppercase tracking-wide">Amount Chargeable (In Words)</p>
+        <div className="flex items-end justify-between gap-3">
+          <p className="text-[11px] font-bold">INR {amountInWords(order.grandTotal)} Only</p>
+          <p className="shrink-0 text-[10px] italic">E. &amp; O.E.</p>
+        </div>
       </div>
 
-      <div className="mt-6 flex items-end justify-between text-[10px] text-gray-600">
+      {/* ── bank details ── */}
+      <div className="mt-2 border border-black px-2 py-1.5">
+        <p className="text-[8.5px] font-bold uppercase tracking-wide">Bank Details (NEFT/RTGS)</p>
+        <p className="mt-0.5 text-[10px]">
+          {FIRM.bankHolder} · {FIRM.bankName} · A/c {FIRM.bankAccount} · IFSC {FIRM.ifsc} · UPI {FIRM.upi}
+        </p>
+      </div>
+
+      {/* ── delivery verification OTP ── */}
+      <div className="mt-2 flex items-center justify-between gap-3 border border-dashed border-black px-2 py-1.5">
         <div>
-          <p>Bank: {S.firm_bank} · A/c {S.firm_bank_account} · IFSC {S.firm_ifsc}</p>
-          <p>UPI: {S.firm_upi}</p>
-          <p className="mt-1">Goods once dispatched are not returnable unless damaged — report within 7 days with this invoice &amp; OTP.</p>
+          <p className="text-[8.5px] font-bold uppercase tracking-wide">Delivery Verification OTP</p>
+          <p className="mt-0.5 text-[9px] text-neutral-700">Please check your goods and share this code with the driver upon delivery.</p>
         </div>
-        <div className="text-center">
-          <p className="mt-10 border-t border-black pt-1">For {S.firm_name ?? "DMK Mart"}</p>
-          <p className="mt-1">Authorised Signatory</p>
+        <p className="shrink-0 text-[16px] font-bold tracking-[0.25em]" style={{ fontFamily: MONO }}>[ {otpSpaced} ]</p>
+      </div>
+
+      {/* ── declaration + signatures ── */}
+      <div className="mt-2 grid grid-cols-[1.45fr_1fr] border border-black">
+        <div className="border-r border-black p-2">
+          <p className="text-[8.5px] font-bold uppercase tracking-wide underline">Declaration</p>
+          <p className="mt-0.5 text-[9px] leading-snug text-neutral-800">
+            We declare that this invoice shows the actual price of the goods described and that all particulars are
+            true and correct. Goods once sold are subject to the firm&apos;s return policy; returned goods are
+            quarantined to damaged stock.
+          </p>
+          <p className="mt-2 text-[9px]">Subject to Maharashtra jurisdiction.</p>
         </div>
+        <div className="flex items-end justify-end p-2">
+          <p className="text-[10px] font-bold">For {FIRM.name}</p>
+        </div>
+      </div>
+      <div className="flex items-start justify-between px-2 pt-1.5 text-[9px]">
+        <p>Customer&apos;s Seal and Signature</p>
+        <p>Authorised Signatory</p>
+      </div>
+
+      <p className="mt-4 text-center text-[10px] font-bold tracking-[0.12em]">THIS IS A COMPUTER GENERATED INVOICE</p>
+      <div className="mt-1 flex items-center justify-between gap-3 pb-2 text-[7.5px] text-neutral-600">
+        <p>This is a computer-generated invoice under GST Rules — Rule 46 · DMK ESTIMATE</p>
+        <p className="shrink-0 text-right">{order.invoiceNo} · {fmtDate(order.createdAt)}</p>
       </div>
     </div>
   );

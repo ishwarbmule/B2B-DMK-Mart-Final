@@ -122,6 +122,14 @@
      loads but never renders. */
   html {
     font-family: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+    /* Smooth scrolling site-wide — every page, anchor jumps and in-page nav. */
+    scroll-behavior: smooth;
+  }
+  /* Respect users who prefer reduced motion. */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
   }
   body {
     @apply bg-background text-foreground;
