@@ -116,26 +116,26 @@ export function ProductCard({ p }: { p: DProduct }) {
               <span className="ml-auto rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-700">Your slab</span>
             )}
           </div>
-          {/* the two rates — fixed 2-col grid (label line + price line) so every card
-              aligns identically on every device; no mid-price wrapping, no floating /pc */}
-          <div className="mt-1.5 grid grid-cols-2 gap-1.5 rounded-lg bg-gray-50 p-1.5">
-            <div className="min-w-0" title="Pack rate — collect from your nearest warehouse">
-              <p className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide text-gray-500">
+          {/* the two rates — label-left / price-right rows (receipt style): aligned edges
+              on every device, prices never wrap mid-number or truncate, /pc never floats */}
+          <div className="mt-1.5 space-y-1 rounded-lg bg-gray-50 p-2 text-[11px]">
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex shrink-0 items-center gap-1 font-bold uppercase tracking-wide text-gray-500" title="Pack rate — collect from your nearest warehouse">
                 <Store className="h-3 w-3 shrink-0 text-yellow-600" /> Pickup
-              </p>
-              <p className="mt-0.5 truncate text-xs font-black tabular-nums leading-none text-gray-900">
+              </span>
+              <span className="truncate text-[11px] font-black tabular-nums text-gray-900">
                 {formatINR(packPerPc)}
                 <span className="ml-0.5 text-[9px] font-semibold text-gray-400">/pc</span>
-              </p>
+              </span>
             </div>
-            <div className="min-w-0 border-l border-gray-200 pl-2" title="Single piece price — delivered to your address">
-              <p className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide text-gray-500">
+            <div className="flex items-center justify-between gap-2 border-t border-gray-200 pt-1">
+              <span className="flex shrink-0 items-center gap-1 font-bold uppercase tracking-wide text-gray-500" title="Single piece price — delivered to your address">
                 <Truck className="h-3 w-3 shrink-0 text-gray-500" /> Delivery
-              </p>
-              <p className="mt-0.5 truncate text-xs font-black tabular-nums leading-none text-gray-900">
+              </span>
+              <span className="truncate text-[11px] font-black tabular-nums text-gray-900">
                 {formatINR(priceShown)}
                 <span className="ml-0.5 text-[9px] font-semibold text-gray-400">/pc</span>
-              </p>
+              </span>
             </div>
           </div>
           {hydrated && inCart > 0 ? (
