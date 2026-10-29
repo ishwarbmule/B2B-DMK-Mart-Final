@@ -252,14 +252,18 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
                 fulfillment === "PICKUP" ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:border-gray-300"
               }`}
             >
-              <span className="flex gap-3">
-                <Store className="mt-0.5 h-5 w-5 text-yellow-600" />
-                <span>
+              <span className="flex min-w-0 gap-3">
+                <Store className="mt-0.5 h-5 w-5 shrink-0 text-yellow-600" />
+                <span className="min-w-0">
                   <span className="block text-sm font-black text-gray-900">Pick up from warehouse</span>
                   <span className="block text-[11px] text-gray-500">Pack rates · no delivery fee · collect from your nearest warehouse</span>
                 </span>
               </span>
-              {fulfillment === "PICKUP" && <BadgeCheck className="h-5 w-5 text-yellow-500" />}
+              {/* reserved 20px check slot — text geometry identical whether selected or not,
+                  so the title/rates never reflow when the user toggles an option */}
+              <span className="flex h-5 w-5 shrink-0 items-center justify-start">
+                {fulfillment === "PICKUP" && <BadgeCheck className="h-5 w-5 text-yellow-500" />}
+              </span>
             </button>
             <button
               onClick={() => setFulfillment("DELIVERY")}
@@ -267,14 +271,16 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
                 fulfillment === "DELIVERY" ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:border-gray-300"
               }`}
             >
-              <span className="flex gap-3">
-                <Truck className="mt-0.5 h-5 w-5 text-gray-600" />
-                <span>
+              <span className="flex min-w-0 gap-3">
+                <Truck className="mt-0.5 h-5 w-5 shrink-0 text-gray-600" />
+                <span className="min-w-0">
                   <span className="block text-sm font-black text-gray-900">Get it delivered</span>
                   <span className="block text-[11px] text-gray-500">Single piece prices · to your shop address · free above ₹5,000</span>
                 </span>
               </span>
-              {fulfillment === "DELIVERY" && <BadgeCheck className="h-5 w-5 text-yellow-500" />}
+              <span className="flex h-5 w-5 shrink-0 items-center justify-start">
+                {fulfillment === "DELIVERY" && <BadgeCheck className="h-5 w-5 text-yellow-500" />}
+              </span>
             </button>
 
             {fulfillment === "PICKUP" && (
@@ -294,7 +300,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
                           pickupWh === w.id ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:border-gray-300"
                         }`}
                       >
-                        <span>
+                        <span className="min-w-0">
                           <span className="block text-xs font-bold text-gray-900">
                             {w.name}
                             {i === 0 && <span className="ml-1.5 rounded bg-emerald-100 px-1 py-0.5 text-[9px] font-black uppercase text-emerald-700">Nearest</span>}
@@ -302,7 +308,9 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
                           <span className="block text-[10px] text-gray-500">{[w.address, w.city].filter(Boolean).join(", ")}</span>
                           {w.phone && <span className="block text-[10px] text-gray-400">{w.phone}</span>}
                         </span>
-                        {pickupWh === w.id && <BadgeCheck className="h-4 w-4 shrink-0 text-yellow-500" />}
+                        <span className="flex h-4 w-4 shrink-0 items-center justify-start">
+                          {pickupWh === w.id && <BadgeCheck className="h-4 w-4 text-yellow-500" />}
+                        </span>
                       </button>
                     ))}
                   </div>

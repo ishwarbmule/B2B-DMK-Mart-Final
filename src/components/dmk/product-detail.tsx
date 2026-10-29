@@ -111,17 +111,20 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
             <span className="font-semibold text-emerald-600">Available to order</span>
           </div>
 
-          {/* the two rates — Pickup = pack rate · Delivery = single piece price (chosen at checkout) */}
-          <div className="mt-4 grid grid-cols-2 gap-2">
+          {/* the two rates — Pickup = pack rate · Delivery = single piece price (chosen at checkout)
+              Stacks vertically on phones so both cards are full-width and perfectly aligned;
+              side-by-side from sm up. Price rows are nowrap + tabular-nums so numbers never
+              wrap mid-digit and both /pc markers sit on the same baseline. */}
+          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div className="rounded-2xl border-2 border-yellow-400 bg-yellow-50/70 p-3">
-              <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-yellow-700"><Store className="h-3.5 w-3.5" /> Pickup pricing</p>
-              <p className="mt-0.5 text-xl font-black text-gray-900">{formatINR(packPerPiece)} <span className="text-[11px] font-semibold text-gray-500">/pc</span></p>
-              <p className="text-[10px] leading-snug text-gray-500">Pack rate — collect from your nearest warehouse</p>
+              <p className="flex items-center gap-1 whitespace-nowrap text-[10px] font-black uppercase tracking-wide text-yellow-700"><Store className="h-3.5 w-3.5 shrink-0" /> Pickup pricing</p>
+              <p className="mt-0.5 flex items-baseline gap-1 whitespace-nowrap tabular-nums text-xl font-black text-gray-900">{formatINR(packPerPiece)} <span className="text-[11px] font-semibold text-gray-500">/pc</span></p>
+              <p className="mt-0.5 text-[10px] leading-snug text-gray-500">Pack rate — collect from your nearest warehouse</p>
             </div>
             <div className="rounded-2xl border bg-white p-3">
-              <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-gray-500"><Truck className="h-3.5 w-3.5" /> Delivery pricing</p>
-              <p className="mt-0.5 text-xl font-black text-gray-900">{formatINR(singleRate)} <span className="text-[11px] font-semibold text-gray-500">/pc</span></p>
-              <p className="text-[10px] leading-snug text-gray-500">Single piece price — delivered to your address</p>
+              <p className="flex items-center gap-1 whitespace-nowrap text-[10px] font-black uppercase tracking-wide text-gray-500"><Truck className="h-3.5 w-3.5 shrink-0" /> Delivery pricing</p>
+              <p className="mt-0.5 flex items-baseline gap-1 whitespace-nowrap tabular-nums text-xl font-black text-gray-900">{formatINR(singleRate)} <span className="text-[11px] font-semibold text-gray-500">/pc</span></p>
+              <p className="mt-0.5 text-[10px] leading-snug text-gray-500">Single piece price — delivered to your address</p>
             </div>
           </div>
 
