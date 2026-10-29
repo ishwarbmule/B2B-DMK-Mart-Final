@@ -118,14 +118,14 @@ export function ProductCard({ p }: { p: DProduct }) {
           </div>
           {/* the two rates — label-left / price-right rows (receipt style): aligned edges
               on every device, prices never wrap mid-number or truncate, /pc never floats */}
-          <div className="mt-1.5 space-y-1 rounded-lg bg-gray-50 p-2 text-[11px]">
+          <div className="mt-1.5 space-y-1 rounded-lg bg-gray-50 px-1.5 py-2 text-[11px]">
             <div className="flex items-center justify-between gap-1.5">
               <span className="flex shrink-0 items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide text-gray-500" title="Pack rate — collect from your nearest warehouse">
                 <Store className="h-2.5 w-2.5 shrink-0 text-yellow-600" /> Pickup
               </span>
               <span className="truncate text-[11px] font-black tabular-nums text-gray-900">
                 {formatINR(packPerPc)}
-                <span className="ml-0.5 text-[9px] font-semibold text-gray-400">/pc</span>
+                <span className="ml-px text-[9px] font-semibold text-gray-400">/pc</span>
               </span>
             </div>
             <div className="flex items-center justify-between gap-1.5 border-t border-gray-200 pt-1">
@@ -134,7 +134,7 @@ export function ProductCard({ p }: { p: DProduct }) {
               </span>
               <span className="truncate text-[11px] font-black tabular-nums text-gray-900">
                 {formatINR(priceShown)}
-                <span className="ml-0.5 text-[9px] font-semibold text-gray-400">/pc</span>
+                <span className="ml-px text-[9px] font-semibold text-gray-400">/pc</span>
               </span>
             </div>
           </div>
