@@ -119,18 +119,18 @@ export function ProductCard({ p }: { p: DProduct }) {
           {/* the two rates — label-left / price-right rows (receipt style): aligned edges
               on every device, prices never wrap mid-number or truncate, /pc never floats */}
           <div className="mt-1.5 space-y-1 rounded-lg bg-gray-50 p-2 text-[11px]">
-            <div className="flex items-center justify-between gap-2">
-              <span className="flex shrink-0 items-center gap-1 font-bold uppercase tracking-wide text-gray-500" title="Pack rate — collect from your nearest warehouse">
-                <Store className="h-3 w-3 shrink-0 text-yellow-600" /> Pickup
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="flex shrink-0 items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide text-gray-500" title="Pack rate — collect from your nearest warehouse">
+                <Store className="h-2.5 w-2.5 shrink-0 text-yellow-600" /> Pickup
               </span>
               <span className="truncate text-[11px] font-black tabular-nums text-gray-900">
                 {formatINR(packPerPc)}
                 <span className="ml-0.5 text-[9px] font-semibold text-gray-400">/pc</span>
               </span>
             </div>
-            <div className="flex items-center justify-between gap-2 border-t border-gray-200 pt-1">
-              <span className="flex shrink-0 items-center gap-1 font-bold uppercase tracking-wide text-gray-500" title="Single piece price — delivered to your address">
-                <Truck className="h-3 w-3 shrink-0 text-gray-500" /> Delivery
+            <div className="flex items-center justify-between gap-1.5 border-t border-gray-200 pt-1">
+              <span className="flex shrink-0 items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide text-gray-500" title="Single piece price — delivered to your address">
+                <Truck className="h-2.5 w-2.5 shrink-0 text-gray-500" /> Delivery
               </span>
               <span className="truncate text-[11px] font-black tabular-nums text-gray-900">
                 {formatINR(priceShown)}
