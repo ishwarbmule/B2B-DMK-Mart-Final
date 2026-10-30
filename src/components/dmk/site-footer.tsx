@@ -49,15 +49,6 @@ export function SiteFooter() {
             <li><Link href="/catalog" className="text-gray-400 hover:text-yellow-400">All Products</Link></li>
             <li><Link href="/brands" className="text-gray-400 hover:text-yellow-400">Brand Portfolio</Link></li>
             <li><Link href="/catalog?flag=deal" className="text-gray-400 hover:text-yellow-400">Deals of the Day</Link></li>
-            <li><Link href="/account" className="text-gray-400 hover:text-yellow-400">B2B Account</Link></li>
-            <li><Link href="/admin" className="font-semibold text-yellow-400 hover:underline">Admin Login</Link></li>
-          </ul>
-          <p className="mt-4 mb-2 text-xs font-bold uppercase tracking-widest text-yellow-400">B2B Price Slabs</p>
-          <ul className="space-y-1 text-[11px] text-gray-500">
-            <li>₹5k+ order · 2% off</li>
-            <li>₹25k+ order · 4% off</li>
-            <li>₹50k+ order · 7% off</li>
-            <li>₹1L+ order · 10% off</li>
           </ul>
         </div>
 

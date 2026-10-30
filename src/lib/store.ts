@@ -59,8 +59,7 @@ export function unitPriceFor(
   return Math.round(item.price * ppu * (fulfillment === "PICKUP" ? 0.88 : 1) * 100) / 100;
 }
 
-export const DELIVERY_FEE = 250;
-export const FREE_DELIVERY_ABOVE = 5000;
+export const DELIVERY_FEE = 250; // flat delivery charge on all delivery orders (no free-delivery threshold)
 
 /** wholesale slab discount by order value */
 export function slabFor(itemTotal: number): { pct: number; title: string } {
@@ -117,7 +116,11 @@ export const useCartStore = create<CartState>()(
       openCart: () => set({ isOpen: true }),
       closeCart: () => set({ isOpen: false }),
     }),
-    { name: "dmk-cart-v3" }
+    { name: "dmk-cart-v3",
+      // persist ONLY cart data — isOpen must stay session-only, otherwise a drawer left open
+      // when the tab closed re-opens the cart on the next visit (mobile reported this)
+      partialize: (s) => ({ items: s.items, fulfillment: s.fulfillment }) as CartState,
+    }
   )
 );
 
@@ -151,8 +154,8 @@ export function cartTotals(items: CartItem[], fulfillment: Fulfillment = "DELIVE
   const slab = slabFor(itemTotal);
   const slabDisc = Math.round((itemTotal * slab.pct) / 100 * 100) / 100;
   const gstAmount = 0;
-  // PICKUP orders never carry a delivery fee (buyer collects from the warehouse) — mirrors /api/orders
-  const deliveryFee = fulfillment === "PICKUP" ? 0 : itemTotal >= FREE_DELIVERY_ABOVE || itemTotal === 0 ? 0 : DELIVERY_FEE;
+  // PICKUP never carries a delivery fee (buyer collects) · DELIVERY is a flat ₹250 — mirrors /api/orders
+  const deliveryFee = fulfillment === "PICKUP" || itemTotal === 0 ? 0 : DELIVERY_FEE;
   const grandTotal = Math.round((itemTotal - slabDisc + gstAmount + deliveryFee) * 100) / 100;
   return {
     totalPieces,

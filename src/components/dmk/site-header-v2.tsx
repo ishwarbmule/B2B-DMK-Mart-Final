@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronDown, Search, ShoppingCart, User, Phone, Mail, ChevronRight, X, Building2, Zap, LogOut, Package, UserRound } from "lucide-react";
 import { toast } from "sonner";
-import { useCartStore } from "@/lib/store";
+import { useCartStore, formatINR } from "@/lib/store";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { useCustomerSession, customerTypeLabel } from "@/lib/customer-client";
 import { clearCustomerToken } from "@/lib/customer-session";
@@ -39,6 +39,11 @@ export function SiteHeaderV2() {
   const [q, setQ] = useState("");
   const [mega, setMega] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // floating search suggestions — debounced word-wise lookup with a results dropdown
+  const [sugs, setSugs] = useState<{ id: string; slug: string; name: string; image: string; brandName: string; price: number }[]>([]);
+  const [sugOpen, setSugOpen] = useState(false);
+  const [sugLoading, setSugLoading] = useState(false);
+  const searchBox = useRef<HTMLDivElement | null>(null);
 
   // auth-aware header: load the customer session once on mount; profile chip replaces
   // the Login / Signup button the moment a session is present.
@@ -61,15 +66,51 @@ export function SiteHeaderV2() {
 
   const submit = (e?: React.FormEvent) => {
     e?.preventDefault();
+    setSugOpen(false);
     router.push(q.trim() ? `/catalog?q=${encodeURIComponent(q.trim())}` : "/catalog");
   };
 
+  // live word-wise suggestions (every word must match) — dropdown floats under the input;
+  // no auto-navigation while typing, the buyer stays in control
   const onInput = (v: string) => {
     setQ(v);
     if (timer.current) clearTimeout(timer.current);
+    const term = v.trim();
+    if (!term) {
+      setSugs([]);
+      setSugOpen(false);
+      setSugLoading(false);
+      return;
+    }
+    setSugLoading(true);
     timer.current = setTimeout(() => {
-      if (v.trim()) router.push(`/catalog?q=${encodeURIComponent(v.trim())}`);
-    }, 700);
+      fetch(`/api/products?q=${encodeURIComponent(term)}&limit=6`)
+        .then((r) => r.json())
+        .then((d: { products?: { id: string; slug: string; name: string; image: string; dealerPrice: number; tier2: number; brand?: { name: string } | null }[] }) => {
+          setSugs((d.products ?? []).map((p) => ({
+            id: p.id, slug: p.slug, name: p.name, image: p.image,
+            brandName: p.brand?.name ?? "", price: p.tier2 || p.dealerPrice,
+          })));
+          setSugOpen(true);
+        })
+        .catch(() => setSugs([]))
+        .finally(() => setSugLoading(false));
+    }, 300);
+  };
+
+  // click-away closes the dropdown
+  useEffect(() => {
+    if (!sugOpen) return;
+    const away = (e: MouseEvent) => {
+      if (searchBox.current && !searchBox.current.contains(e.target as Node)) setSugOpen(false);
+    };
+    document.addEventListener("mousedown", away);
+    return () => document.removeEventListener("mousedown", away);
+  }, [sugOpen]);
+
+  const goProduct = (slug: string) => {
+    setSugOpen(false);
+    router.push(`/product/${slug}`);
   };
 
   return (
@@ -96,21 +137,72 @@ export function SiteHeaderV2() {
           </div>
         </Link>
 
-        <form onSubmit={submit} className="relative flex flex-1 items-center">
-          <Search className="pointer-events-none absolute left-3 h-4 w-4 text-gray-400" />
-          <input
-            value={q}
-            onChange={(e) => onInput(e.target.value)}
-            placeholder='Search "planter", "bucket", "pulveriser"…'
-            className="h-10 w-full rounded-lg border border-gray-200 bg-gray-50 pl-9 pr-3 text-sm outline-none focus:border-yellow-400 focus:bg-white"
-            aria-label="Search products"
-          />
-          {q && (
-            <button type="button" onClick={() => setQ("")} aria-label="Clear search" className="absolute right-2 text-gray-400 hover:text-black">
-              <X className="h-4 w-4" />
-            </button>
+        {/* search + floating word-wise suggestions */}
+        <div ref={searchBox} className="relative flex flex-1 items-center">
+          <form onSubmit={submit} className="relative flex flex-1 items-center">
+            <Search className="pointer-events-none absolute left-3 h-4 w-4 text-gray-400" />
+            <input
+              value={q}
+              onChange={(e) => onInput(e.target.value)}
+              onFocus={() => { if (sugs.length) setSugOpen(true); }}
+              onKeyDown={(e) => { if (e.key === "Escape") setSugOpen(false); }}
+              placeholder='Search "planter", "bucket", "pulveriser"…'
+              className="h-10 w-full rounded-lg border border-gray-200 bg-gray-50 pl-9 pr-3 text-sm outline-none focus:border-yellow-400 focus:bg-white"
+              aria-label="Search products"
+              role="combobox"
+              aria-expanded={sugOpen}
+              aria-autocomplete="list"
+            />
+            {q && (
+              <button type="button" onClick={() => { setQ(""); setSugs([]); setSugOpen(false); }} aria-label="Clear search" className="absolute right-2 text-gray-400 hover:text-black">
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </form>
+
+          {sugOpen && (
+            <div className="absolute inset-x-0 top-full z-50 mt-1.5 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl">
+              {sugLoading && sugs.length === 0 && (
+                <p className="px-4 py-3 text-xs text-gray-400">Searching…</p>
+              )}
+              {!sugLoading && sugs.length === 0 && (
+                <p className="px-4 py-3 text-xs text-gray-400">No matches for “{q.trim()}” — try different words.</p>
+              )}
+              {sugs.length > 0 && (
+                <>
+                  <p className="border-b border-gray-100 bg-gray-50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                    {sugLoading ? "Updating…" : "Matching products"}
+                  </p>
+                  <ul>
+                    {sugs.map((s) => (
+                      <li key={s.id}>
+                        <button
+                          type="button"
+                          onClick={() => goProduct(s.slug)}
+                          className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition hover:bg-yellow-50"
+                        >
+                          <Image src={s.image || "/dmk-logo.png"} alt="" width={38} height={38} className="h-[38px] w-[38px] shrink-0 rounded-lg border border-gray-100 object-cover" unoptimized />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-xs font-semibold text-gray-900">{s.name}</span>
+                            <span className="block truncate text-[10px] text-gray-500">{s.brandName}</span>
+                          </span>
+                          <span className="shrink-0 text-xs font-black text-gray-900">{formatINR(s.price)}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    type="button"
+                    onClick={submit}
+                    className="flex w-full items-center justify-center gap-1.5 border-t border-gray-100 bg-gray-50 py-2.5 text-xs font-bold text-yellow-700 transition hover:bg-yellow-50"
+                  >
+                    View all results for “{q.trim()}” <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </>
+              )}
+            </div>
           )}
-        </form>
+        </div>
 
         <nav className="flex shrink-0 items-center gap-1">
           {hydrated && customer ? (

@@ -33,7 +33,7 @@ function recomputeTotals(order: NonNullable<Awaited<ReturnType<typeof loadOrder>
   const discount = round2(Math.min(itemTotal, round2(itemTotal * slabPct / 100) + couponShare));
   const taxableBase = round2(itemTotal - discount);
   const gstAmount = 0; // No GST — DMK Mart does not charge or provide GST.
-  const deliveryFee = itemTotal >= 5000 ? 0 : 250;
+  const deliveryFee = 250; // flat delivery charge — no free-delivery threshold
   const grandTotal = round2(taxableBase + gstAmount + deliveryFee);
   const totalPieces = lines.reduce((s, l) => s + l.pieces, 0);
   const totalCases = lines.reduce((s, l) => s + (l.unitType === "BULK" ? l.qty : 0), 0);

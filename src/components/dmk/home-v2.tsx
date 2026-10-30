@@ -8,7 +8,7 @@ import {
   Clock3, Flame, Package2, Percent, ReceiptIndianRupee, Star, Truck, Warehouse,
 } from "lucide-react";
 import type { CompanyNode, DProduct, SliderRow, TopCategoryNode } from "@/lib/types";
-import { discountPct, formatFree } from "@/lib/home-utils";
+import { discountPct } from "@/lib/home-utils";
 import { ProductCard } from "./product-card";
 import { formatINR } from "@/lib/store";
 
@@ -430,10 +430,10 @@ export function DeptCards({
 
 /* ------------------------------- How it works ------------------------------- */
 
-export function HowItWorks({ freeAbove }: { freeAbove?: string }) {
+export function HowItWorks(_: { freeAbove?: string }) {
   const steps = [
     { icon: ClipboardList, title: "Pick your products", sub: "Browse 2,400+ SKUs with transparent dealer & slab rates" },
-    { icon: Package2, title: "Add pieces or packs to cart", sub: `Transparent per-piece pricing · free delivery above ${formatFree(freeAbove)}` },
+    { icon: Package2, title: "Add pieces or packs to cart", sub: "Transparent per-piece pricing · flat ₹250 delivery" },
     { icon: ReceiptIndianRupee, title: "Get itemised invoice", sub: "Clear per-line billing, dispatch tracking & credit support" },
   ];
   return (

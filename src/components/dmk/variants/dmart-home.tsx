@@ -178,7 +178,7 @@ export function DmartHome({ data }: { data: VariantData }) {
               </button>
             </div>
             <p className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-semibold text-black/70">
-              <span>✓ Dealer rates</span><span>✓ Itemised invoice</span><span>✓ Free delivery above ₹5,000</span>
+              <span>✓ Dealer rates</span><span>✓ Itemised invoice</span><span>✓ Flat ₹250 delivery</span>
             </p>
           </div>
           <div className="relative hidden min-h-[300px] lg:block">

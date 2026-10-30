@@ -16,7 +16,7 @@ import Image from "next/image";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { BadgeCheck, CheckCircle2, KeyRound, MapPin, MessageCircle, Store, Truck } from "lucide-react";
 import { toast } from "sonner";
-import { useCartStore, cartTotals, formatINR, unitPriceFor, FREE_DELIVERY_ABOVE } from "@/lib/store";
+import { useCartStore, cartTotals, formatINR, unitPriceFor } from "@/lib/store";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { getCustomerToken } from "@/lib/customer-session";
 import { useCustomerSession, type SessionWarehouse } from "@/lib/customer-client";
@@ -71,7 +71,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
         ...f,
         customerName: f.customerName || c.shopName || c.name,
         phone: f.phone || c.phone,
-        email: f.email || c.email,
+        email: f.email || c.email || "",
         addressLine: f.addressLine || c.city ? f.addressLine : "",
         city: f.city || c.city,
         pincode: f.pincode || c.pincode,
@@ -185,13 +185,10 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
         {couponDisc > 0 && (
           <div className="flex justify-between text-emerald-600"><span>Coupon ({couponCode})</span><span className="font-semibold">− {formatINR(couponDisc)}</span></div>
         )}
-        <div className="flex justify-between text-gray-600"><span>Delivery</span><span className="font-semibold">{t.deliveryFee === 0 ? "FREE" : formatINR(t.deliveryFee)}</span></div>
+        <div className="flex justify-between text-gray-600"><span>Delivery</span><span className="font-semibold">{fulfillment === "PICKUP" ? "₹0 — collect from warehouse" : formatINR(t.deliveryFee)}</span></div>
         <div className="flex justify-between border-t pt-1.5 text-sm">
           <span className="font-bold">Total</span><span className="font-black">{formatINR(grand)}</span>
         </div>
-        {t.deliveryFee > 0 && t.itemTotal < FREE_DELIVERY_ABOVE && (
-          <p className="text-[10px] text-gray-400">Free delivery above {formatINR(FREE_DELIVERY_ABOVE)}</p>
-        )}
       </div>
     </div>
   );
@@ -278,7 +275,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
                 <Truck className="mt-0.5 h-5 w-5 shrink-0 text-gray-600" />
                 <span className="min-w-0">
                   <span className="block text-sm font-black text-gray-900">Get it delivered</span>
-                  <span className="block text-[11px] text-gray-500">Single piece prices · to your shop address · free above ₹5,000</span>
+                  <span className="block text-[11px] text-gray-500">Single piece prices · to your shop address · flat ₹250 delivery</span>
                 </span>
               </span>
               <span className="flex h-5 w-5 shrink-0 items-center justify-start">
@@ -394,7 +391,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
           <div className="space-y-3 p-5">
             <div className="rounded-xl border bg-gray-50 p-3 text-[11px] leading-relaxed text-gray-600">
               <b className="text-gray-900">Deliver to:</b> {[form.addressLine, form.city, form.pincode].filter(Boolean).join(", ")}
-              <br />Single piece prices applied · free delivery above ₹5,000.
+              <br />Single piece prices applied · flat ₹250 delivery charge.
             </div>
             {hydrated && orderDetails}
             <div>

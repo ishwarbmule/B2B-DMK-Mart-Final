@@ -9,7 +9,7 @@ import { useCartStore, formatINR, lineKey, unitPriceFor } from "@/lib/store";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { discountPct, type DProduct } from "@/lib/types";
 import { useCustomerSession } from "@/lib/customer-client";
-import { piecePriceOf } from "@/lib/pricing";
+import type { Fulfillment } from "@/lib/pricing";
 import { toCartItem, ProductCard } from "./product-card";
 
 export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[] }) {
@@ -17,18 +17,18 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
   const addItem = useCartStore((s) => s.addItem);
   const openCart = useCartStore((s) => s.openCart);
   const items = useCartStore((s) => s.items);
+  const cartFulfillment = useCartStore((s) => s.fulfillment);
+  const setCartFulfillment = useCartStore((s) => s.setFulfillment);
   // Task 15: session (slab pricing + nearest warehouse)
   useEffect(() => { useCustomerSession.getState().load(); }, []);
   const customer = useCustomerSession((s) => s.customer);
   const [qty, setQty] = useState(1);
   const [imgIdx, setImgIdx] = useState(0);
-  // Fulfilment rates — Pickup = pack rate (wholesale economics) · Delivery = single piece price
-  const tier = customer?.tier || "tier2";
-  const piece = piecePriceOf(p, tier);
-  const singleRate = p.isDeal && !!p.dealPrice && p.dealPrice > 0 ? p.dealPrice : piece;
-  const packPerPiece = p.packPrice && p.packPrice > 0 && (p.packQty ?? 0) > 0
-    ? Math.round((p.packPrice / p.packQty) * 100) / 100
-    : Math.round(singleRate * 0.94 * 100) / 100;
+  // Fulfilment selection — the PICKUP / DELIVERY pricing cards are the selector:
+  // tapping one reprices this page (buy box, cards, cart line) and the cart + checkout follow.
+  const [mode, setMode] = useState<Fulfillment>("DELIVERY");
+  useEffect(() => { if (hydrated) setMode(cartFulfillment); }, [cartFulfillment, hydrated]);
+  const pickMode = (m: Fulfillment) => { setMode(m); setCartFulfillment(m); };
 
   const gallery: string[] = (() => {
     try {
@@ -40,7 +40,9 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
   })();
 
   const unitItem = toCartItem(p, "SINGLE");
-  const up = unitPriceFor(unitItem);
+  const up = unitPriceFor(unitItem, mode); // follows the selected pricing card
+  const pickupRate = unitPriceFor(unitItem, "PICKUP");
+  const deliveryRate = unitPriceFor(unitItem, "DELIVERY");
   const lineTotal = Math.round(up * qty * 100) / 100;
   const key = lineKey(p.id, "SINGLE");
   const inCart = hydrated ? items.find((i) => lineKey(i.id, i.unitType) === key)?.qty ?? 0 : 0;
@@ -48,7 +50,6 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
 
   const specRows: [string, string][] = [
     ["Brand", p.brand?.name ?? "—"],
-    ["SKU", p.sku],
     ["Category", [p.top?.name, p.mid?.name, p.end?.name].filter(Boolean).join(" › ")],
     ["Unit", p.unit ?? "Pcs"],
     ["Barcode", p.barcode || "—"],
@@ -107,32 +108,43 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
                 <Star className="h-3.5 w-3.5 fill-emerald-600 text-emerald-600" /> {p.rating.toFixed(1)} ({p.reviewCount ?? 0})
               </span>
             )}
-            <span className="flex items-center gap-1"><Package className="h-3.5 w-3.5" /> SKU {p.sku}</span>
             <span className="font-semibold text-emerald-600">Available to order</span>
           </div>
 
-          {/* the two rates — Pickup = pack rate · Delivery = single piece price (chosen at checkout)
-              Stacks vertically on phones so both cards are full-width and perfectly aligned;
-              side-by-side from sm up. Price rows are nowrap + tabular-nums so numbers never
+          {/* the two rates — TAP A CARD TO CHOOSE IT: the buy box below, the cart line and
+              checkout all follow the selected card. Both cards share the same neutral style;
+              only the selected one gets the yellow outline. Stacks vertically on phones,
+              side-by-side from sm up; price rows are nowrap + tabular-nums so numbers never
               wrap mid-digit and both /pc markers sit on the same baseline. */}
           <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <div className="rounded-2xl border-2 border-yellow-400 bg-yellow-50/70 p-3">
-              <p className="flex items-center gap-1 whitespace-nowrap text-[10px] font-black uppercase tracking-wide text-yellow-700"><Store className="h-3.5 w-3.5 shrink-0" /> Pickup pricing</p>
-              <p className="mt-0.5 flex items-baseline gap-1 whitespace-nowrap tabular-nums text-xl font-black text-gray-900">{formatINR(packPerPiece)} <span className="text-[11px] font-semibold text-gray-500">/pc</span></p>
+            <button
+              type="button"
+              onClick={() => pickMode("PICKUP")}
+              aria-pressed={mode === "PICKUP"}
+              className={`rounded-2xl border-2 p-3 text-left transition ${mode === "PICKUP" ? "border-yellow-400 bg-yellow-50/70" : "border-gray-200 bg-white hover:border-gray-300"}`}
+            >
+              <p className={`flex items-center gap-1 whitespace-nowrap text-[10px] font-black uppercase tracking-wide ${mode === "PICKUP" ? "text-yellow-700" : "text-gray-500"}`}><Store className="h-3.5 w-3.5 shrink-0" /> Pickup pricing</p>
+              <p className="mt-0.5 flex items-baseline gap-1 whitespace-nowrap tabular-nums text-xl font-black text-gray-900">{formatINR(pickupRate)} <span className="text-[11px] font-semibold text-gray-500">/pc</span></p>
               <p className="mt-0.5 text-[10px] leading-snug text-gray-500">Pack rate — collect from your nearest warehouse</p>
-            </div>
-            <div className="rounded-2xl border bg-white p-3">
-              <p className="flex items-center gap-1 whitespace-nowrap text-[10px] font-black uppercase tracking-wide text-gray-500"><Truck className="h-3.5 w-3.5 shrink-0" /> Delivery pricing</p>
-              <p className="mt-0.5 flex items-baseline gap-1 whitespace-nowrap tabular-nums text-xl font-black text-gray-900">{formatINR(singleRate)} <span className="text-[11px] font-semibold text-gray-500">/pc</span></p>
-              <p className="mt-0.5 text-[10px] leading-snug text-gray-500">Single piece price — delivered to your address</p>
-            </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => pickMode("DELIVERY")}
+              aria-pressed={mode === "DELIVERY"}
+              className={`rounded-2xl border-2 p-3 text-left transition ${mode === "DELIVERY" ? "border-yellow-400 bg-yellow-50/70" : "border-gray-200 bg-white hover:border-gray-300"}`}
+            >
+              <p className={`flex items-center gap-1 whitespace-nowrap text-[10px] font-black uppercase tracking-wide ${mode === "DELIVERY" ? "text-yellow-700" : "text-gray-500"}`}><Truck className="h-3.5 w-3.5 shrink-0" /> Delivery pricing</p>
+              <p className="mt-0.5 flex items-baseline gap-1 whitespace-nowrap tabular-nums text-xl font-black text-gray-900">{formatINR(deliveryRate)} <span className="text-[11px] font-semibold text-gray-500">/pc</span></p>
+              <p className="mt-0.5 text-[10px] leading-snug text-gray-500">Single piece price — delivered to your address · flat ₹250</p>
+            </button>
           </div>
+          <p className="mt-1.5 text-center text-[10px] font-semibold text-gray-400">Tap a card — the price below follows your choice (cart &amp; checkout too)</p>
 
           {/* price block */}
           <div className="mt-4 flex flex-wrap items-end gap-3 rounded-2xl border bg-white p-4">
             <div>
               <p className="text-3xl font-black text-gray-900">{formatINR(up)}</p>
-              <p className="text-[11px] text-gray-500">per piece · final price</p>
+              <p className="text-[11px] text-gray-500">per piece · {mode === "PICKUP" ? "pickup rate" : "delivery rate"}</p>
               <p className="text-[10px] font-semibold text-emerald-700">
                 {customer ? `Your ${customer.customerType.replace("_", "-").toLowerCase()} slab pricing` : "Wholesale (guest) pricing — login for your slab"}
               </p>
@@ -165,23 +177,21 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
             <span className="flex items-center gap-1.5 rounded-lg border bg-white p-2.5 text-gray-600"><BadgeCheck className="h-4 w-4 text-yellow-500" /> Itemised invoice</span>
             <span className="flex items-center gap-1.5 rounded-lg border bg-white p-2.5 text-gray-600"><Package className="h-4 w-4 text-yellow-500" /> OTP delivery</span>
           </div>
-        </div>
-      </div>
 
-      {/* specifications */}
-      <div className="mt-8 grid gap-6 lg:grid-cols-2">
-        <div className="overflow-hidden rounded-2xl border bg-white">
-          <p className="border-b bg-gray-50 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-gray-600">Specifications</p>
-          <table className="w-full text-xs">
-            <tbody>
-              {specRows.map(([k, v], i) => (
-                <tr key={k} className={i % 2 ? "bg-gray-50/60" : ""}>
-                  <td className="px-4 py-2 font-semibold text-gray-500">{k}</td>
-                  <td className="px-4 py-2 text-right font-semibold text-gray-900">{v}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {/* specifications — right column, directly below the buy box */}
+          <div className="mt-3 overflow-hidden rounded-2xl border bg-white">
+            <p className="border-b bg-gray-50 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-gray-600">Specifications</p>
+            <table className="w-full text-xs">
+              <tbody>
+                {specRows.map(([k, v], i) => (
+                  <tr key={k} className={i % 2 ? "bg-gray-50/60" : ""}>
+                    <td className="px-4 py-2 font-semibold text-gray-500">{k}</td>
+                    <td className="px-4 py-2 text-right font-semibold text-gray-900">{v}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
