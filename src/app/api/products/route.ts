@@ -24,12 +24,19 @@ export async function GET(req: NextRequest) {
   const where: Record<string, unknown> = {};
   if (!includeInactive) where.active = true;
   if (q) {
-    where.OR = [
-      { name: { contains: q } },
-      { sku: { contains: q } },
-      { barcode: { contains: q } },
-      { brand: { is: { name: { contains: q } } } },
-    ];
+    // word-wise search: EVERY word must match somewhere (name/sku/barcode/brand),
+    // in any order — "milk can 10" matches "MILK CAN 10 L" and "can 10 l milk"
+    const tokens = q.split(/\s+/).filter(Boolean).slice(0, 6);
+    if (tokens.length) {
+      where.AND = tokens.map((t) => ({
+        OR: [
+          { name: { contains: t } },
+          { sku: { contains: t } },
+          { barcode: { contains: t } },
+          { brand: { is: { name: { contains: t } } } },
+        ],
+      }));
+    }
   }
   if (top) where.topId = top;
   if (mid) where.midId = mid;

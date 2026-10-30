@@ -481,13 +481,14 @@ function AdsStrip({ cfg, title }: { cfg?: HomeSectionCfg; title?: string }) {
             <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/75 via-black/30 to-transparent px-3 pb-2 pt-7 text-[11px] font-bold text-white sm:group-hover:opacity-0">
               {a.brand?.name || a.title}
             </span>
-            {/* white detail card slides in from the bottom-left corner on hover */}
-            <span className="pointer-events-none absolute inset-0 flex -translate-x-full translate-y-full flex-col justify-end gap-0.5 bg-white/95 p-4 shadow-xl transition-transform duration-300 ease-out group-hover:translate-x-0 group-hover:translate-y-0">
-              <span className="text-[9px] font-black uppercase tracking-[0.18em] text-yellow-600">Sponsored</span>
-              <span className="line-clamp-2 text-sm font-black leading-tight text-gray-900">{a.title}</span>
-              {a.brand?.name && <span className="text-[11px] font-semibold text-gray-500">by {a.brand.name}</span>}
-              <span className="mt-1.5 flex w-fit items-center gap-1 rounded-lg bg-black px-3 py-1 text-[10px] font-bold text-yellow-400">
-                Visit now <ArrowRight className="h-3 w-3" strokeWidth={2.6} />
+            {/* hover detail — half-corner TRANSPARENT overlay (bottom-left ~55% of the card):
+                the ad image stays visible on the rest of the card, nothing is fully covered */}
+            <span className="pointer-events-none absolute bottom-0 left-0 w-[55%] max-w-[240px] translate-y-2 rounded-tr-2xl bg-black/55 p-3 opacity-0 backdrop-blur-[3px] transition-all duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100">
+              <span className="block text-[9px] font-black uppercase tracking-[0.18em] text-yellow-400">Sponsored</span>
+              <span className="mt-0.5 line-clamp-2 block text-xs font-black leading-tight text-white">{a.title}</span>
+              {a.brand?.name && <span className="block text-[10px] font-semibold text-gray-300">by {a.brand.name}</span>}
+              <span className="mt-1.5 flex w-fit items-center gap-1 rounded-md bg-yellow-400 px-2 py-0.5 text-[9px] font-black text-black">
+                Visit now <ArrowRight className="h-2.5 w-2.5" strokeWidth={3} />
               </span>
             </span>
           </Link>

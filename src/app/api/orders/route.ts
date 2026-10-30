@@ -185,7 +185,7 @@ export async function POST(req: NextRequest) {
     // No GST — DMK Mart does not charge or provide GST.
     const gstAmount = 0;
     // warehouse pickup = buyer collects → no delivery fee
-    const deliveryFee = fulfillment === "PICKUP" ? 0 : itemTotal >= 5000 ? 0 : 250;
+    const deliveryFee = fulfillment === "PICKUP" ? 0 : 250; // flat delivery charge — no free-delivery threshold
     const grandTotal = Math.round((itemTotal - discount + gstAmount + deliveryFee) * 100) / 100;
     const totalSavings = Math.round(
       lines.reduce((s, l) => {

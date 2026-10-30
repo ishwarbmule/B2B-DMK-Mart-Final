@@ -71,7 +71,7 @@ const MARQUEE = [
   "WHOLESALE DAYS LIVE",
   "UP TO 65% OFF MRP",
   "EXTRA 10% ON 5+ CASES",
-  "FREE DELIVERY ABOVE ₹5,000",
+  "FLAT ₹250 DELIVERY",
   "ITEMISED INVOICE ON EVERY ORDER",
 ];
 
@@ -205,7 +205,7 @@ export function VijaySalesHome({ data }: { data: VariantData }) {
         {[
           { icon: BadgePercent, t: "Up to 10% Off", s: "Auto slabs on big carts" },
           { icon: Layers, t: "Extra 5% Slab", s: "On 25+ cases per order" },
-          { icon: Truck, t: "Free Delivery", s: "Above ₹5,000 · Maharashtra" },
+          { icon: Truck, t: "Delivery", s: "Flat ₹250 · Maharashtra" },
           { icon: Timer, t: "Deals Refresh Daily", s: "Midnight · limited stock" },
         ].map((o) => (
           <div key={o.t} className="flex items-center gap-3 rounded-xl border bg-white p-3.5">

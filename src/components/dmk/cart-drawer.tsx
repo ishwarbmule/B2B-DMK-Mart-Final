@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Minus, Plus, Trash2, Package, Truck, ArrowRight, TicketPercent, CheckCircle2, Store } from "lucide-react";
-import { useCartStore, cartTotals, formatINR, FREE_DELIVERY_ABOVE, lineKey, unitPriceFor, piecesPerUnit, type UnitType } from "@/lib/store";
+import { useCartStore, cartTotals, formatINR, lineKey, unitPriceFor, piecesPerUnit, type UnitType } from "@/lib/store";
 import type { Fulfillment } from "@/lib/pricing";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { useEffect } from "react";
@@ -32,7 +32,6 @@ export function CartDrawer({ onCheckout }: { onCheckout: (couponCode: string, co
 
   if (!hydrated) return null;
   const t = cartTotals(items, fulfillment);
-  const progress = Math.min(100, Math.round((t.itemTotal / FREE_DELIVERY_ABOVE) * 100));
   const totalPieces = items.reduce((n, i) => n + piecesPerUnit(i) * i.qty, 0);
 
   /* fulfillment toggle — always visible, one mode is always set; rates/charges/totals follow it */
@@ -40,7 +39,7 @@ export function CartDrawer({ onCheckout }: { onCheckout: (couponCode: string, co
     <div className="grid grid-cols-2 gap-2">
       {([
         { mode: "PICKUP" as Fulfillment, icon: Store, title: "Pickup", sub: "Pack rates · no delivery fee" },
-        { mode: "DELIVERY" as Fulfillment, icon: Truck, title: "Delivery", sub: "Piece rates · free above ₹5,000" },
+        { mode: "DELIVERY" as Fulfillment, icon: Truck, title: "Delivery", sub: "Piece rates · flat ₹250 delivery" },
       ]).map(({ mode, icon: Icon, title, sub }) => {
         const active = fulfillment === mode;
         return (
@@ -100,18 +99,9 @@ export function CartDrawer({ onCheckout }: { onCheckout: (couponCode: string, co
                 <Store className="h-3 w-3" /> Warehouse pickup — pack rates · no delivery fee
               </p>
             ) : (
-              <>
-                <div className="flex items-center justify-between text-[10px] text-gray-300">
-                  <span className="flex items-center gap-1">
-                    <Truck className="h-3 w-3" />
-                    {t.deliveryFee === 0 ? "Free delivery unlocked!" : `Add ${formatINR(FREE_DELIVERY_ABOVE - t.itemTotal)} for free delivery`}
-                  </span>
-                  <span>{progress}%</span>
-                </div>
-                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-800">
-                  <div className="h-full rounded-full bg-yellow-400 transition-all" style={{ width: `${progress}%` }} />
-                </div>
-              </>
+              <p className="flex items-center gap-1 text-[10px] text-gray-300">
+                <Truck className="h-3 w-3" /> Delivery to your address — flat ₹250 charge on every order
+              </p>
             )}
           </div>
         </div>
@@ -201,7 +191,7 @@ export function CartDrawer({ onCheckout }: { onCheckout: (couponCode: string, co
               <div className="flex justify-between text-gray-600">
                 <span>{fulfillment === "PICKUP" ? "Delivery (pickup)" : "Delivery"}</span>
                 <span className="font-semibold">
-                  {fulfillment === "PICKUP" ? "₹0 — collect from warehouse" : t.deliveryFee === 0 ? "FREE" : formatINR(t.deliveryFee)}
+                  {fulfillment === "PICKUP" ? "₹0 — collect from warehouse" : formatINR(t.deliveryFee)}
                 </span>
               </div>
               <div className="flex justify-between border-t pt-2 text-sm">
