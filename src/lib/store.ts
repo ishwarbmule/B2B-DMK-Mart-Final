@@ -74,6 +74,9 @@ export function slabFor(itemTotal: number): { pct: number; title: string } {
 interface CartState {
   items: CartItem[];
   isOpen: boolean;
+  /** fulfillment chosen in the cart drawer — drives every rate/total shown there and seeds checkout */
+  fulfillment: Fulfillment;
+  setFulfillment: (f: Fulfillment) => void;
   addItem: (item: CartItem, qty?: number) => void;
   setQty: (key: string, qty: number) => void;
   remove: (key: string) => void;
@@ -87,6 +90,8 @@ export const useCartStore = create<CartState>()(
     (set) => ({
       items: [],
       isOpen: false,
+      fulfillment: "DELIVERY",
+      setFulfillment: (f) => set({ fulfillment: f }),
       addItem: (item, qty = 1) =>
         set((state) => {
           const key = lineKey(item.id, item.unitType);
@@ -146,7 +151,8 @@ export function cartTotals(items: CartItem[], fulfillment: Fulfillment = "DELIVE
   const slab = slabFor(itemTotal);
   const slabDisc = Math.round((itemTotal * slab.pct) / 100 * 100) / 100;
   const gstAmount = 0;
-  const deliveryFee = itemTotal >= FREE_DELIVERY_ABOVE || itemTotal === 0 ? 0 : DELIVERY_FEE;
+  // PICKUP orders never carry a delivery fee (buyer collects from the warehouse) — mirrors /api/orders
+  const deliveryFee = fulfillment === "PICKUP" ? 0 : itemTotal >= FREE_DELIVERY_ABOVE || itemTotal === 0 ? 0 : DELIVERY_FEE;
   const grandTotal = Math.round((itemTotal - slabDisc + gstAmount + deliveryFee) * 100) / 100;
   return {
     totalPieces,

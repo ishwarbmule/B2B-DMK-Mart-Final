@@ -3,8 +3,9 @@
 import Image from "next/image";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { Minus, Plus, Trash2, Package, Truck, ArrowRight, TicketPercent, CheckCircle2 } from "lucide-react";
+import { Minus, Plus, Trash2, Package, Truck, ArrowRight, TicketPercent, CheckCircle2, Store } from "lucide-react";
 import { useCartStore, cartTotals, formatINR, FREE_DELIVERY_ABOVE, lineKey, unitPriceFor, piecesPerUnit, type UnitType } from "@/lib/store";
+import type { Fulfillment } from "@/lib/pricing";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { useEffect } from "react";
 import { toast } from "sonner";
@@ -22,15 +23,45 @@ export function CartDrawer({ onCheckout }: { onCheckout: (couponCode: string, co
   const closeCart = useCartStore((s) => s.closeCart);
   const setQty = useCartStore((s) => s.setQty);
   const remove = useCartStore((s) => s.remove);
+  const fulfillment = useCartStore((s) => s.fulfillment);
+  const setFulfillment = useCartStore((s) => s.setFulfillment);
   const [coupon, setCoupon] = useState("");
   const [couponDisc, setCouponDisc] = useState(0);
   const [appliedCode, setAppliedCode] = useState("");
   const [checking, setChecking] = useState(false);
 
   if (!hydrated) return null;
-  const t = cartTotals(items);
+  const t = cartTotals(items, fulfillment);
   const progress = Math.min(100, Math.round((t.itemTotal / FREE_DELIVERY_ABOVE) * 100));
   const totalPieces = items.reduce((n, i) => n + piecesPerUnit(i) * i.qty, 0);
+
+  /* fulfillment toggle — always visible, one mode is always set; rates/charges/totals follow it */
+  const modeToggle = (
+    <div className="grid grid-cols-2 gap-2">
+      {([
+        { mode: "PICKUP" as Fulfillment, icon: Store, title: "Pickup", sub: "Pack rates · no delivery fee" },
+        { mode: "DELIVERY" as Fulfillment, icon: Truck, title: "Delivery", sub: "Piece rates · free above ₹5,000" },
+      ]).map(({ mode, icon: Icon, title, sub }) => {
+        const active = fulfillment === mode;
+        return (
+          <button
+            key={mode}
+            onClick={() => setFulfillment(mode)}
+            aria-pressed={active}
+            className={`flex items-center gap-2 rounded-xl border-2 p-2 text-left transition ${
+              active ? "border-yellow-400 bg-yellow-50" : "border-gray-200 bg-white hover:border-gray-300"
+            }`}
+          >
+            <Icon className={`h-4 w-4 shrink-0 ${active ? "text-yellow-600" : "text-gray-400"}`} />
+            <span className="min-w-0">
+              <span className={`block text-[11px] font-black leading-tight ${active ? "text-gray-900" : "text-gray-600"}`}>{title}</span>
+              <span className="block text-[9px] font-semibold leading-tight text-gray-500">{sub}</span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
 
   const applyCoupon = async () => {
     if (!coupon.trim()) return;
@@ -64,16 +95,24 @@ export function CartDrawer({ onCheckout }: { onCheckout: (couponCode: string, co
             Cart · {t.totalLines} line{t.totalLines !== 1 ? "s" : ""} · {totalPieces} pcs
           </SheetTitle>
           <div className="mt-2">
-            <div className="flex items-center justify-between text-[10px] text-gray-300">
-              <span className="flex items-center gap-1">
-                <Truck className="h-3 w-3" />
-                {t.deliveryFee === 0 ? "Free delivery unlocked!" : `Add ${formatINR(FREE_DELIVERY_ABOVE - t.itemTotal)} for free delivery`}
-              </span>
-              <span>{progress}%</span>
-            </div>
-            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-800">
-              <div className="h-full rounded-full bg-yellow-400 transition-all" style={{ width: `${progress}%` }} />
-            </div>
+            {fulfillment === "PICKUP" ? (
+              <p className="flex items-center gap-1 text-[10px] font-semibold text-yellow-400">
+                <Store className="h-3 w-3" /> Warehouse pickup — pack rates · no delivery fee
+              </p>
+            ) : (
+              <>
+                <div className="flex items-center justify-between text-[10px] text-gray-300">
+                  <span className="flex items-center gap-1">
+                    <Truck className="h-3 w-3" />
+                    {t.deliveryFee === 0 ? "Free delivery unlocked!" : `Add ${formatINR(FREE_DELIVERY_ABOVE - t.itemTotal)} for free delivery`}
+                  </span>
+                  <span>{progress}%</span>
+                </div>
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-800">
+                  <div className="h-full rounded-full bg-yellow-400 transition-all" style={{ width: `${progress}%` }} />
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -89,10 +128,11 @@ export function CartDrawer({ onCheckout }: { onCheckout: (couponCode: string, co
         ) : (
           <>
             <div className="flex-1 overflow-y-auto p-3">
-              <div className="space-y-2.5">
+              {modeToggle}
+              <div className="mt-2.5 space-y-2.5">
                 {items.map((i) => {
                   const key = lineKey(i.id, i.unitType);
-                  const up = unitPriceFor(i);
+                  const up = unitPriceFor(i, fulfillment); // PICKUP → pack rate · DELIVERY → piece rate
                   const badge = UNIT_BADGE[i.unitType];
                   return (
                     <div key={key} className="flex gap-2.5 rounded-xl border p-2.5">
@@ -158,7 +198,12 @@ export function CartDrawer({ onCheckout }: { onCheckout: (couponCode: string, co
               {couponDisc > 0 && (
                 <div className="flex justify-between text-emerald-600"><span>Coupon ({appliedCode})</span><span className="font-semibold">− {formatINR(couponDisc)}</span></div>
               )}
-              <div className="flex justify-between text-gray-600"><span>Delivery</span><span className="font-semibold">{t.deliveryFee === 0 ? "FREE" : formatINR(t.deliveryFee)}</span></div>
+              <div className="flex justify-between text-gray-600">
+                <span>{fulfillment === "PICKUP" ? "Delivery (pickup)" : "Delivery"}</span>
+                <span className="font-semibold">
+                  {fulfillment === "PICKUP" ? "₹0 — collect from warehouse" : t.deliveryFee === 0 ? "FREE" : formatINR(t.deliveryFee)}
+                </span>
+              </div>
               <div className="flex justify-between border-t pt-2 text-sm">
                 <span className="font-bold">Total</span>
                 <span className="font-black">{formatINR(Math.max(0, t.grandTotal - couponDisc))}</span>
