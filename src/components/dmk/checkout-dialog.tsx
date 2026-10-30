@@ -39,6 +39,8 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
   const hydrated = useHydrated();
   const items = useCartStore((s) => s.items);
   const clearCart = useCartStore((s) => s.clearCart);
+  const cartFulfillment = useCartStore((s) => s.fulfillment);
+  const setCartFulfillment = useCartStore((s) => s.setFulfillment);
   const customer = useCustomerSession((s) => s.customer);
   const warehouses = useCustomerSession((s) => s.warehouses); // nearest-first for this buyer
   const sessionLoaded = useCustomerSession((s) => s.loaded);
@@ -57,10 +59,11 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
   const [waOptIn, setWaOptIn] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // reset the flow each time the dialog opens
+  // reset the flow each time the dialog opens — seed the mode from the cart drawer's toggle
   useEffect(() => {
     if (!open) return;
     setStep(sessionLoaded && !customer ? "gate" : "mode");
+    setFulfillment(cartFulfillment);
     setResult(null);
     const c = useCustomerSession.getState().customer;
     if (c) {
@@ -74,7 +77,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
         pincode: f.pincode || c.pincode,
       }));
     }
-  }, [open, sessionLoaded, customer]);
+  }, [open, sessionLoaded, customer, cartFulfillment]);
 
   // Login gate → /account with a return path that re-opens checkout after login
   // (only computed on the client, at gate-render time — never during SSR)
@@ -247,7 +250,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
         {step === "mode" && (
           <div className="space-y-3 p-5">
             <button
-              onClick={() => { setFulfillment("PICKUP"); setPickupWh(warehouses[0]?.id ?? ""); }}
+              onClick={() => { setFulfillment("PICKUP"); setPickupWh(warehouses[0]?.id ?? ""); setCartFulfillment("PICKUP"); }}
               className={`flex w-full items-start justify-between rounded-2xl border-2 p-4 text-left transition ${
                 fulfillment === "PICKUP" ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:border-gray-300"
               }`}
@@ -266,7 +269,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
               </span>
             </button>
             <button
-              onClick={() => setFulfillment("DELIVERY")}
+              onClick={() => { setFulfillment("DELIVERY"); setCartFulfillment("DELIVERY"); }}
               className={`flex w-full items-start justify-between rounded-2xl border-2 p-4 text-left transition ${
                 fulfillment === "DELIVERY" ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:border-gray-300"
               }`}
