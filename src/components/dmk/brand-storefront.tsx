@@ -2,9 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Building2, Flame, LayoutTemplate, Package, Star, TrendingUp, Zap } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowRight, Building2, ChevronRight, Flame, LayoutTemplate, LayoutGrid, Package, Star, TrendingUp, Zap } from "lucide-react";
 import { ProductCard, ProductCardMini } from "./product-card";
 import { formatINR } from "@/lib/store";
+import { getCustomerToken } from "@/lib/customer-session";
 import type { DProduct } from "@/lib/types";
 
 export interface BrandData {
@@ -26,7 +28,112 @@ interface Props {
   brand: BrandData;
   tops: { id: string; name: string; emoji: string; count: number }[];
   featured: DProduct[]; hot: DProduct[]; deals: DProduct[]; top: DProduct[]; all: DProduct[];
-  categories: { end: string; count: number; image: string }[];
+  categories: { id: string; end: string; count: number; image: string }[];
+}
+
+/**
+ * Brand category browser — a tab per end-level category; selecting a tab fetches that
+ * category's products live (location-aware: the customer token rides along so a logged-in
+ * buyer only sees what their nearest warehouse stocks). "All Products" shows the full range.
+ */
+export function BrandCategoryTabs({ brand, categories, all }: { brand: BrandData; categories: { id: string; end: string; count: number; image: string }[]; all: DProduct[] }) {
+  const tabs = [{ id: "", end: "All Products", count: brand.productCount }, ...categories];
+  const [active, setActive] = useState("");
+  const [products, setProducts] = useState<DProduct[]>(all.slice(0, 30));
+  const [total, setTotal] = useState(brand.productCount);
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const reqId = useRef(0);
+
+  const load = useCallback(async (endId: string, p: number) => {
+    const my = ++reqId.current;
+    setLoading(true);
+    try {
+      const token = getCustomerToken();
+      const params = new URLSearchParams({ brand: brand.slug, page: String(p), limit: "30", sort: "relevance" });
+      if (endId) params.set("end", endId);
+      const res = await fetch(`/api/products?${params.toString()}`, { headers: token ? { "x-customer-token": token } : undefined });
+      const d = await res.json();
+      if (my !== reqId.current) return;
+      setProducts(d.products ?? []);
+      setTotal(d.total ?? 0);
+      setPage(d.page ?? 1);
+      setPages(d.pages ?? 1);
+    } catch {
+      if (my === reqId.current) setLoading(false);
+      return;
+    }
+    if (my === reqId.current) setLoading(false);
+  }, [brand.slug]);
+
+  // refresh "All" when the customer session is known (warehouse-filtered); tabs refetch on click
+  useEffect(() => {
+    if (!getCustomerToken()) return;
+    load(active, 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const select = (id: string) => {
+    setActive(id);
+    load(id, 1);
+  };
+
+  return (
+    <section>
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <h2 className="flex items-center gap-2 text-lg font-black text-gray-900"><LayoutGrid className="h-5 w-5 text-yellow-500" /> Browse by Category</h2>
+          <p className="text-xs text-gray-500">Pick a category to see its products · {brand.name}</p>
+        </div>
+        <span className="hidden text-xs font-semibold text-gray-500 sm:block">{loading ? "Loading…" : `${total} SKUs`}</span>
+      </div>
+      {/* tab rail */}
+      <div className="scrollbar-hide -mx-1 mb-4 flex gap-1.5 overflow-x-auto px-1 pb-1">
+        {tabs.map((t) => {
+          const isActive = active === t.id;
+          return (
+            <button
+              key={t.id || "all"}
+              onClick={() => select(t.id)}
+              className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-bold transition ${
+                isActive ? "border-black bg-black text-yellow-400" : "border-gray-200 bg-white text-gray-700 hover:border-yellow-400 hover:bg-yellow-50"
+              }`}
+            >
+              {t.end}
+              <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-black ${isActive ? "bg-yellow-400 text-black" : "bg-gray-100 text-gray-500"}`}>{t.count}</span>
+            </button>
+          );
+        })}
+      </div>
+      {loading ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="animate-pulse">
+              <div className="aspect-square rounded-xl bg-gray-100" />
+              <div className="mt-2 h-3 w-3/4 rounded bg-gray-100" />
+            </div>
+          ))}
+        </div>
+      ) : products.length === 0 ? (
+        <div className="rounded-xl border border-dashed py-12 text-center">
+          <p className="text-sm font-semibold text-gray-700">No products in this category yet</p>
+          <p className="mt-1 text-xs text-gray-400">Try another category or view all products.</p>
+        </div>
+      ) : (
+        <>
+          <Grid products={products} />
+          {pages > 1 && (
+            <div className="mt-5 flex items-center justify-center gap-2 text-xs">
+              <button disabled={page <= 1} onClick={() => load(active, page - 1)} className="rounded-lg border px-3 py-1.5 font-semibold disabled:opacity-40">Prev</button>
+              <span className="font-semibold text-gray-600">Page {page} of {pages}</span>
+              <button disabled={page >= pages} onClick={() => load(active, page + 1)} className="rounded-lg border px-3 py-1.5 font-semibold disabled:opacity-40">Next <ChevronRight className="inline h-3 w-3" /></button>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
 }
 
 function BrandHero({ brand, cfg, dark, tall }: { brand: BrandData; cfg: Config; dark?: boolean; tall?: boolean }) {
@@ -107,7 +214,7 @@ export function BrandStorefront({ brand, tops, featured, hot, deals, top, all, c
               <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">{hot.slice(0, 10).map((p) => <ProductCardMini key={p.id} p={p} />)}</div>
             </section>
           )}
-          <Grid products={all.slice(0, 24)} />
+          <BrandCategoryTabs brand={brand} categories={categories} all={all} />
         </div>
       );
 
@@ -122,7 +229,7 @@ export function BrandStorefront({ brand, tops, featured, hot, deals, top, all, c
             </section>
           )}
           <Grid products={featured.length ? featured : all.slice(0, 12)} />
-          <Grid products={all.slice(12, 36)} />
+          <BrandCategoryTabs brand={brand} categories={categories} all={all} />
         </div>
       );
 
@@ -139,13 +246,13 @@ export function BrandStorefront({ brand, tops, featured, hot, deals, top, all, c
           {cfg.showCategories !== false && (
             <div className="flex flex-wrap justify-center gap-2">
               {categories.slice(0, 12).map((c) => (
-                <Link key={c.end} href={`/catalog?brand=${brand.slug}`} className="rounded-full border px-3 py-1.5 text-[11px] font-semibold text-gray-600 hover:border-yellow-400">
+                <Link key={c.id} href={`/catalog?brand=${brand.slug}&end=${c.id}`} className="rounded-full border px-3 py-1.5 text-[11px] font-semibold text-gray-600 hover:border-yellow-400">
                   {c.end} ({c.count})
                 </Link>
               ))}
             </div>
           )}
-          <Grid products={all.slice(0, 36)} />
+          <BrandCategoryTabs brand={brand} categories={categories} all={all} />
         </div>
       );
 
@@ -176,10 +283,7 @@ export function BrandStorefront({ brand, tops, featured, hot, deals, top, all, c
             <SectionHead icon={TrendingUp} title="Top Selling" />
             <Grid products={top.length ? top : all.slice(0, 12)} />
           </section>
-          <section>
-            <SectionHead icon={Package} title={`Complete ${brand.name} Range`} href={`/catalog?brand=${brand.slug}`} />
-            <Grid products={all.slice(0, 24)} />
-          </section>
+          <BrandCategoryTabs brand={brand} categories={categories} all={all} />
         </div>
       );
 
@@ -196,9 +300,7 @@ export function BrandStorefront({ brand, tops, featured, hot, deals, top, all, c
             </div>
             <Link href={`/catalog?brand=${brand.slug}`} className="rounded-lg bg-black px-4 py-2 text-xs font-bold text-yellow-400">Filter & Sort</Link>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
-            {all.slice(0, 48).map((p) => <ProductCard key={p.id} p={p} />)}
-          </div>
+          <BrandCategoryTabs brand={brand} categories={categories} all={all} />
         </div>
       );
 
@@ -219,7 +321,7 @@ export function BrandStorefront({ brand, tops, featured, hot, deals, top, all, c
           ))}
           <section>
             <SectionHead icon={Package} title="Browse Everything" href={`/catalog?brand=${brand.slug}`} />
-            <Grid products={all.slice(0, 18)} />
+            <BrandCategoryTabs brand={brand} categories={categories} all={all} />
           </section>
         </div>
       );
@@ -237,7 +339,7 @@ export function BrandStorefront({ brand, tops, featured, hot, deals, top, all, c
             </div>
           </div>
           <Grid products={featured.slice(0, 12)} />
-          <Grid products={all.slice(12, 30)} />
+          <BrandCategoryTabs brand={brand} categories={categories} all={all} />
         </div>
       );
 
@@ -249,13 +351,13 @@ export function BrandStorefront({ brand, tops, featured, hot, deals, top, all, c
             <SectionHead icon={LayoutTemplate} title="Shop by Category" sub={`${categories.length} categories in ${brand.name}`} />
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
               {categories.slice(0, 12).map((c) => (
-                <div key={c.end} className="relative aspect-square overflow-hidden rounded-2xl border bg-white">
+                <Link key={c.id} href={`/catalog?brand=${brand.slug}&end=${c.id}`} className="relative aspect-square overflow-hidden rounded-2xl border bg-white">
                   {c.image && <Image src={c.image} alt={c.end} fill sizes="200px" className="object-cover opacity-90" unoptimized />}
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-2.5">
                     <p className="text-xs font-bold text-white">{c.end}</p>
                     <p className="text-[10px] text-gray-300">{c.count} SKUs</p>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </section>
@@ -265,7 +367,7 @@ export function BrandStorefront({ brand, tops, featured, hot, deals, top, all, c
               <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">{hot.slice(0, 12).map((p) => <ProductCardMini key={p.id} p={p} />)}</div>
             </section>
           )}
-          <Grid products={all.slice(0, 24)} />
+          <BrandCategoryTabs brand={brand} categories={categories} all={all} />
         </div>
       );
 
@@ -293,7 +395,7 @@ export function BrandStorefront({ brand, tops, featured, hot, deals, top, all, c
               <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">{deals.slice(0, 10).map((p) => <ProductCardMini key={p.id} p={p} />)}</div>
             </section>
           )}
-          <Grid products={all.slice(0, 30)} />
+          <BrandCategoryTabs brand={brand} categories={categories} all={all} />
         </div>
       );
 
@@ -324,10 +426,7 @@ export function BrandStorefront({ brand, tops, featured, hot, deals, top, all, c
             </section>
           )}
           {cfg.showAllProducts !== false && (
-            <section>
-              <SectionHead icon={Package} title={`All ${brand.name} Products`} href={`/catalog?brand=${brand.slug}`} />
-              <Grid products={all.slice(0, 30)} />
-            </section>
+            <BrandCategoryTabs brand={brand} categories={categories} all={all} />
           )}
         </div>
       );

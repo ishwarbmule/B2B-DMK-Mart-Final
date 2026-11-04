@@ -14,6 +14,7 @@ export function CatalogClient() {
   const top = params.get("top") ?? "";
   const brand = params.get("brand") ?? "";
   const flag = params.get("flag") ?? "";
+  const end = params.get("end") ?? "";
 
   const title = useMemo(() => {
     if (q) return `Results for "${q}"`;
@@ -23,14 +24,15 @@ export function CatalogClient() {
     if (flag === "top") return "Top Selling";
     if (brand) {
       const b = catalog?.brands.find((x) => x.slug === brand);
-      return b ? `${b.name} — Brand Catalog` : "Brand Catalog";
+      const cat = end && catalog ? catalog.tops.flatMap((t) => t.mids).flatMap((m) => m.ends).find((e) => e.id === end) : null;
+      return b ? `${b.name}${cat ? ` — ${cat.name}` : " — Brand Catalog"}` : "Brand Catalog";
     }
     if (top) {
       const t = catalog?.tops.find((x) => x.id === top);
       return t ? `${t.emoji} ${t.name}` : "Wholesale Catalog";
     }
     return "Wholesale Catalog — All Products";
-  }, [q, top, brand, flag, catalog]);
+  }, [q, top, brand, flag, end, catalog]);
 
   if (!catalog) {
     return (
@@ -46,11 +48,11 @@ export function CatalogClient() {
   return (
     <div className="mx-auto max-w-[1400px] px-3 py-5 md:px-6">
       <CatalogView
-        key={`${q}|${top}|${brand}|${flag}`}
+        key={`${q}|${top}|${brand}|${flag}|${end}`}
         title={title}
         tops={catalog.tops}
         brands={catalog.brands}
-        initial={{ q, top, brand, flag }}
+        initial={{ q, top, brand, flag, end }}
       />
     </div>
   );

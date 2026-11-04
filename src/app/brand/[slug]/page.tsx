@@ -36,6 +36,7 @@ async function getBrand(slug: string) {
   }
   const categories = catRows
     .map((c) => ({
+      id: c.endId,
       end: endById.get(c.endId)?.name ?? "Products",
       count: c._count._all,
       image: imgByEnd.get(c.endId) ?? "",

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertCircle, ArrowLeft, Building2, CheckCircle2, Eye, EyeOff, KeyRound,
-  LogOut, Package, ShieldCheck, User,
+  LogOut, MapPin, Package, Pencil, ReceiptText, ShieldCheck, Truck, User,
 } from "lucide-react";
 import { toast } from "sonner";
 import { StoreChrome } from "@/components/dmk/store-chrome";
@@ -18,13 +18,17 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 
 type Customer = {
   id: string; name: string; shopName: string; phone: string; email: string;
-  customerType: string; tier: string; status: string; city: string; gstin: string; pincode?: string;
+  customerType: string; tier: string; status: string; city: string; gstin: string; pincode?: string; address?: string;
   orders: number; totalSpent: number;
 };
 
 type NearestWarehouse = { id: string; name: string; city: string; address: string; phone: string } | null;
 
-type RecentOrder = { id: string; invoiceNo: string; grandTotal: number; status: string; createdAt: string; otp?: string };
+export type AccountOrder = {
+  id: string; invoiceNo: string; grandTotal: number; status: string; createdAt: string; otp?: string;
+  confirmedAt?: string | null; fulfillment?: string; pickupWarehouseName?: string;
+  totalUnits?: number; items?: { id: string; name: string; image: string; qty: number; unitType: string; total: number }[];
+};
 
 type Identity = { identifier: string; kind: "phone" | "email"; masked: string; name: string; shopName: string };
 
@@ -44,6 +48,14 @@ const LABEL = "mb-1 block text-[13px] font-bold text-gray-900";
 const LINK = "font-semibold text-yellow-700 underline-offset-2 hover:underline";
 
 const emptyReg = { name: "", shopName: "", phone: "", email: "", password: "", confirm: "", customerType: "RETAILER", gstin: "", city: "", pincode: "" };
+const emptyProfile = { name: "", shopName: "", email: "", gstin: "", address: "", city: "", pincode: "" };
+
+export function orderStatusLabel(o: { status: string; shippingStatus?: string; confirmedAt?: string | null }): { label: string; cls: string } {
+  if (o.status === "DELIVERED" || o.shippingStatus === "DELIVERED") return { label: "Delivered", cls: "bg-emerald-50 text-emerald-700" };
+  if (o.status === "CONFIRMED") return { label: "Confirmed — preparing", cls: "bg-blue-50 text-blue-700" };
+  if (o.status === "CANCELLED") return { label: "Cancelled", cls: "bg-red-50 text-red-600" };
+  return { label: "Pending confirmation", cls: "bg-orange-50 text-orange-700" };
+}
 
 function AlertBox({ children }: { children: React.ReactNode }) {
   return (
@@ -82,10 +94,15 @@ function AccountInner() {
   const [step, setStep] = useState<Step>("identify");
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [nearest, setNearest] = useState<NearestWarehouse>(null);
-  const [orders, setOrders] = useState<RecentOrder[]>([]);
+  const [orders, setOrders] = useState<AccountOrder[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // profile editor state
+  const [editOpen, setEditOpen] = useState(false);
+  const [profile, setProfile] = useState({ ...emptyProfile });
+  const [savingProfile, setSavingProfile] = useState(false);
 
   // sign-in state
   const [idValue, setIdValue] = useState("");
@@ -149,6 +166,39 @@ function AccountInner() {
     setOrders([]);
     setStep("identify");
     toast("Signed out of your B2B account");
+  };
+
+  const openProfileEditor = () => {
+    if (!customer) return;
+    setProfile({
+      name: customer.name ?? "", shopName: customer.shopName ?? "", email: customer.email ?? "",
+      gstin: customer.gstin ?? "", address: customer.address ?? "", city: customer.city ?? "", pincode: customer.pincode ?? "",
+    });
+    setEditOpen(true);
+  };
+
+  const saveProfile = async () => {
+    if (profile.pincode && !/^\d{6}$/.test(profile.pincode)) return toast.error("Pincode must be 6 digits");
+    setSavingProfile(true);
+    try {
+      const token = getCustomerToken();
+      const res = await fetch("/api/auth/me", {
+        method: "PATCH", headers: { "content-type": "application/json", "x-customer-token": token ?? "" },
+        body: JSON.stringify(profile),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error ?? "Could not save");
+      setCustomer((c) => (c ? { ...c, ...d.customer } : c));
+      useCustomerSession.getState().refresh();
+      setEditOpen(false);
+      toast.success("Account details saved");
+      // location changed → reload the nearest warehouse card
+      await loadMe(getCustomerToken() ?? "");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   /* ── step 1: identify account (mobile or email) ── */
@@ -275,7 +325,8 @@ function AccountInner() {
     if (reg.name.trim().length < 2) e.name = "Enter the contact person name";
     if (!/^[6-9]\d{9}$/.test(reg.phone.trim())) e.phone = "Enter a valid 10-digit Indian mobile number";
     if (reg.email && !/^\S+@\S+\.\S+$/.test(reg.email)) e.email = "Enter a valid email address";
-    if (reg.pincode && !/^\d{6}$/.test(reg.pincode)) e.pincode = "Pincode must be 6 digits";
+    if (reg.city.trim().length < 2) e.city = "Enter your city (delivery location)";
+    if (!/^\d{6}$/.test(reg.pincode.trim())) e.pincode = "Enter the 6-digit pincode of your location";
     if (reg.password.length < 6) e.password = "Use at least 6 characters";
     if (reg.password !== reg.confirm) e.confirm = "The two passwords do not match";
     setRegErrors(e);
@@ -319,20 +370,22 @@ function AccountInner() {
           </div>
 
           {!hydrated ? null : customer ? (
-            /* ─────────────── DASHBOARD (signed in) ─────────────── */
+            /* ─────────────── MY ACCOUNT (signed in) ─────────────── */
             <div className="space-y-5">
               <div className="flex items-center justify-between rounded-2xl border bg-white p-5">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-yellow-600">{customer.customerType}</p>
-                  <h1 className="text-xl font-black text-gray-900">{customer.shopName || customer.name}</h1>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-wide text-yellow-600">{customer.customerType}{customer.status === "APPROVED" ? " · Verified" : ""}</p>
+                  <h1 className="truncate text-xl font-black text-gray-900">{customer.shopName || customer.name}</h1>
                   <p className="text-xs text-gray-500">{customer.phone} · {customer.city || "—"}</p>
-                  {nearest && (
-                    <p className="mt-1 text-[11px] font-semibold text-emerald-700">📍 Your nearest DMK Mart warehouse: {nearest.name}{nearest.city ? ` (${nearest.city})` : ""}</p>
-                  )}
                 </div>
-                <button onClick={logout} className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50">
-                  <LogOut className="h-3.5 w-3.5" /> Logout
-                </button>
+                <div className="flex shrink-0 flex-col gap-2">
+                  <button onClick={openProfileEditor} className="flex items-center gap-1.5 rounded-lg bg-black px-3 py-2 text-xs font-bold text-yellow-400 hover:bg-gray-800">
+                    <Pencil className="h-3.5 w-3.5" /> Edit
+                  </button>
+                  <button onClick={logout} className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50">
+                    <LogOut className="h-3.5 w-3.5" /> Logout
+                  </button>
+                </div>
               </div>
 
               {customer.status !== "APPROVED" && (
@@ -345,6 +398,25 @@ function AccountInner() {
                 </div>
               )}
 
+              {/* quick nav */}
+              <div className="grid grid-cols-2 gap-3">
+                <Link href="/account/orders" className="group flex items-center gap-3 rounded-2xl border bg-white p-4 transition hover:border-yellow-400 hover:bg-yellow-50/40">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-black"><Package className="h-5 w-5 text-yellow-400" /></span>
+                  <span>
+                    <span className="block text-sm font-black text-gray-900">My Orders</span>
+                    <span className="block text-[11px] text-gray-500">Track every order &amp; invoice</span>
+                  </span>
+                </Link>
+                <button onClick={openProfileEditor} className="group flex items-center gap-3 rounded-2xl border bg-white p-4 text-left transition hover:border-yellow-400 hover:bg-yellow-50/40">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-black"><User className="h-5 w-5 text-yellow-400" /></span>
+                  <span>
+                    <span className="block text-sm font-black text-gray-900">Account Details</span>
+                    <span className="block text-[11px] text-gray-500">Business info &amp; location</span>
+                  </span>
+                </button>
+              </div>
+
+              {/* stats */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="rounded-2xl border bg-white p-4 text-center">
                   <p className="text-xl font-black text-gray-900">{customer.orders}</p>
@@ -360,27 +432,99 @@ function AccountInner() {
                 </div>
               </div>
 
+              {/* location / warehouse card */}
+              <div className="overflow-hidden rounded-2xl border bg-white">
+                <p className="flex items-center gap-1.5 border-b bg-gray-50 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-gray-600">
+                  <MapPin className="h-3.5 w-3.5 text-yellow-600" /> Your Location &amp; Warehouse
+                </p>
+                <div className="p-4">
+                  {nearest ? (
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-black text-gray-900">{nearest.name}</p>
+                        <p className="text-[11px] text-gray-500">{nearest.address || nearest.city}</p>
+                        <p className="mt-1 text-[11px] font-semibold text-emerald-700">
+                          Products shown on the site are stocked at this warehouse for you
+                        </p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">NEAREST</span>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500">Add your city &amp; pincode so we can serve your nearest godown.</p>
+                  )}
+                  <p className="mt-2 text-[11px] text-gray-400">
+                    Saved location: {customer.city || "no city"} {customer.pincode ? `· ${customer.pincode}` : ""} —{" "}
+                    <button onClick={openProfileEditor} className="font-bold text-yellow-700 hover:underline">update location</button>
+                  </p>
+                </div>
+              </div>
+
+              {/* recent orders preview */}
               <div id="recent-orders" className="overflow-hidden rounded-2xl border bg-white">
-                <p className="border-b bg-gray-50 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-gray-600">Recent Orders</p>
+                <div className="flex items-center justify-between border-b bg-gray-50 px-4 py-2.5">
+                  <p className="text-xs font-bold uppercase tracking-wide text-gray-600">Recent Orders</p>
+                  <Link href="/account/orders" className="text-[11px] font-bold text-yellow-700 hover:underline">View all →</Link>
+                </div>
                 {orders.length === 0 ? (
                   <p className="p-6 text-center text-xs text-gray-400">No orders yet — <Link href="/catalog" className="font-bold text-yellow-600">start ordering →</Link></p>
                 ) : (
                   <table className="w-full text-xs">
                     <tbody>
-                      {orders.map((o) => (
-                        <tr key={o.id} className="border-b last:border-0">
-                          <td className="px-4 py-2.5 font-bold text-gray-900">{o.invoiceNo}</td>
-                          <td className="px-4 py-2.5 text-gray-500">{new Date(o.createdAt).toLocaleDateString("en-IN")}</td>
-                          <td className="px-4 py-2.5 font-black">{formatINR(o.grandTotal)}</td>
-                          <td className="px-4 py-2.5">
-                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${o.status === "DELIVERED" ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700"}`}>{o.status}</span>
-                          </td>
-                        </tr>
-                      ))}
+                      {orders.slice(0, 5).map((o) => {
+                        const st = orderStatusLabel(o);
+                        return (
+                          <tr key={o.id} className="border-b last:border-0">
+                            <td className="px-4 py-2.5 font-bold text-gray-900">{o.invoiceNo}</td>
+                            <td className="px-4 py-2.5 text-gray-500">{new Date(o.createdAt).toLocaleDateString("en-IN")}</td>
+                            <td className="px-4 py-2.5 font-black">{o.confirmedAt ? formatINR(o.grandTotal) : <span className="text-[10px] font-bold text-orange-600">Invoice after confirmation</span>}</td>
+                            <td className="px-4 py-2.5">
+                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${st.cls}`}>{st.label}</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 )}
               </div>
+
+              {/* profile editor */}
+              {editOpen && (
+                <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" onClick={() => setEditOpen(false)}>
+                  <div className="max-h-[88vh] w-full max-w-[460px] overflow-y-auto rounded-t-2xl bg-white p-5 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-base font-black text-gray-900">Account Details</p>
+                      <button onClick={() => setEditOpen(false)} aria-label="Close" className="rounded-lg border px-2 py-1 text-xs font-bold text-gray-500">✕</button>
+                    </div>
+                    {([
+                      ["shopName", "Business / shop name", "text"],
+                      ["name", "Contact person name", "text"],
+                      ["email", "Email", "email"],
+                      ["gstin", "GSTIN (optional)", "text"],
+                      ["address", "Address", "text"],
+                    ] as const).map(([key, label, type]) => (
+                      <div key={key} className="mb-2.5">
+                        <label className={LABEL} htmlFor={`pf-${key}`}>{label}</label>
+                        <input id={`pf-${key}`} type={type} value={profile[key]} onChange={(e) => setProfile((f) => ({ ...f, [key]: e.target.value }))} className={INPUT} />
+                      </div>
+                    ))}
+                    <div className="mb-2.5 grid grid-cols-2 gap-2">
+                      <div>
+                        <label className={LABEL} htmlFor="pf-city">City</label>
+                        <input id="pf-city" value={profile.city} onChange={(e) => setProfile((f) => ({ ...f, city: e.target.value }))} className={INPUT} />
+                      </div>
+                      <div>
+                        <label className={LABEL} htmlFor="pf-pincode">Pincode</label>
+                        <input id="pf-pincode" value={profile.pincode} onChange={(e) => setProfile((f) => ({ ...f, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) }))} inputMode="numeric" className={INPUT} />
+                      </div>
+                    </div>
+                    <p className="mb-3 text-[11px] leading-relaxed text-gray-400">Your city &amp; pincode decide the nearest DMK Mart warehouse whose stock is shown to you.</p>
+                    <button onClick={saveProfile} disabled={savingProfile} className={`${BTN_PRIMARY}`}>
+                      {savingProfile ? "Saving…" : "Save details"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             /* ─────────────── AUTH CARD ─────────────── */
@@ -565,16 +709,17 @@ function AccountInner() {
                   ))}
                   <div className="mb-2.5 grid grid-cols-2 gap-2">
                     <div>
-                      <label className={LABEL} htmlFor="reg-city">City</label>
-                      <input id="reg-city" value={reg.city} onChange={(e) => setReg((f) => ({ ...f, city: e.target.value }))} placeholder="City" className={INPUT} />
+                      <label className={LABEL} htmlFor="reg-city">City / Town *</label>
+                      <input id="reg-city" value={reg.city} onChange={(e) => setReg((f) => ({ ...f, city: e.target.value }))} placeholder="e.g. Shrirampur" className={regErrors.city ? INPUT.replace("border-gray-300", "border-red-400") : INPUT} />
+                      {regErrors.city && <p className="mt-0.5 text-[11px] text-red-500">{regErrors.city}</p>}
                     </div>
                     <div>
-                      <label className={LABEL} htmlFor="reg-pincode">Pincode (location)</label>
-                      <input id="reg-pincode" value={reg.pincode} onChange={(e) => setReg((f) => ({ ...f, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) }))} placeholder="e.g. 411001" inputMode="numeric" className={regErrors.pincode ? INPUT.replace("border-gray-300", "border-red-400") : INPUT} />
+                      <label className={LABEL} htmlFor="reg-pincode">Pincode (location) *</label>
+                      <input id="reg-pincode" value={reg.pincode} onChange={(e) => setReg((f) => ({ ...f, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) }))} placeholder="e.g. 413809" inputMode="numeric" className={regErrors.pincode ? INPUT.replace("border-gray-300", "border-red-400") : INPUT} />
                       {regErrors.pincode && <p className="mt-0.5 text-[11px] text-red-500">{regErrors.pincode}</p>}
                     </div>
                   </div>
-                  <p className="mb-2.5 text-[11px] leading-relaxed text-gray-400">City + pincode place you near a DMK Mart warehouse — after login the site shows the nearest godown for your orders.</p>
+                  <p className="mb-2.5 text-[11px] leading-relaxed text-gray-400">Your city + pincode decide your nearest DMK Mart warehouse — after login the site shows the products stocked there for you.</p>
                   <button onClick={doRegister} disabled={busy} className={`${BTN_PRIMARY} mt-2`}>
                     {busy ? "Creating…" : "Create account"}
                   </button>

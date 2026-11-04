@@ -44,8 +44,8 @@ export function normalizePhone(raw: string): string | null {
 
 export const smsTemplates = {
   otp: (code: string) => `${code} is your DMK Mart B2B login code. Do not share it with anyone.`,
-  orderPlaced: (invoice: string, total: number, deliveryOtp: string) =>
-    `Order ${invoice} placed at DMK Mart B2B. Amount Rs.${total.toLocaleString("en-IN")}. Delivery OTP: ${deliveryOtp}. Share OTP only at handover.`,
+  orderPlaced: (invoice: string, deliveryOtp: string) =>
+    `Order ${invoice} placed at DMK Mart B2B. Status: pending confirmation — your itemised invoice will follow once confirmed. Delivery OTP: ${deliveryOtp}. Share OTP only at handover.`,
   orderStatus: (invoice: string, status: string, support: string) =>
     `DMK Mart B2B: Order ${invoice} is now ${status}. Query? Call ${support || "+91 98220 12345"}. Thank you for your business.`,
   test: () => `DMK Mart B2B SMS gateway is live. You will receive login codes, order status and delivery OTPs on this number.`,

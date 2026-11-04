@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { Minus, Plus, Trash2, Package, Truck, ArrowRight, TicketPercent, CheckCircle2, Store } from "lucide-react";
+import { Minus, Plus, Trash2, Package, Truck, ArrowRight, TicketPercent, CheckCircle2, Store, ReceiptText } from "lucide-react";
 import { useCartStore, cartTotals, formatINR, lineKey, unitPriceFor, piecesPerUnit, type UnitType } from "@/lib/store";
 import type { Fulfillment } from "@/lib/pricing";
 import { useHydrated } from "@/hooks/use-hydrated";
@@ -181,26 +181,17 @@ export function CartDrawer({ onCheckout }: { onCheckout: (couponCode: string, co
             </div>
 
             <div className="space-y-2 border-t bg-gray-50 p-4 text-xs">
-              <div className="flex justify-between text-gray-600"><span>Item total ({totalPieces} pcs)</span><span className="font-semibold">{formatINR(t.itemTotal)}</span></div>
-              {t.slabPct > 0 && (
-                <div className="flex justify-between text-emerald-600"><span>Slab discount ({t.slabTitle})</span><span className="font-semibold">− {formatINR(t.slabDisc)}</span></div>
-              )}
+              {/* Invoice note — no totals in the cart: the itemised invoice is generated per pickup/delivery selection */}
+              <div className="flex items-start gap-2 rounded-xl border border-yellow-200 bg-yellow-50 p-3">
+                <ReceiptText className="mt-0.5 h-4 w-4 shrink-0 text-yellow-600" />
+                <p className="text-[11px] font-semibold leading-relaxed text-gray-700">
+                  You will get your itemised invoice as per your selection of <b>pickup</b> or <b>delivery</b> options.
+                  Rates &amp; charges are applied automatically — no payment needed now.
+                </p>
+              </div>
               {couponDisc > 0 && (
-                <div className="flex justify-between text-emerald-600"><span>Coupon ({appliedCode})</span><span className="font-semibold">− {formatINR(couponDisc)}</span></div>
-              )}
-              <div className="flex justify-between text-gray-600">
-                <span>{fulfillment === "PICKUP" ? "Delivery (pickup)" : "Delivery"}</span>
-                <span className="font-semibold">
-                  {fulfillment === "PICKUP" ? "₹0 — collect from warehouse" : formatINR(t.deliveryFee)}
-                </span>
-              </div>
-              <div className="flex justify-between border-t pt-2 text-sm">
-                <span className="font-bold">Total</span>
-                <span className="font-black">{formatINR(Math.max(0, t.grandTotal - couponDisc))}</span>
-              </div>
-              {t.totalSavings > 0 && (
-                <p className="rounded-lg bg-emerald-50 px-2 py-1.5 text-center text-[11px] font-semibold text-emerald-700">
-                  You save {formatINR(t.totalSavings)} vs MRP on this order
+                <p className="flex items-center justify-center gap-1 text-[11px] font-semibold text-emerald-700">
+                  <CheckCircle2 className="h-3 w-3" /> {appliedCode} will apply {formatINR(couponDisc)} off on your invoice
                 </p>
               )}
               <button
