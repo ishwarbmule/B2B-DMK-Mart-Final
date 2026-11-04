@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { customerFromReq } from "@/lib/customer-auth";
+import { rankWarehouses } from "@/lib/geo";
 
 export const dynamic = "force-dynamic";
 
-/** Public catalog browsing with server-side pagination for 2,200+ SKUs (brand-first). */
+/** Public catalog browsing with server-side pagination for 2,200+ SKUs (brand-first).
+ *  Location-aware: a logged-in customer with city/pincode on file only sees products
+ *  stocked (qty > 0) at their nearest warehouse — override with ?allWarehouses=1. */
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const q = sp.get("q")?.trim() || "";
@@ -20,6 +24,7 @@ export async function GET(req: NextRequest) {
   const includeInactive = sp.get("all") === "1"; // admin use
 
   const warehouseId = sp.get("warehouseId") || ""; // Task 15: only products stocked at this warehouse
+  const allWarehouses = sp.get("allWarehouses") === "1"; // explicit escape hatch
 
   const where: Record<string, unknown> = {};
   if (!includeInactive) where.active = true;
@@ -49,6 +54,27 @@ export async function GET(req: NextRequest) {
   if (flag === "hot") where.isHot = true;
   if (flag === "top") where.isTop = true;
   if (flag === "deal") where.isDeal = true;
+
+  // ── location-aware catalog: customer's nearest warehouse decides visibility ──
+  let buyerWarehouseName = "";
+  if (!warehouseId && !allWarehouses && !includeInactive) {
+    const customerId = customerFromReq(req);
+    if (customerId) {
+      const cust = await db.customer.findUnique({ where: { id: customerId }, select: { city: true, pincode: true } });
+      if (cust && (cust.city || cust.pincode)) {
+        const whs = await db.warehouse.findMany({
+          where: { active: true },
+          orderBy: [{ isDefault: "desc" }, { sortOrder: "asc" }],
+          select: { id: true, name: true, city: true, isDefault: true, sortOrder: true },
+        });
+        const nearest = rankWarehouses(whs, cust.city, cust.pincode)[0];
+        if (nearest) {
+          where.warehouseStocks = { some: { warehouseId: nearest.id, qty: { gt: 0 } } };
+          buyerWarehouseName = nearest.name;
+        }
+      }
+    }
+  }
   if (warehouseId) where.warehouseStocks = { some: { warehouseId, qty: { gt: 0 } } };
   if (!Number.isNaN(minPrice) || !Number.isNaN(maxPrice)) {
     where.dealerPrice = {
@@ -94,11 +120,11 @@ export async function GET(req: NextRequest) {
     total,
     page,
     pages: Math.max(1, Math.ceil(total / limit)),
+    ...(buyerWarehouseName ? { buyerWarehouse: buyerWarehouseName } : {}),
   });
   // Cacheable browsing (category/brand/flag pages) → served from Vercel edge CDN in ~100ms.
-  // Admin (all=1) and live search stay uncached so results are always fresh.
-  // 15s, no stale-while-revalidate — SWR made old product grids show first.
-  if (!includeInactive && !q) {
+  // Admin (all=1), live search and location-filtered requests stay uncached so results are always fresh.
+  if (!includeInactive && !q && !buyerWarehouseName) {
     res.headers.set("Cache-Control", "public, s-maxage=15");
   } else {
     res.headers.set("Cache-Control", "private, no-store");

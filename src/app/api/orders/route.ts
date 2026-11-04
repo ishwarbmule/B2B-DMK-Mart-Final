@@ -247,9 +247,9 @@ export async function POST(req: NextRequest) {
     // Order confirmation (WhatsApp free-first → SMS gateway → demo log). Honours the
     // checkout opt-in: customers who said no get no auto WhatsApp (admin can still send by hand).
     if (d.waOptIn !== false) {
-      notifyCustomer(d.phone, smsTemplates.orderPlaced(invoiceNo, grandTotal, otp), {
+      notifyCustomer(d.phone, smsTemplates.orderPlaced(invoiceNo, otp), {
         templateKey: "wa_order_template",
-        params: [invoiceNo, String(grandTotal), otp],
+        params: [invoiceNo, "Pending confirmation", otp],
       }).catch(() => {});
     }
 
@@ -263,22 +263,45 @@ export async function POST(req: NextRequest) {
   }
 }
 
+/** money fields are hidden until the admin confirms the order — customers see a pending
+ *  order without the bill; the itemised invoice appears after confirmation */
+function redactUnconfirmed<T extends { confirmedAt: Date | null; itemTotal: number; deliveryFee: number; discount: number; grandTotal: number; totalSavings: number; gstAmount: number; items?: Array<{ unitPrice: number; total: number; discount: number }> }>(order: T): T {
+  if (order.confirmedAt) return order;
+  return {
+    ...order,
+    itemTotal: 0, deliveryFee: 0, discount: 0, gstAmount: 0, grandTotal: 0, totalSavings: 0,
+    items: order.items?.map((i) => ({ ...i, unitPrice: 0, total: 0, discount: 0 })),
+  };
+}
+
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const id = sp.get("id");
   const phone = sp.get("phone");
+
+  // logged-in customer's own order history (used by the My Orders page)
+  if (sp.get("mine") === "1") {
+    const customerId = customerFromReq(req);
+    if (!customerId) return NextResponse.json({ error: "Please login first" }, { status: 401 });
+    const limit = Math.min(50, Math.max(1, parseInt(sp.get("limit") || "50")));
+    const orders = await db.order.findMany({
+      where: { customerId }, orderBy: { createdAt: "desc" }, take: limit, include: { items: true },
+    });
+    return NextResponse.json({ orders: orders.map(redactUnconfirmed) });
+  }
+
   if (id) {
     const order = await db.order.findFirst({
       where: { OR: [{ id }, { invoiceNo: id }] },
       include: { items: true },
     });
     if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
-    return NextResponse.json({ order });
+    return NextResponse.json({ order: redactUnconfirmed(order) });
   }
   if (phone) {
     const orders = await db.order.findMany({ where: { phone }, orderBy: { createdAt: "desc" }, take: 20, include: { items: true } });
-    return NextResponse.json({ orders });
+    return NextResponse.json({ orders: orders.map(redactUnconfirmed) });
   }
   const orders = await db.order.findMany({ orderBy: { createdAt: "desc" }, take: 20, include: { items: true } });
-  return NextResponse.json({ orders });
+  return NextResponse.json({ orders: orders.map(redactUnconfirmed) });
 }

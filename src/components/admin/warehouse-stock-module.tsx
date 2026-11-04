@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
-import { ArrowRight, ArrowRightLeft, Database, History, Plus, RefreshCcw, Save, Search, Trash2, Warehouse as WarehouseIcon } from "lucide-react";
+import { ArrowRight, ArrowRightLeft, Boxes, Database, History, Plus, RefreshCcw, Save, Search, Trash2, Warehouse as WarehouseIcon } from "lucide-react";
 import { toast } from "sonner";
 import { api, ModuleHeader } from "./ui-bits";
 import { formatINR } from "@/lib/store";
@@ -24,7 +24,7 @@ type TransferRow = {
 
 export function WarehouseStockModule({ token }: { token: string }) {
   const call = api(token);
-  const [tab, setTab] = useState<"levels" | "transfer">("levels");
+  const [tab, setTab] = useState<"levels" | "transfer" | "bulk">("levels");
   const [warehouses, setWarehouses] = useState<Wh[]>([]);
 
   useEffect(() => {
@@ -34,19 +34,150 @@ export function WarehouseStockModule({ token }: { token: string }) {
   return (
     <div>
       <div className="mb-3 flex gap-1.5">
-        {([["levels", "Stock Levels", WarehouseIcon], ["transfer", "Transfer Stock", ArrowRightLeft]] as const).map(([k, label, Icon]) => (
-          <button
-            key={k}
-            onClick={() => setTab(k)}
-            className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition ${
-              tab === k ? "bg-black text-yellow-400" : "border bg-white text-gray-600 hover:border-yellow-400"
-            }`}
-          >
-            <Icon className="h-3.5 w-3.5" /> {label}
-          </button>
-        ))}
+        {(["levels", "transfer", "bulk"] as const).map((k) => {
+          const meta = { levels: ["Stock Levels", WarehouseIcon], transfer: ["Transfer Stock", ArrowRightLeft], bulk: ["Bulk Assign", Boxes] } as const;
+          const [label, Icon] = meta[k];
+          return (
+            <button
+              key={k}
+              onClick={() => setTab(k)}
+              className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition ${
+                tab === k ? "bg-black text-yellow-400" : "border bg-white text-gray-600 hover:border-yellow-400"
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" /> {label}
+            </button>
+          );
+        })}
       </div>
-      {tab === "levels" ? <StockLevels token={token} warehouses={warehouses} /> : <TransferStock token={token} warehouses={warehouses} />}
+      {tab === "levels" ? <StockLevels token={token} warehouses={warehouses} /> : tab === "transfer" ? <TransferStock token={token} warehouses={warehouses} /> : <BulkAssign token={token} warehouses={warehouses} />}
+    </div>
+  );
+}
+
+/* ─────────────────────── Bulk Assign (brand / category / individual) ─────────────────────── */
+
+type Opt = { id: string; name: string };
+
+function BulkAssign({ token, warehouses }: { token: string; warehouses: Wh[] }) {
+  const call = api(token);
+  const [wh, setWh] = useState("");
+  const [mode, setMode] = useState<"ALL" | "BRAND" | "TOP" | "MID" | "END">("BRAND");
+  const [brands, setBrands] = useState<Opt[]>([]);
+  const [tops, setTops] = useState<Opt[]>([]);
+  const [mids, setMids] = useState<Opt[]>([]);
+  const [ends, setEnds] = useState<Opt[]>([]);
+  const [selId, setSelId] = useState("");
+  const [qtyMode, setQtyMode] = useState<"STOCK" | "FIXED">("STOCK");
+  const [fixedQty, setFixedQty] = useState("0");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!wh && warehouses.length) setWh(warehouses[0].id);
+  }, [warehouses, wh]);
+
+  useEffect(() => {
+    call("/api/admin/crud/brands").then((d) => setBrands((d.rows ?? []).map((r: Record<string, unknown>) => ({ id: String(r.id), name: String(r.name) })))).catch(() => {});
+    call("/api/admin/crud/tops").then((d) => setTops((d.rows ?? []).map((r: Record<string, unknown>) => ({ id: String(r.id), name: String(r.name) })))).catch(() => {});
+  }, [call]);
+
+  useEffect(() => {
+    if (mode !== "MID" && mode !== "END") return;
+    call("/api/admin/crud/mids").then((d) => setMids((d.rows ?? []).map((r: Record<string, unknown>) => ({ id: String(r.id), name: String(r.name) })))).catch(() => {});
+    call("/api/admin/crud/ends").then((d) => setEnds((d.rows ?? []).map((r: Record<string, unknown>) => ({ id: String(r.id), name: String((r.name as string) ?? "") })))).catch(() => {});
+  }, [call, mode]);
+
+  const run = async (action: "bulkAdd" | "bulkRemove") => {
+    if (!wh) return toast.error("Choose a warehouse");
+    if (mode !== "ALL" && !selId) return toast.error("Choose what to assign");
+    if (action === "bulkRemove" && !confirm("Remove these products from the warehouse? (live ERP stock is untouched)")) return;
+    setBusy(true);
+    try {
+      const d = await call("/api/admin/warehouse-stock", {
+        method: "POST",
+        body: JSON.stringify({
+          warehouseId: wh, action,
+          mode, ...(mode !== "ALL" ? { id: selId } : {}),
+          ...(action === "bulkAdd" ? { qty: qtyMode === "STOCK" ? "STOCK" : Number(fixedQty) || 0 } : {}),
+        }),
+      });
+      toast.success(action === "bulkAdd"
+        ? `Added ${d.affected ?? 0} products${d.refreshed ? ` · ${d.refreshed} rows set to fixed qty` : " · qty from live stock"}`
+        : `Removed ${d.affected ?? 0} products from this warehouse`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Bulk action failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const options: Opt[] = mode === "BRAND" ? brands : mode === "TOP" ? tops : mode === "MID" ? mids : ends;
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-4">
+      <div className="rounded-xl border bg-white p-5">
+        <ModuleHeader title="Bulk Assign Products" sub="Add or remove products from a warehouse — all at once, brand-wise, or category-wise" />
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold text-gray-600">Warehouse *</label>
+            <select value={wh} onChange={(e) => setWh(e.target.value)} className="h-10 w-full rounded-lg border px-2 text-xs font-semibold">
+              {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}{w.isDefault ? " (default)" : ""}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold text-gray-600">Assign by</label>
+            <select value={mode} onChange={(e) => { setMode(e.target.value as typeof mode); setSelId(""); }} className="h-10 w-full rounded-lg border px-2 text-xs font-semibold">
+              <option value="ALL">All products</option>
+              <option value="BRAND">Brand-wise</option>
+              <option value="TOP">Department (top category)</option>
+              <option value="MID">Sub-department (mid)</option>
+              <option value="END">Category (end)</option>
+            </select>
+          </div>
+        </div>
+
+        {mode !== "ALL" && (
+          <div className="mt-3">
+            <label className="mb-1 block text-[11px] font-semibold text-gray-600">
+              {mode === "BRAND" ? "Brand" : mode === "TOP" ? "Department" : mode === "MID" ? "Sub-department" : "Category"} *
+            </label>
+            <select value={selId} onChange={(e) => setSelId(e.target.value)} className="h-10 w-full rounded-lg border px-2 text-xs font-semibold">
+              <option value="">Select…</option>
+              {options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
+            {mode === "END" && <p className="mt-1 text-[10px] text-gray-400">{ends.length} end categories across all departments</p>}
+          </div>
+        )}
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold text-gray-600">Quantity to set</label>
+            <div className="flex gap-1.5">
+              <button onClick={() => setQtyMode("STOCK")} className={`h-10 flex-1 rounded-lg border text-xs font-bold ${qtyMode === "STOCK" ? "border-black bg-black text-yellow-400" : "text-gray-600"}`}>Copy live stock</button>
+              <button onClick={() => setQtyMode("FIXED")} className={`h-10 flex-1 rounded-lg border text-xs font-bold ${qtyMode === "FIXED" ? "border-black bg-black text-yellow-400" : "text-gray-600"}`}>Fixed qty</button>
+            </div>
+          </div>
+          {qtyMode === "FIXED" && (
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-gray-600">Fixed quantity</label>
+              <input type="number" min={0} value={fixedQty} onChange={(e) => setFixedQty(e.target.value)} className="h-10 w-full rounded-lg border px-2 text-xs font-bold" />
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 flex gap-2">
+          <button onClick={() => run("bulkAdd")} disabled={busy} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-black py-2.5 text-xs font-black uppercase tracking-wide text-yellow-400 hover:bg-gray-800 disabled:opacity-40">
+            <Plus className="h-4 w-4" /> Add to warehouse
+          </button>
+          <button onClick={() => run("bulkRemove")} disabled={busy} className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-red-600 hover:bg-red-100 disabled:opacity-40">
+            <Trash2 className="h-4 w-4" /> Remove
+          </button>
+        </div>
+        <p className="mt-3 text-[11px] leading-relaxed text-gray-400">
+          Assigning copies each product's live ERP stock (or a fixed quantity) into the chosen warehouse. Customers only see
+          products stocked at their nearest warehouse, so both locations should carry your full range unless you decide otherwise.
+        </p>
+      </div>
     </div>
   );
 }

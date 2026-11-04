@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { SlidersHorizontal, X, ChevronLeft, ChevronRight } from "lucide-react";
 import type { DProduct, TopCategoryNode, BrandNode } from "@/lib/types";
 import { useCartStore } from "@/lib/store";
+import { getCustomerToken } from "@/lib/customer-session";
 import { ProductCard } from "./product-card";
 
 interface Filters {
@@ -47,7 +48,11 @@ export function CatalogView({
   };
 
   const fetchPage = useCallback(async (params: Record<string, string>) => {
-    const res = await fetch(`/api/products?${new URLSearchParams(params).toString()}`);
+    // customer token rides along → the API filters the catalog to the buyer's nearest warehouse
+    const token = getCustomerToken();
+    const res = await fetch(`/api/products?${new URLSearchParams(params).toString()}`, {
+      headers: token ? { "x-customer-token": token } : undefined,
+    });
     return res.json();
   }, []);
 
@@ -71,6 +76,9 @@ export function CatalogView({
 
   const activeTop = tops.find((t) => t.id === filters.top);
   const activeMid = activeTop?.mids.find((m) => m.id === filters.mid);
+  // departments with a single sub-department (e.g. "General") skip the mid step —
+  // the category select then lists that mid's ends directly
+  const singleMid = activeTop && activeTop.mids.length === 1 ? activeTop.mids[0] : null;
 
   const FilterPanel = (
     <div className="space-y-4">
@@ -81,7 +89,7 @@ export function CatalogView({
           {tops.map((t) => <option key={t.id} value={t.id}>{t.emoji} {t.name}</option>)}
         </select>
       </div>
-      {activeTop && (
+      {activeTop && !singleMid && (
         <div>
           <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-500">Sub-Department</p>
           <select value={filters.mid} onChange={(e) => setF({ mid: e.target.value })} className="h-9 w-full rounded-lg border border-gray-200 bg-white px-2 text-xs">
@@ -90,12 +98,12 @@ export function CatalogView({
           </select>
         </div>
       )}
-      {activeMid && (
+      {activeTop && (singleMid || activeMid) && (
         <div>
           <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-500">Category</p>
           <select value={filters.end} onChange={(e) => setF({ end: e.target.value })} className="h-9 w-full max-h-32 rounded-lg border border-gray-200 bg-white px-2 text-xs">
             <option value="">All Categories</option>
-            {activeMid.ends.map((e2) => <option key={e2.id} value={e2.id}>{e2.name}</option>)}
+            {(singleMid ? singleMid.ends : activeMid?.ends ?? []).map((e2) => <option key={e2.id} value={e2.id}>{e2.name}</option>)}
           </select>
         </div>
       )}

@@ -132,7 +132,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
         toast.error(data.error || "Failed to place order");
         return;
       }
-      setResult({ invoiceNo: data.invoiceNo, grandTotal: data.bill?.grandTotal ?? 0, otp: data.otp, phone: form.phone });
+      setResult({ invoiceNo: data.invoiceNo, grandTotal: 0, otp: data.otp, phone: form.phone });
       clearCart();
       setStep("done");
     } finally {
@@ -422,20 +422,22 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
                 disabled={placing || items.length === 0}
                 className="flex-1 rounded-xl bg-black py-3 text-sm font-bold uppercase tracking-wide text-yellow-400 hover:bg-gray-800 disabled:opacity-50"
               >
-                {placing ? "Placing order…" : `Place Order · ${formatINR(grand)}`}
+                {placing ? "Placing order…" : "Place Order"}
               </button>
             </div>
           </div>
         )}
 
-        {/* ── DONE ── */}
+        {/* ── DONE ── order is PENDING until the admin confirms it — no bill amount shown yet ── */}
         {step === "done" && result && (
           <div className="space-y-4 p-6 text-center">
             <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-500" />
             <div>
               <p className="text-lg font-black text-gray-900">Order {result.invoiceNo}</p>
-              <p className="text-sm text-gray-600">
-                {formatINR(result.grandTotal)} · {fulfillment === "PICKUP" ? "Warehouse pickup" : "Delivery"}
+              <p className="text-sm font-semibold text-orange-600">Pending confirmation</p>
+              <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                {fulfillment === "PICKUP" ? "Warehouse pickup" : "Delivery"} · Your itemised invoice will be generated
+                once the DMK Mart team confirms this order — you will get it on WhatsApp.
               </p>
             </div>
             <div className="mx-auto w-fit rounded-2xl border-2 border-dashed border-yellow-400 bg-yellow-50 px-6 py-4">
@@ -448,7 +450,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
             <div className="flex gap-2">
               <a
                 href={`https://wa.me/91${result.phone}?text=${encodeURIComponent(
-                  `DMK Mart Order ${result.invoiceNo}\n${fulfillment === "PICKUP" ? "Pickup" : "Delivery"} · Amount: ₹${result.grandTotal.toLocaleString("en-IN")}\nOTP: ${result.otp}\n\n— DMK Mart B2B`
+                  `DMK Mart Order ${result.invoiceNo}\n${fulfillment === "PICKUP" ? "Pickup" : "Delivery"} · Status: Pending confirmation\nOTP: ${result.otp}\n\n— DMK Mart B2B`
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"

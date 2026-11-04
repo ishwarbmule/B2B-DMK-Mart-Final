@@ -16,8 +16,8 @@ const schema = z.object({
   password: z.string().min(6),
   customerType: z.enum(["RETAILER", "WHOLESALE", "SEMI_WHOLESALE", "DISTRIBUTOR"]),
   gstin: z.string().optional().or(z.literal("")),
-  city: z.string().optional().or(z.literal("")),
-  pincode: z.string().optional().or(z.literal("")), // Task 15: buyer location → nearest warehouse
+  city: z.string().min(2, "Enter your city (delivery location)"),
+  pincode: z.string().regex(/^\d{6}$/, "Enter the 6-digit pincode of your location"), // buyer location → nearest warehouse
   address: z.string().optional().or(z.literal("")),
 });
 

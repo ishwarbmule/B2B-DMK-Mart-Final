@@ -1,0 +1,5083 @@
+{
+ "csv_rows": 2400,
+ "db_products": 2287,
+ "matched_csv_rows": 1663,
+ "unmatched_csv_rows": [
+  {
+   "sr": "66",
+   "name": "FALCON",
+   "top": "Gardening Tools & Planters",
+   "end": "Falcon Products"
+  },
+  {
+   "sr": "71",
+   "name": "FALCON",
+   "top": "Gardening Tools & Planters",
+   "end": "Falcon Products"
+  },
+  {
+   "sr": "73",
+   "name": "Falcon",
+   "top": "Gardening Tools & Planters",
+   "end": "Falcon Products"
+  },
+  {
+   "sr": "77",
+   "name": "CAPTION CUSION CHAIR",
+   "top": "Furniture",
+   "end": "Chair"
+  },
+  {
+   "sr": "78",
+   "name": "CAPTION TUFF CHAIR",
+   "top": "Furniture",
+   "end": "Chair"
+  },
+  {
+   "sr": "95",
+   "name": "SAMARTHYA ELIGANT BATH STOOL",
+   "top": "HouseHold Unbreakable",
+   "end": "Stool’s"
+  },
+  {
+   "sr": "97",
+   "name": "SAMARTHYA ELIGANT MUG PRINTED 1000ML",
+   "top": "HouseHold Unbreakable",
+   "end": "MUG"
+  },
+  {
+   "sr": "99",
+   "name": "SAMARTHYA MULTIPOD FOR MULTIPLE USE",
+   "top": "Clening & HouseHolds",
+   "end": "Others"
+  },
+  {
+   "sr": "116",
+   "name": "SAMARTHYA DOUBLE HOCKEY BRUSH NEXT VIRGIN NV",
+   "top": "Clening & HouseHolds",
+   "end": "Brush"
+  },
+  {
+   "sr": "118",
+   "name": "SAMARTHYA OVAL CLOTH BRUSH NEXT VIRGIN NV",
+   "top": "Clening & HouseHolds",
+   "end": "Brush"
+  },
+  {
+   "sr": "142",
+   "name": "SAMARTHYA HEAVY DUTY DAIMOND WIPER WITH SS STICK 4FEET 20\"",
+   "top": "Clening & HouseHolds",
+   "end": "Wiper’s"
+  },
+  {
+   "sr": "179",
+   "name": "SAMARTHYA CLIP&FIT MOP MICROFIBER CLOTH REFILE WITH MS PIPE 6\"",
+   "top": "Clening & HouseHolds",
+   "end": "Mop’s"
+  },
+  {
+   "sr": "180",
+   "name": "SAMARTHYA CLIP&FIT MOP MICROFIBER CLOTH WITH MS PIPE 9\"",
+   "top": "Clening & HouseHolds",
+   "end": "Mop’s"
+  },
+  {
+   "sr": "181",
+   "name": "SAMARTHYA CLIP&FIT MOP MICROFIBER CLOTH WITH MS PIPE 12\"",
+   "top": "Clening & HouseHolds",
+   "end": "Mop’s"
+  },
+  {
+   "sr": "183",
+   "name": "SAMARTHYA CLIP&FIT MOP VIRGIN? ONLY CLIP & REFILL 6\"",
+   "top": "Clening & HouseHolds",
+   "end": "Mop’s"
+  },
+  {
+   "sr": "184",
+   "name": "SAMARTHYA CLIP&FIT MOP NEXT VIRGIN? (ONLY CLIP & REFILL) 6",
+   "top": "Clening & HouseHolds",
+   "end": "Mop’s"
+  },
+  {
+   "sr": "185",
+   "name": "SAMARTHYA CLIP&FIT MOP VIRGIN (ONLY CLIP& REFILL) 9\"",
+   "top": "Clening & HouseHolds",
+   "end": "Mop’s"
+  },
+  {
+   "sr": "186",
+   "name": "SAMARTHYA CLIP&FIT MOP ? (GALAXY) NV (ONLY CLIP&REFILL) 9\"",
+   "top": "Clening & HouseHolds",
+   "end": "Mop’s"
+  },
+  {
+   "sr": "188",
+   "name": "SAMARTHYA CLIP&FIT MOP (GALAXY) NV WITH MS PIPE 12\"",
+   "top": "Clening & HouseHolds",
+   "end": "Mop’s"
+  },
+  {
+   "sr": "189",
+   "name": "SAMARTHYA CLIP&FIT SHINE PLUS MOP VIRGIN WITH SS PIPE 16\"",
+   "top": "Clening & HouseHolds",
+   "end": "Mop’s"
+  },
+  {
+   "sr": "190",
+   "name": "PLANTER ROUND? PLAIN 6\"",
+   "top": "Gardening Tools & Planters",
+   "end": "ROUND PLANTERS"
+  },
+  {
+   "sr": "191",
+   "name": "PLANTER ROUND 8???",
+   "top": "Gardening Tools & Planters",
+   "end": "ROUND PLANTERS"
+  },
+  {
+   "sr": "192",
+   "name": "PLANTER ROUND 10??? PLAIN",
+   "top": "Gardening Tools & Planters",
+   "end": "ROUND PLANTERS"
+  },
+  {
+   "sr": "194",
+   "name": "PLANTER ROUND PLAIN 14???",
+   "top": "Gardening Tools & Planters",
+   "end": "ROUND PLANTERS"
+  },
+  {
+   "sr": "195",
+   "name": "PLANTER ROUND PLAIN 16???",
+   "top": "Gardening Tools & Planters",
+   "end": "ROUND PLANTERS"
+  },
+  {
+   "sr": "196",
+   "name": "PLANTER ROUND PLAIN 18???",
+   "top": "Gardening Tools & Planters",
+   "end": "ROUND PLANTERS"
+  },
+  {
+   "sr": "197",
+   "name": "PLANTER ROUND PLAIN 20???",
+   "top": "Gardening Tools & Planters",
+   "end": "ROUND PLANTERS"
+  },
+  {
+   "sr": "198",
+   "name": "PLANTER SQURE PLAIN 6???",
+   "top": "Gardening Tools & Planters",
+   "end": "SQURE PLANTERS"
+  },
+  {
+   "sr": "199",
+   "name": "PLANTER SQUARE PLAIN 8???",
+   "top": "Gardening Tools & Planters",
+   "end": "SQURE PLANTERS"
+  },
+  {
+   "sr": "200",
+   "name": "PLANTER SQURE PLAIN 10???",
+   "top": "Gardening Tools & Planters",
+   "end": "SQURE PLANTERS"
+  },
+  {
+   "sr": "203",
+   "name": "PLANTER RECTANGLE NO 007",
+   "top": "Gardening Tools & Planters",
+   "end": "RECTANGLE PLANTERS"
+  },
+  {
+   "sr": "204",
+   "name": "PLANTER RECTANGLE 008",
+   "top": "Gardening Tools & Planters",
+   "end": "RECTANGLE PLANTERS"
+  },
+  {
+   "sr": "205",
+   "name": "PLANTER RECTANGLE 009",
+   "top": "Gardening Tools & Planters",
+   "end": "RECTANGLE PLANTERS"
+  },
+  {
+   "sr": "206",
+   "name": "PLANTER ROUND PLATE 8???/10???",
+   "top": "Gardening Tools & Planters",
+   "end": "PLANTER PLATES"
+  },
+  {
+   "sr": "207",
+   "name": "PLANTER ROUND PLATES 12???/14???",
+   "top": "Gardening Tools & Planters",
+   "end": "PLANTER PLATES"
+  },
+  {
+   "sr": "208",
+   "name": "PLANTER ROUND PLATE 16???/18???",
+   "top": "Gardening Tools & Planters",
+   "end": "PLANTER PLATES"
+  },
+  {
+   "sr": "209",
+   "name": "PLANTER SQURE PLATES 8???/10???",
+   "top": "Gardening Tools & Planters",
+   "end": "PLANTER PLATES"
+  },
+  {
+   "sr": "210",
+   "name": "PLANTER SQURE PLATES 12???/14???",
+   "top": "Gardening Tools & Planters",
+   "end": "PLANTER PLATES"
+  },
+  {
+   "sr": "225",
+   "name": "GARDENING NEEDS DECOR PLANTER FACE POT 10\"",
+   "top": "Gardening Tools & Planters",
+   "end": "POTS"
+  },
+  {
+   "sr": "558",
+   "name": "MAHANANDA DRUM 60 LTR",
+   "top": "HouseHold Unbreakable",
+   "end": "Storage Drum Virgin"
+  },
+  {
+   "sr": "564",
+   "name": "MAHANANDA STOOL 4 NO",
+   "top": "HouseHold Unbreakable",
+   "end": "Stool Virgin"
+  },
+  {
+   "sr": "592",
+   "name": "MAHANANDA DIMENTIONS STANDARD ASPER CYLINDER SIZE",
+   "top": "HouseHold Unbreakable",
+   "end": "Virgin Other Products"
+  },
+  {
+   "sr": "612",
+   "name": "MAHANANDA VIVA SIGMA",
+   "top": "HouseHold Unbreakable",
+   "end": "Chair Virgin"
+  },
+  {
+   "sr": "708",
+   "name": "PARIVAR PRINTED PEDAL DUSTBIN (V) 105 KITCHEN PEDAL",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "DUSTBIN PADEL PRINTED"
+  },
+  {
+   "sr": "709",
+   "name": "PARIVAR PRINTED PEDAL DUSTBIN (V) 107 PEDAL DUSTIBIN",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "DUSTBIN PADEL PRINTED"
+  },
+  {
+   "sr": "710",
+   "name": "PARIVAR PRINTED PEDAL DUSTBIN (V) 108 PEDAL DUSTIBIN",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "DUSTBIN PADEL PRINTED"
+  },
+  {
+   "sr": "748",
+   "name": "PARIVAR COMFORT STOOL 4",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "STOOL & PATLA PURE & SEMI"
+  },
+  {
+   "sr": "749",
+   "name": "PARIVAR COMFORT STOOL 10\"",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "STOOL & PATLA PURE & SEMI"
+  },
+  {
+   "sr": "752",
+   "name": "PARIVAR NEXA CONTAINER SET 11000 ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "NEXA STORAGE CONTAINERS"
+  },
+  {
+   "sr": "753",
+   "name": "PARIVAR NEXA CONTAINER SET 7500 ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "NEXA STORAGE CONTAINERS"
+  },
+  {
+   "sr": "754",
+   "name": "PARIVAR NEXA CONTAINER SET 5000 ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "NEXA STORAGE CONTAINERS"
+  },
+  {
+   "sr": "755",
+   "name": "PARIVAR NEXA CONTAINER SET 3000 ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "NEXA STORAGE CONTAINERS"
+  },
+  {
+   "sr": "756",
+   "name": "PARIVAR NEXA CONTAINER SET 15000 ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "NEXA STORAGE CONTAINERS"
+  },
+  {
+   "sr": "757",
+   "name": "PARIVAR NEXA CONTAINER SET 20000 ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "NEXA STORAGE CONTAINERS"
+  },
+  {
+   "sr": "758",
+   "name": "PARIVAR SONET CONTAINER 1000ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "SONET CONTAINER PURE"
+  },
+  {
+   "sr": "759",
+   "name": "PARIVAR NEXA CONTAINER 2000 ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "SONET CONTAINER PURE"
+  },
+  {
+   "sr": "760",
+   "name": "PARIVAR SONET CONTAINER 3000 ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "SONET CONTAINER PURE"
+  },
+  {
+   "sr": "761",
+   "name": "PARIVAR SONET CONTAINER 5000 ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "SONET CONTAINER PURE"
+  },
+  {
+   "sr": "762",
+   "name": "PARIVAR SONET CONTAINER 8000 ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "SONET CONTAINER PURE"
+  },
+  {
+   "sr": "763",
+   "name": "PARIVAR SONET CONTAINER 11000 ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "SONET CONTAINER PURE"
+  },
+  {
+   "sr": "768",
+   "name": "PARIVAR VIRGIN AIR LOCK 2500",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "VIRGIN BREAD BOX PURE"
+  },
+  {
+   "sr": "770",
+   "name": "PARIVAR FOOD SAVER 333",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "FOOD CONTAINER SET PURE"
+  },
+  {
+   "sr": "771",
+   "name": "PARIVAR FOOD SAVER 444",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "FOOD CONTAINER SET PURE"
+  },
+  {
+   "sr": "773",
+   "name": "PARIVAR VIRGIN MARINA 3 PIECE SET",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "FOOD CONTAINER SET PURE"
+  },
+  {
+   "sr": "775",
+   "name": "PARIVAR KOHINOOR 222 RACK(V)",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "TROLLY (NV)"
+  },
+  {
+   "sr": "776",
+   "name": "PARIVAR MOON RACK (V)",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "TROLLY (NV)"
+  },
+  {
+   "sr": "777",
+   "name": "PARIVAR SUN RACK (V)",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "KITCHEN RACK PURE"
+  },
+  {
+   "sr": "780",
+   "name": "PARIVAR VIRGIN SPOON",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "HOTEL CATERING USE CHINESE PRODUCTS  PURE"
+  },
+  {
+   "sr": "781",
+   "name": "PARIVAR VIRGIN BOAT BOWL",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "HOTEL CATERING USE CHINESE PRODUCTS  PURE"
+  },
+  {
+   "sr": "782",
+   "name": "PARIVAR VIRGIN NUT BOWL",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "HOTEL CATERING USE CHINESE PRODUCTS  PURE"
+  },
+  {
+   "sr": "783",
+   "name": "PARIVAR VIRGIN RB 01",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "HOTEL CATERING USE CHINESE PRODUCTS  PURE"
+  },
+  {
+   "sr": "784",
+   "name": "PARIVAR VIRGIN SB 01",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "HOTEL CATERING USE CHINESE PRODUCTS  PURE"
+  },
+  {
+   "sr": "785",
+   "name": "PARIVAR VIRGIN VT 02",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "HOTEL CATERING USE CHINESE PRODUCTS  PURE"
+  },
+  {
+   "sr": "786",
+   "name": "PARIVAR VIRGIN VT 01",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "HOTEL CATERING USE CHINESE PRODUCTS  PURE"
+  },
+  {
+   "sr": "787",
+   "name": "PARIVAR VIRGIN",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "HOTEL CATERING USE CHINESE PRODUCTS  PURE"
+  },
+  {
+   "sr": "788",
+   "name": "PARIVAR VIRGIN",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "HOTEL CATERING USE CHINESE PRODUCTS  PURE"
+  },
+  {
+   "sr": "789",
+   "name": "PARIVAR VIRGIN CP 10",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "HOTEL CATERING USE CHINESE PRODUCTS  PURE"
+  },
+  {
+   "sr": "790",
+   "name": "PARIVAR VIRGIN CP 08",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "HOTEL CATERING USE CHINESE PRODUCTS  PURE"
+  },
+  {
+   "sr": "791",
+   "name": "PARIVAR VIRGIN CP 07",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "HOTEL CATERING USE CHINESE PRODUCTS  PURE"
+  },
+  {
+   "sr": "792",
+   "name": "PARIVAR VIRGIN SQ PLANTER 1",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "PLANTER HANGING"
+  },
+  {
+   "sr": "793",
+   "name": "PARIVAR VIRGIN HOOK POT SMALL",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "PLANTER HANGING"
+  },
+  {
+   "sr": "794",
+   "name": "PARIVAR VIRGIN HANGING 8\"",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "PLANTER HANGING"
+  },
+  {
+   "sr": "795",
+   "name": "PARIVAR VIRGIN HANGING GARDEN 8\"",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "PLANTER HANGING"
+  },
+  {
+   "sr": "796",
+   "name": "PARIVAR VIRGIN HANGING GARDEN 7\"",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "PLANTER HANGING"
+  },
+  {
+   "sr": "797",
+   "name": "PARIVR VIRGIN HANGING GARDEN 6\"",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "PLANTER HANGING"
+  },
+  {
+   "sr": "798",
+   "name": "PARIVAR 507 PLANTER RECTANGULAR",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "PLANTER PLAIN"
+  },
+  {
+   "sr": "799",
+   "name": "PARIVAR 506 PLANTER RECTANGULAR",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "PLANTER PLAIN"
+  },
+  {
+   "sr": "800",
+   "name": "PARIVAR 14",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "PLANTER PLAIN"
+  },
+  {
+   "sr": "840",
+   "name": "PARIVAR BAHUBALI BUCKET 25 LTR",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "BUCKET STRONG PRINTED (NV)"
+  },
+  {
+   "sr": "841",
+   "name": "PARIVAR BAHUBALI BUCKET 18 LTR",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "BUCKET STRONG PRINTED (NV)"
+  },
+  {
+   "sr": "848",
+   "name": "PARIVAR BAHUBALI 2",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "BUCKET STRONG PLAIN (NV)"
+  },
+  {
+   "sr": "849",
+   "name": "PARIVAR SB 17 LTR",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "BUCKET STRONG PLAIN (NV)"
+  },
+  {
+   "sr": "850",
+   "name": "PARIVAR SB 13 LTR",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "BUCKET STRONG PLAIN (NV)"
+  },
+  {
+   "sr": "851",
+   "name": "PARIVAR SB 10 LTR",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "BUCKET STRONG PLAIN (NV)"
+  },
+  {
+   "sr": "852",
+   "name": "PARIVAR SB 5 LTR",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "BUCKET STRONG PLAIN (NV)"
+  },
+  {
+   "sr": "853",
+   "name": "PARIVAR SB 3 LTR",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "BUCKET STRONG PLAIN (NV)"
+  },
+  {
+   "sr": "854",
+   "name": "PARIVAR SB 2 LTR",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "BUCKET STRONG PLAIN (NV)"
+  },
+  {
+   "sr": "858",
+   "name": "PARIVAR PET JAR 3 PIC SET 500 ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "PET JAR"
+  },
+  {
+   "sr": "865",
+   "name": "PARIVAR SMALL",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "STOOL & PATLA PURE & SEMI"
+  },
+  {
+   "sr": "866",
+   "name": "PARIVAR STOOL BIG",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "STOOL & PATLA PURE & SEMI"
+  },
+  {
+   "sr": "902",
+   "name": "PARIVAR SUN RACK (V)",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "TROLLY (NV)"
+  },
+  {
+   "sr": "909",
+   "name": "SHAYADRI CONTAINER AIR PACK -ARYAN 99 NO.",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "CONTAINER AIR PACK - ARYAN"
+  },
+  {
+   "sr": "910",
+   "name": "SAHAYADRI CONTAINER AIR PACK-ARYAN 88 NO.",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "CONTAINER AIR PACK - ARYAN"
+  },
+  {
+   "sr": "911",
+   "name": "SAHAYADRI CONTAINER AIR PACK-ARYAN 77 NO.",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "CONTAINER AIR PACK - ARYAN"
+  },
+  {
+   "sr": "912",
+   "name": "SAHAYADRI CONTAINER AIR PACK-ARYAN 66 NO.",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "CONTAINER AIR PACK - ARYAN"
+  },
+  {
+   "sr": "913",
+   "name": "SAHAYADRI CONTAINER AIR PACK-ARYAN 55 NO.",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "CONTAINER AIR PACK - ARYAN"
+  },
+  {
+   "sr": "914",
+   "name": "SAHAYADRI CONTAINER AIR PACK-ARYAN 44 NO.",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "CONTAINER AIR PACK - ARYAN"
+  },
+  {
+   "sr": "915",
+   "name": "SAHAYADRI TRAY 701",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "TRAY"
+  },
+  {
+   "sr": "916",
+   "name": "SAHAYADRI TRAY 702",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "TRAY"
+  },
+  {
+   "sr": "917",
+   "name": "SAHAYADRI TRAY 703",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "TRAY"
+  },
+  {
+   "sr": "918",
+   "name": "SAHAYADRI CONTAINER LOC & FRESH SMALL",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "LOCK CONTAINER"
+  },
+  {
+   "sr": "919",
+   "name": "SAHAYADRI CONTAINER LOC & FRESH MEDIUM",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "LOCK CONTAINER"
+  },
+  {
+   "sr": "920",
+   "name": "SAHAYADRI PET JAR 250 ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "PET JAR"
+  },
+  {
+   "sr": "921",
+   "name": "SAHAYADRI PET JAR 500 ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "PET JAR"
+  },
+  {
+   "sr": "922",
+   "name": "SAHAYADRI PET JAR 750 ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "PET JAR"
+  },
+  {
+   "sr": "923",
+   "name": "SAHAYADRI PET JAR 1000 ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "PET JAR"
+  },
+  {
+   "sr": "924",
+   "name": "SAHAYADRI PET JAR 1500 ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "PET JAR"
+  },
+  {
+   "sr": "925",
+   "name": "SAHAYADRI PET JAR 2200 ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "PET JAR"
+  },
+  {
+   "sr": "927",
+   "name": "PARIVAR MASTER WATI",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "MASALA BOX PURE"
+  },
+  {
+   "sr": "928",
+   "name": "PARIVAR MASALA BOX  PARTION MASALA SMALL",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "MASALA BOX PURE"
+  },
+  {
+   "sr": "929",
+   "name": "PARIVAR MASALA BOX PARTION BIG",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "MASALA BOX PURE"
+  },
+  {
+   "sr": "938",
+   "name": "SAMARTHYA DUO MEAL MATE LUNCH BOX",
+   "top": "KITCHEN WARE",
+   "end": "LUNCH BOX SS"
+  },
+  {
+   "sr": "941",
+   "name": "Mahavir Ghemela 16”",
+   "top": "HouseHold Unbreakable",
+   "end": "Mahavir Ghemela"
+  },
+  {
+   "sr": "944",
+   "name": "Hirva Tow Compartment Lunch Box 800Ml",
+   "top": "KITCHEN WARE",
+   "end": "LUNCH BOX SS"
+  },
+  {
+   "sr": "945",
+   "name": "Hivra Three Comparment Lunch Boc 750Ml SS",
+   "top": "KITCHEN WARE",
+   "end": "LUNCH BOX SS"
+  },
+  {
+   "sr": "946",
+   "name": "Hivra Four Comparment Lunch box 850+150 ML SS",
+   "top": "KITCHEN WARE",
+   "end": "LUNCH BOX SS"
+  },
+  {
+   "sr": "947",
+   "name": "Hivra Koikawali Lunch Box",
+   "top": "KITCHEN WARE",
+   "end": "LUNCH BOX SS"
+  },
+  {
+   "sr": "948",
+   "name": "Hirva Kids Special Lunch Box 700ML",
+   "top": "KITCHEN WARE",
+   "end": "LUNCH BOX SS"
+  },
+  {
+   "sr": "949",
+   "name": "Hirva Bear Family Tow Compartment Lunch Box 800MLMl",
+   "top": "KITCHEN WARE",
+   "end": "LUNCH BOX SS"
+  },
+  {
+   "sr": "950",
+   "name": "Hirva Bear Family Three Compartment Lunch Box 900Ml",
+   "top": "KITCHEN WARE",
+   "end": "LUNCH BOX SS"
+  },
+  {
+   "sr": "951",
+   "name": "Hirva Kids Special Lunch Box 700ML",
+   "top": "KITCHEN WARE",
+   "end": "LUNCH BOX SS"
+  },
+  {
+   "sr": "952",
+   "name": "Hirva Bear Family Tow Compartment Lunch Box 800MLMl",
+   "top": "KITCHEN WARE",
+   "end": "LUNCH BOX SS"
+  },
+  {
+   "sr": "953",
+   "name": "Hirva Bear Family Three Compartment Lunch Box 900Ml",
+   "top": "KITCHEN WARE",
+   "end": "LUNCH BOX SS"
+  },
+  {
+   "sr": "954",
+   "name": "Hirva Koi-Koi Kawaii Lunch Box 750ML+150ML",
+   "top": "KITCHEN WARE",
+   "end": "LUNCH BOX SS"
+  },
+  {
+   "sr": "955",
+   "name": "Hirva Tow Compartment Lunch Box 800ML Leak Proof",
+   "top": "KITCHEN WARE",
+   "end": "LUNCH BOX SS"
+  },
+  {
+   "sr": "977",
+   "name": "Pariwar Daisy Bucket 5Ltrr",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Daisy Bucket"
+  },
+  {
+   "sr": "978",
+   "name": "Pariwar Daisy Bucket 10Ltr",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Daisy Bucket"
+  },
+  {
+   "sr": "979",
+   "name": "Pariwar Daisy Bucket 15Ltr",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Daisy Bucket"
+  },
+  {
+   "sr": "980",
+   "name": "Pariwar Daisy Bucket 20Ltr",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Daisy Bucket"
+  },
+  {
+   "sr": "981",
+   "name": "Pariwar Daisy Bucket 25Ltr",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Daisy Bucket"
+  },
+  {
+   "sr": "982",
+   "name": "Pariwar Dustpan Swagat",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "DUSTPAN ( SUPLI)"
+  },
+  {
+   "sr": "994",
+   "name": "Shradha Tub 40Ltr",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Shradha Tub"
+  },
+  {
+   "sr": "995",
+   "name": "Shradha Tub 30Ltr",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Shradha Tub"
+  },
+  {
+   "sr": "996",
+   "name": "Shradha Ghemela 14",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Shradha Ghemela"
+  },
+  {
+   "sr": "997",
+   "name": "Shradha Ghemela 16",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Shradha Ghemela"
+  },
+  {
+   "sr": "998",
+   "name": "Shradha Ghemela 18",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Shradha Ghemela"
+  },
+  {
+   "sr": "999",
+   "name": "Shradha Ghemela 22",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Shradha Ghemela"
+  },
+  {
+   "sr": "1000",
+   "name": "Shradha Jali 22",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Shradha Jali"
+  },
+  {
+   "sr": "1001",
+   "name": "Shradha Sultan Jali",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Shradha Jali"
+  },
+  {
+   "sr": "1002",
+   "name": "Shradha Bucket 5Ltr",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Shradha Bucket"
+  },
+  {
+   "sr": "1003",
+   "name": "Shradha Bucket 10Ltr",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Shradha Bucket"
+  },
+  {
+   "sr": "1004",
+   "name": "Shradha Bucket 17Ltr",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Shradha Bucket"
+  },
+  {
+   "sr": "1005",
+   "name": "Jar 20Ltr",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Jar / Bottle"
+  },
+  {
+   "sr": "1008",
+   "name": "Jar 20Ltr",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Jar / Bottle"
+  },
+  {
+   "sr": "1023",
+   "name": "Shaktiman Jar 1200Ml",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Shaktiman Jar"
+  },
+  {
+   "sr": "1024",
+   "name": "Shaktiman Jar 1500ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Shaktiman Jar"
+  },
+  {
+   "sr": "1025",
+   "name": "Shaktiman Jar 1800ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Shaktiman Jar"
+  },
+  {
+   "sr": "1026",
+   "name": "Shaktiman Jar 2000ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Shaktiman Jar"
+  },
+  {
+   "sr": "1027",
+   "name": "Shaktiman Jar 300ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Shaktiman Jar"
+  },
+  {
+   "sr": "1028",
+   "name": "Shaktiman Jar 4000ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Shaktiman Jar"
+  },
+  {
+   "sr": "1029",
+   "name": "Shaktiman Jar 500ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Shaktiman Jar"
+  },
+  {
+   "sr": "1030",
+   "name": "Shaktiman 300ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Shaktiman Jar"
+  },
+  {
+   "sr": "1031",
+   "name": "Shaktiman Jar 600ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Shaktiman Jar"
+  },
+  {
+   "sr": "1032",
+   "name": "Shaktiman Jar 1000ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Shaktiman Jar"
+  },
+  {
+   "sr": "1098",
+   "name": "Jio container Storageware 300ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Jio container Storageware"
+  },
+  {
+   "sr": "1099",
+   "name": "Jio Container Storageware 600ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Jio container Storageware"
+  },
+  {
+   "sr": "1100",
+   "name": "Jio Container Storageware 1200ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Jio container Storageware"
+  },
+  {
+   "sr": "1101",
+   "name": "Jio Container Storageware 2000ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Jio container Storageware"
+  },
+  {
+   "sr": "1102",
+   "name": "Jio Container Storageware 3000KG",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Jio container Storageware"
+  },
+  {
+   "sr": "1137",
+   "name": "Storage container 06",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Storage container"
+  },
+  {
+   "sr": "1138",
+   "name": "Storage container 09",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Storage container"
+  },
+  {
+   "sr": "1139",
+   "name": "Storage container 12",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Storage container"
+  },
+  {
+   "sr": "1192",
+   "name": "Fridge Bottles 38MM Flioptop (PP) 500ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1193",
+   "name": "Fridge Bottles 38mm pencil Flioptop Cap (PET)",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1194",
+   "name": "Fridge Bottles 46mm Flioptop Cap (PP)",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1195",
+   "name": "Fridge Bottles 46mm Flioptop Cap -Print(PET)",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1196",
+   "name": "Fridge Bottles 46mm Flip Top (PP)",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1197",
+   "name": "Fridge Bottles 46mm Cap Heavy Printed (PP)",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1198",
+   "name": "Fridge Bottles 38mm Flioptop (PP) 500ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1199",
+   "name": "Fridge Bottles 38MM Cap Diamond (PET) 1000ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1200",
+   "name": "Fridge Bottles 38mm Cap Heavy  (PET) 1000ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1201",
+   "name": "Fridge Bottles 38mm Cap Line (PET) 1000ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1202",
+   "name": "Fridge Bottles 46mm Flip Top (PP) 1500ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1203",
+   "name": "Fridge Bottles 46mm Double Colour Cap (PET) 2000ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1204",
+   "name": "Fridge Bottles 46mm Flioptop Cap Set-Florescent 800ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1206",
+   "name": "Fridge Bottles Flioptop Cap (PP) 1000ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1207",
+   "name": "Fridge Bottles 46mm Double Colour Cap 1000ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1208",
+   "name": "Fridge Bottles Trendy 46mm Double Colour Cap PP 1000ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1210",
+   "name": "Fridge Bottles 46mm Double Colour Cap Eco (PET) 1500ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1211",
+   "name": "Fridge Bottles 38mm Double Colour Cap Eco (PET) 500ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1212",
+   "name": "Fridge Bottles 38mm Fliop Top Cap Eco (PET) 500ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1213",
+   "name": "Fridge Bottles Twist Flip Top Cap PP 1200ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1215",
+   "name": "Fridge Bottles 46mm Double Colour Cap Eco (PET) 1500ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1216",
+   "name": "Fridge Bottles 38mm Double Colour Cap Eco (PET)500ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1217",
+   "name": "Fridge Bottles 38mm Flip Top Cap Eco (PET)500ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1218",
+   "name": "Fridge Bottles 46mm Double Colour Cap Eco (PET)800ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1219",
+   "name": "Fridge Bottles 46mm Double Colour Cap Eco (PET) 1000ML",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Fridge Bottles"
+  },
+  {
+   "sr": "1236",
+   "name": "Stand 3 in 1",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Stand 3 in 1"
+  },
+  {
+   "sr": "1243",
+   "name": "Vivo Drawer - Small",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Vivo Drawer"
+  },
+  {
+   "sr": "1244",
+   "name": "Vivo Drawer - Small",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Vivo Drawer"
+  },
+  {
+   "sr": "1245",
+   "name": "Vivo Drawer - Medium",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Vivo Drawer"
+  },
+  {
+   "sr": "1246",
+   "name": "Vivo Drawer - Medium",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "Vivo Drawer"
+  },
+  {
+   "sr": "1262",
+   "name": "Steel King Cyclone Bucket Mop SS",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Bucket Mop"
+  },
+  {
+   "sr": "1263",
+   "name": "Steel King Cyclone Bucket Mop PP",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Bucket Mop"
+  },
+  {
+   "sr": "1264",
+   "name": "Steel King Sparkle Bucket Mop SS",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Bucket Mop"
+  },
+  {
+   "sr": "1266",
+   "name": "Nexus Bucket Mop SS",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Bucket Mop"
+  },
+  {
+   "sr": "1267",
+   "name": "Nexus Bucket Mop PP",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Bucket Mop"
+  },
+  {
+   "sr": "1270",
+   "name": "Steel King Virgin 16\"",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Wiper"
+  },
+  {
+   "sr": "1274",
+   "name": "Steel King Star Wiper 13 \"",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Wiper"
+  },
+  {
+   "sr": "1275",
+   "name": "Steel King Aqua Wiper 16 \"",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Wiper"
+  },
+  {
+   "sr": "1276",
+   "name": "Steel King Aqua Wiper 20 \"",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Wiper"
+  },
+  {
+   "sr": "1277",
+   "name": "Steel King Blade Wiper 13 \"",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Wiper"
+  },
+  {
+   "sr": "1278",
+   "name": "Steel King Aqua Wiper 13\"",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Wiper"
+  },
+  {
+   "sr": "1279",
+   "name": "Steel King Blade Wiper 16 \"",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Wiper"
+  },
+  {
+   "sr": "1280",
+   "name": "Steel King Sumo Flam Wiper",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Wiper"
+  },
+  {
+   "sr": "1288",
+   "name": "Steel King ultra Dustpan",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Other Products"
+  },
+  {
+   "sr": "1290",
+   "name": "Steel King Flockline Gloves",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Other Products"
+  },
+  {
+   "sr": "1295",
+   "name": "Steel King Jala Brush V-Fan",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Kharta"
+  },
+  {
+   "sr": "1299",
+   "name": "Steel King Single Hockey Toilet Brush",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Brush"
+  },
+  {
+   "sr": "1300",
+   "name": "Steel King Neno Cloth Brush",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Brush"
+  },
+  {
+   "sr": "1301",
+   "name": "Steel King Ovel Cloth Brush",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Brush"
+  },
+  {
+   "sr": "1305",
+   "name": "Steel King Tile Brush",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Other Products"
+  },
+  {
+   "sr": "1306",
+   "name": "Steel King Medium Pad",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Scrubber SS"
+  },
+  {
+   "sr": "1307",
+   "name": "Steel King Jumbo Pad",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Scrubber SS"
+  },
+  {
+   "sr": "1308",
+   "name": "Steel King Regular Pad",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Scrubber SS"
+  },
+  {
+   "sr": "1309",
+   "name": "Steel King Colour Mini Pad",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Scrubber SS"
+  },
+  {
+   "sr": "1310",
+   "name": "Steel King Colour Big Pad",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Scrubber SS"
+  },
+  {
+   "sr": "1314",
+   "name": "Steel King Scrubber & Sponge",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Other Products"
+  },
+  {
+   "sr": "1321",
+   "name": "steel King Scrubber 40MM",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Scrubber SS"
+  },
+  {
+   "sr": "1322",
+   "name": "Steel King Hockey Scrubber",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Scrubber SS"
+  },
+  {
+   "sr": "1325",
+   "name": "Steel King Carpet Brush V",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Brush"
+  },
+  {
+   "sr": "1326",
+   "name": "Steel King Madhuri 25",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Scrubber SS"
+  },
+  {
+   "sr": "1327",
+   "name": "Steel King 25",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Scrubber SS"
+  },
+  {
+   "sr": "1328",
+   "name": "Steel King 30",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Scrubber SS"
+  },
+  {
+   "sr": "1329",
+   "name": "Steel King A to Z 25",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Scrubber SS"
+  },
+  {
+   "sr": "1330",
+   "name": "Steel King Red Bull 50",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Scrubber SS"
+  },
+  {
+   "sr": "1331",
+   "name": "Steel King 35",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Scrubber SS"
+  },
+  {
+   "sr": "1332",
+   "name": "Steel King 40",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Scrubber SS"
+  },
+  {
+   "sr": "1333",
+   "name": "Steel King Seven Horse 50",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Scrubber SS"
+  },
+  {
+   "sr": "1342",
+   "name": "Steel King Dry Mop 16\"",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Dry Mop"
+  },
+  {
+   "sr": "1343",
+   "name": "Steel King Dry Mop 18\"",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Dry Mop"
+  },
+  {
+   "sr": "1344",
+   "name": "Steel King Dry Mop 24\"",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Dry Mop"
+  },
+  {
+   "sr": "1345",
+   "name": "Steel King Dry Mop Red 16\"",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Dry Mop"
+  },
+  {
+   "sr": "1346",
+   "name": "Steel King Dry Mop Red 18\"",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Dry Mop"
+  },
+  {
+   "sr": "1347",
+   "name": "Steel King Dry Mop Red 24\"",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Dry Mop"
+  },
+  {
+   "sr": "1378",
+   "name": "Steel King PP With Soptin",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Accessories"
+  },
+  {
+   "sr": "1615",
+   "name": "Soap Dispenser 2 In 1",
+   "top": "Clening & HouseHolds",
+   "end": "Steel King Other Products"
+  },
+  {
+   "sr": "1646",
+   "name": "CARRYFRESH INSULATED SS LUNCH BOX SET OF 2 - HORIZONTAL  CFDWSET2NL11 180 ML ( 2 ) Ø 118 52 10",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1647",
+   "name": "CARRYFRESH INSULATED SS LUNCH BOX SET OF 2 - HORIZONTAL CFDWSET2NL12 280 ML ( 2 ) Ø 118 64 10",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1648",
+   "name": "CARRYFRESH INSULATED SS LUNCH BOX SET OF 2 - VERTICAL CFDWSET2NL13 280 ML Ø 118 64 8  180 ML Ø 118 52",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1649",
+   "name": "CARRYFRESH INSULATED SS LUNCH BOX SET OF 2 - VERTICAL CFDWSET2NL14 280 ML ( 2 ) Ø 118 64 8",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1650",
+   "name": "CARRYFRESH INSULATED SS LUNCH BOX SET OF 3 - VERTICAL CFDWSET3NL15 280 ML ( 2 ) Ø 118 64 8  180 ML ( 1 ) Ø 118 52",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1651",
+   "name": "CARRYFRESH INSULATED SS LUNCH BOX SET OF 4 CFDWSET4NL16 280 ML ( 2 ) Ø 118 64 8 `180 ML ( 2 ) Ø 118 52",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1652",
+   "name": "CARRYFRESH INSULATED SS LUNCH BOX SET OF 3 CFDWSET3NL19 280 ML ( 2 ) Ø 118 64 8 - 475 ML ( 1 ) Ø 214 X 100 32",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1656",
+   "name": "SLATE SS LUNCH BOX SET OF 4 SCSWSETLB01 280 ML ( 4 ) Ø 122 50 8",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1657",
+   "name": "SLATE SS LUNCH BOX SET OF 3 SCSWSETLB02 280 ML ( 3 ) Ø 122 50 8",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1658",
+   "name": "SLATE SS LUNCH BOX SET OF 4  SCSWSETLB03 280 ML ( 3 ) Ø 122 50 8 `- 600 ML ( 1 ) Ø 72 168",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1659",
+   "name": "SLATE SS LUNCH BOX SET OF 2 - HORIZONTAL SCSWSETLB04 280 ML ( 2 ) Ø 122 50 8",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1660",
+   "name": "SLATE SS LUNCH BOX SET OF 2 - VERTICALSCSWSETLB05 280 ML ( 2 ) Ø 122 50 8",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1661",
+   "name": "SLATE SS LUNCH BOX SET OF 3SCSWSETLB06 280 ML ( 2 ) Ø 122 50 8 460 ML ( 1 ) Ø 137 57",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1662",
+   "name": "MEALMATE SS LUNCH BOX SET OF 3SISWSETLB21 370 ML ( 3 ) Ø 107 51 8",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1663",
+   "name": "MEALMATE SS LUNCH BOX SET OF 3 - TRIANGLESISWSETLB22 370 ML ( 3 ) Ø 107 51 8",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1675",
+   "name": "GLORY GREEN SS LUNCH BOX SET OF 2 - HORIZONTALGGSWSETLB07 280 ML ( 2 ) Ø 122 59 8",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1676",
+   "name": "GLORY GREEN SS LUNCH BOX SET OF 2 - VERTICAL GGSWSETLB08 280 ML ( 2 ) Ø 122 59 8",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1677",
+   "name": "GLORY GREEN SS LUNCH BOX SET OF 3",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1678",
+   "name": "GLORY GREEN SS LUNCH BOX SET OF 4 GGSWSETLB10 280 ML ( 2 ) Ø 122 59 8  460 ML ( 2 ) Ø 137 64",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1679",
+   "name": "GLORY GREEN SS LUNCH BOX SET OF 3 GGSWSETLB11 280 ML ( 2 ) Ø 122 59 8 `  460 ML ( 1 ) Ø 137 64",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1680",
+   "name": "GLORY GREEN SS LUNCH BOX SET OF 4 GGSWSETLB12 280 ML ( 3 ) Ø 122 59 8 `- 600 ML ( 1 ) Ø 72.5 168",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1681",
+   "name": "GLORY GREEN SS LUNCH BOX SET OF 4 GGSWSETLB13 280 ML ( 2 ) Ø 122 59 460 ML ( 1 ) Ø 137 64 8 `- 600 ML ( 1 ) Ø 72.5 168",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1688",
+   "name": "GLORY LAVENDER SS LUNCH BOX SET OF 2 - HORIZONTAL GLSWSETLB14 280 ML ( 2 ) Ø 122 59 8",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1689",
+   "name": "GLORY LAVENDER SS LUNCH BOX SET OF 2 - VERTICAL GLSWSETLB15 280 ML ( 2 ) Ø 122 59 8",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1690",
+   "name": "GLORY LAVENDER SS LUNCH BOX SET OF 3 - VERTICAL GLSWSETLB16 280 ML ( 3 ) Ø 122 59 8",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1691",
+   "name": "GLORY LAVENDER SS LUNCH BOX SET OF 4 GLSWSETLB17 280 ML ( 2 ) Ø 122 59 8  460 ML ( 2 ) Ø 137 64",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1692",
+   "name": "GLORY LAVENDER SS LUNCH BOX SET OF 3 GLSWSETLB18 280 ML ( 2 ) Ø 122 59 8 `460 ML ( 1 ) Ø 137 64",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1693",
+   "name": "GLORY GREEN SS LUNCH BOX SET OF 4 GLSWSETLB19 280 ML ( 3 ) Ø 122 59 8 600 ML ( 1 ) Ø 72.5 168",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1694",
+   "name": "GLORY LAVENDER SS LUNCH BOX SET OF 4 GLSWSETLB20 280 ML ( 2 ) Ø 122 59 460 ML ( 1 ) Ø 137 64 8 ` 600 ML ( 1 ) Ø 72.5 168",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1695",
+   "name": "CARRYFRESH SLIM LUNCH BOX SET (GREEN) SSLBSETGRN 700 ML ( 1 ) 220 145 45 16 125 ML ( 1 ) 107 85 34",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1696",
+   "name": "CARRYFRESH SLIM LUNCH BOX SET (PINK) SSLBSETPNK 700 ML ( 1 ) 220 145 45 16 - 125 ML ( 1 ) 107 85 34",
+   "top": "KITCHEN WARE",
+   "end": "INSULATED LUNCH BOX"
+  },
+  {
+   "sr": "1706",
+   "name": "CFPC2LSS06 PRONTO SS PRESSURE COOKER 2 L",
+   "top": "KITCHEN WARE",
+   "end": "STAINLESS STEEL PRESSURE COOKER"
+  },
+  {
+   "sr": "1707",
+   "name": "CFPC3LSH03S PRONTO SS PRESSURE COOKER 3 L",
+   "top": "KITCHEN WARE",
+   "end": "STAINLESS STEEL PRESSURE COOKER"
+  },
+  {
+   "sr": "1708",
+   "name": "CFPC5LSH04S PRONTO SS PRESSURE COOKER 5 L",
+   "top": "KITCHEN WARE",
+   "end": "STAINLESS STEEL PRESSURE COOKER"
+  },
+  {
+   "sr": "1709",
+   "name": "CFPC7LSS07 PRONTO SS PRESSURE COOKER 6.5",
+   "top": "KITCHEN WARE",
+   "end": "STAINLESS STEEL PRESSURE COOKER"
+  },
+  {
+   "sr": "1710",
+   "name": "CFPC3LSS08 PRONTO EDGE SS PRESSURE COOKER 3 L",
+   "top": "KITCHEN WARE",
+   "end": "STAINLESS STEEL PRESSURE COOKER"
+  },
+  {
+   "sr": "1711",
+   "name": "CFPC5LSS09 PRONTO EDGE SS PRESSURE COOKER 5 L",
+   "top": "KITCHEN WARE",
+   "end": "STAINLESS STEEL PRESSURE COOKER"
+  },
+  {
+   "sr": "1722",
+   "name": "CFTPLYILC01 TRIPLY INNER LID COOKER 1.5 L",
+   "top": "KITCHEN WARE",
+   "end": "TRIPLY COOKER"
+  },
+  {
+   "sr": "1723",
+   "name": "CFTPLYILC03 TRIPLY INNER LID COOKER 3.5 L",
+   "top": "KITCHEN WARE",
+   "end": "TRIPLY COOKER"
+  },
+  {
+   "sr": "1724",
+   "name": "CFTPLYILC04 TRIPLY INNER LID COOKER 5 L",
+   "top": "KITCHEN WARE",
+   "end": "TRIPLY COOKER"
+  },
+  {
+   "sr": "1725",
+   "name": "CFTPLYILC06 TRIPLY INNER LID PRONTO COOKER 1.5",
+   "top": "KITCHEN WARE",
+   "end": "TRIPLY COOKER"
+  },
+  {
+   "sr": "1726",
+   "name": "CFTPLYILC07 TRIPLY INNER LID PRONTO COOKER 2.5 L",
+   "top": "KITCHEN WARE",
+   "end": "TRIPLY COOKER"
+  },
+  {
+   "sr": "1727",
+   "name": "CFTPLYILC08 TRIPLY INNER LID PRONTO COOKER 3.5 L",
+   "top": "KITCHEN WARE",
+   "end": "TRIPLY COOKER"
+  },
+  {
+   "sr": "1735",
+   "name": "CFTPLYILC09 TRIPLY INNER LID PRONTO COOKER 5 L",
+   "top": "KITCHEN WARE",
+   "end": "TRIPLY COOKER"
+  },
+  {
+   "sr": "1736",
+   "name": "CFTPLYOLC03 TRIPLY OUTERLID PRESTO COOKER 2 L",
+   "top": "KITCHEN WARE",
+   "end": "TRIPLY COOKER"
+  },
+  {
+   "sr": "1737",
+   "name": "CFTPLYOLC01 TRIPLY OUTERLID PRESTO COOKER 3 L",
+   "top": "KITCHEN WARE",
+   "end": "TRIPLY COOKER"
+  },
+  {
+   "sr": "1738",
+   "name": "CFTPLYOLC02 TRIPLY OUTERLID PRESTO COOKER 5 L",
+   "top": "KITCHEN WARE",
+   "end": "TRIPLY COOKER"
+  },
+  {
+   "sr": "1739",
+   "name": "CFTPLYOLC04 TRIPLY OUTERLID PRESTO COOKER 6.5 L",
+   "top": "KITCHEN WARE",
+   "end": "TRIPLY COOKER"
+  },
+  {
+   "sr": "1740",
+   "name": "CFTPLYOLC05 TRIPLY OUTERLID PRESTO COOKER PAN 1.5 L",
+   "top": "KITCHEN WARE",
+   "end": "TRIPLY COOKER"
+  },
+  {
+   "sr": "1741",
+   "name": "CFTPLYOLC06 TRIPLY OUTERLID PRESTO TALL COOKER 3.0 L",
+   "top": "KITCHEN WARE",
+   "end": "TRIPLY COOKER"
+  },
+  {
+   "sr": "1742",
+   "name": "CFPC3LSS01S PRESTO SS PRESSURE COOKER 3L",
+   "top": "KITCHEN WARE",
+   "end": "STAINLESS STEEL PRESSURE COOKER"
+  },
+  {
+   "sr": "1743",
+   "name": "CFPC5LSS02S PRESTO SS PRESSURE COOKER 5L",
+   "top": "KITCHEN WARE",
+   "end": "STAINLESS STEEL PRESSURE COOKER"
+  },
+  {
+   "sr": "1744",
+   "name": "CFPC1LSS05 PRONTO SS PRESSURE COOKER 1 L",
+   "top": "KITCHEN WARE",
+   "end": "STAINLESS STEEL PRESSURE COOKER"
+  },
+  {
+   "sr": "1745",
+   "name": "NS04GSPINK01 S/4 FESTIVE GL 250 DT + 240 DK+ 240 FP  PINK + GL",
+   "top": "KITCHEN WARE",
+   "end": "FESTIVE GLORY NON- STOCK COOKWARE SET"
+  },
+  {
+   "sr": "1746",
+   "name": "NS04GSBLUE01 S/4 FESTIVE GL 250 DT + 240 DK + 24 0FP  BLUE+",
+   "top": "KITCHEN WARE",
+   "end": "FESTIVE GLORY NON- STOCK COOKWARE SET"
+  },
+  {
+   "sr": "1747",
+   "name": "NS03GSPINK02 S/3 FESTIVE GLORY 240 DK + 240 FP PINK + GL",
+   "top": "KITCHEN WARE",
+   "end": "FESTIVE GLORY NON- STOCK COOKWARE SET"
+  },
+  {
+   "sr": "1748",
+   "name": "NS03GSBLUE02 S/3 FESTIVE GLORY 240 DK + 240 FP BLUE + GL",
+   "top": "KITCHEN WARE",
+   "end": "FESTIVE GLORY NON- STOCK COOKWARE SET"
+  },
+  {
+   "sr": "1749",
+   "name": "NS02GSPINK03 S/2 FESTIVE GLORY 250 DT + 240 FP PINK",
+   "top": "KITCHEN WARE",
+   "end": "FESTIVE GLORY NON- STOCK COOKWARE SET"
+  },
+  {
+   "sr": "1750",
+   "name": "NS02GSBLUE03 S/2 FESTIVE GLORY 250 DT + 240 FP BLUE",
+   "top": "KITCHEN WARE",
+   "end": "FESTIVE GLORY NON- STOCK COOKWARE SET"
+  },
+  {
+   "sr": "1751",
+   "name": "HAPRON02PC01 HA PRONTO PRESSURE COOKER 2 L",
+   "top": "KITCHEN WARE",
+   "end": "HARD ANODISED - PRESSURE COOKER"
+  },
+  {
+   "sr": "1752",
+   "name": "HAPRON03PC02 HA PRONTO PRESSURE COOKER 3 L",
+   "top": "KITCHEN WARE",
+   "end": "HARD ANODISED - PRESSURE COOKER"
+  },
+  {
+   "sr": "1753",
+   "name": "HAPRON05PC03 HA PRONTO PRESSURE COOKER 5 L",
+   "top": "KITCHEN WARE",
+   "end": "HARD ANODISED - PRESSURE COOKER"
+  },
+  {
+   "sr": "1754",
+   "name": "HAPRON65PC04 HA PRONTO PRESSURE COOKER 6.5 L",
+   "top": "KITCHEN WARE",
+   "end": "HARD ANODISED - PRESSURE COOKER"
+  },
+  {
+   "sr": "1755",
+   "name": "NSVJDKGL20 VAJRA DEEP KADAI WITH GLASS LID 20 CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - NON STICK"
+  },
+  {
+   "sr": "1756",
+   "name": "NSVJDKGL24 VAJRA DEEP KADAI WITH GLASS LID 24 CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - NON STICK"
+  },
+  {
+   "sr": "1757",
+   "name": "NSVJTFRPN20 VAJRA NONSTICK FRY PAN 20 CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - NON STICK"
+  },
+  {
+   "sr": "1758",
+   "name": "NSVJTFRPN24 VAJRA NONSTICK FRY PAN 24 CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - NON STICK"
+  },
+  {
+   "sr": "1759",
+   "name": "NSVJ5GLFP24 VAJRA NONSTICK ROUND GRILL FRYPAN 24 CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - NON STICK"
+  },
+  {
+   "sr": "1760",
+   "name": "NSVJ5SQFP24 VAJRA NONSTICK SQUARE GRILL FRYPAN 24 CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - NON STICK"
+  },
+  {
+   "sr": "1761",
+   "name": "NSVJFLTW28 VAJRA NONSTICK FLAT TAWA 28 CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - NON STICK"
+  },
+  {
+   "sr": "1762",
+   "name": "NSVJ5FLTW30 VAJRA NON STICK FLAT TAWA 30 CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - NON STICK"
+  },
+  {
+   "sr": "1763",
+   "name": "NSVJDSTW28 VAJRA NONSTICK DOSA TAWA 28CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - NON STICK"
+  },
+  {
+   "sr": "1764",
+   "name": "HACTW22CM CONCAVE TAWA 22CM",
+   "top": "KITCHEN WARE",
+   "end": "HARD ANODIZED COOKWARE RANGE"
+  },
+  {
+   "sr": "1765",
+   "name": "HACTW25CM CONCAVE TAWA 25CM",
+   "top": "KITCHEN WARE",
+   "end": "HARD ANODIZED COOKWARE RANGE"
+  },
+  {
+   "sr": "1766",
+   "name": "HAIBCTW25CM CONCAVE TAWA 25CM WITH IND.",
+   "top": "KITCHEN WARE",
+   "end": "HARD ANODIZED COOKWARE RANGE"
+  },
+  {
+   "sr": "1767",
+   "name": "HADTW28CM DOSA TAWA 28CM",
+   "top": "KITCHEN WARE",
+   "end": "HARD ANODIZED COOKWARE RANGE"
+  },
+  {
+   "sr": "1768",
+   "name": "HADTW30CM DOSA TAWA 30CM",
+   "top": "KITCHEN WARE",
+   "end": "HARD ANODIZED COOKWARE RANGE"
+  },
+  {
+   "sr": "1769",
+   "name": "HATPN11CM TADKA PAN 11 CM",
+   "top": "KITCHEN WARE",
+   "end": "HARD ANODIZED COOKWARE RANGE"
+  },
+  {
+   "sr": "1770",
+   "name": "HAKADGL22CM HA KADAI WITH GLASS LID 22cm/2 L",
+   "top": "KITCHEN WARE",
+   "end": "HARD ANODIZED COOKWARE RANGE"
+  },
+  {
+   "sr": "1771",
+   "name": "HAKADGL24CM HA KADAI WITH GLASS LID 24cm/3 L",
+   "top": "KITCHEN WARE",
+   "end": "HARD ANODIZED COOKWARE RANGE"
+  },
+  {
+   "sr": "1772",
+   "name": "HAKADGL26CM HA KADAI WITH GLASS LID 26cm/4 L",
+   "top": "KITCHEN WARE",
+   "end": "HARD ANODIZED COOKWARE RANGE"
+  },
+  {
+   "sr": "1773",
+   "name": "HAKADGL28CM HA KADAI WITH GLASS LID 5",
+   "top": "KITCHEN WARE",
+   "end": "HARD ANODIZED COOKWARE RANGE"
+  },
+  {
+   "sr": "1774",
+   "name": "HASP14CM HA SAUCE PAN 1.5L/14cm",
+   "top": "KITCHEN WARE",
+   "end": "HARD ANODIZED COOKWARE RANGE"
+  },
+  {
+   "sr": "1775",
+   "name": "HASP16CM HA SAUCE PAN 2.0L 16cm",
+   "top": "KITCHEN WARE",
+   "end": "HARD ANODIZED COOKWARE RANGE"
+  },
+  {
+   "sr": "1776",
+   "name": "HASP18CM HA SAUCE PAN 2.5L 18cm",
+   "top": "KITCHEN WARE",
+   "end": "HARD ANODIZED COOKWARE RANGE"
+  },
+  {
+   "sr": "1777",
+   "name": "HAFP20CM HA FRY PAN WITH GLASS LID 20 CM",
+   "top": "KITCHEN WARE",
+   "end": "HARD ANODIZED COOKWARE RANGE"
+  },
+  {
+   "sr": "1778",
+   "name": "HAFP22CM HA FRY PAN WITH GLASS LID 22 CM",
+   "top": "KITCHEN WARE",
+   "end": "HARD ANODIZED COOKWARE RANGE"
+  },
+  {
+   "sr": "1779",
+   "name": "HAFP24CM HA FRY PAN WITH GLASS LID 24 CM",
+   "top": "KITCHEN WARE",
+   "end": "HARD ANODIZED COOKWARE RANGE"
+  },
+  {
+   "sr": "1780",
+   "name": "HAFP26CM HA FRY PAN WITH GLASS LID 26 CM",
+   "top": "KITCHEN WARE",
+   "end": "HARD ANODIZED COOKWARE RANGE"
+  },
+  {
+   "sr": "1781",
+   "name": "HAIBFTW27CM FLAT TAWA 27CM with IND.",
+   "top": "KITCHEN WARE",
+   "end": "HARD ANODIZED COOKWARE RANGE"
+  },
+  {
+   "sr": "1782",
+   "name": "HAIBFTW30CM FLAT TAWA 30CM with IND.",
+   "top": "KITCHEN WARE",
+   "end": "HARD ANODIZED COOKWARE RANGE"
+  },
+  {
+   "sr": "1783",
+   "name": "VJCCASRL16 VAJRA CERAMIC CASSEROLE 16 CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - CERAMIC"
+  },
+  {
+   "sr": "1784",
+   "name": "VJCCASRL18 VAJRA CERAMIC CASSEROLE 18 CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - CERAMIC"
+  },
+  {
+   "sr": "1785",
+   "name": "VJCCASRL20 VAJRA CERAMIC CASSEROLE 20 CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - CERAMIC"
+  },
+  {
+   "sr": "1786",
+   "name": "VJCCASRL22 VAJRA CERAMIC CASSEROLE 22 CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - CERAMIC"
+  },
+  {
+   "sr": "1787",
+   "name": "VJCCASRL24 VAJRA CERAMIC CASSEROLE 24 CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - CERAMIC"
+  },
+  {
+   "sr": "1788",
+   "name": "VJCDKADI20 VAJRA CERAMIC DEEP KADAI 20 CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - CERAMIC"
+  },
+  {
+   "sr": "1789",
+   "name": "VJCDKADI24 VAJRA CERAMIC DEEP KADAI 24 CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - CERAMIC"
+  },
+  {
+   "sr": "1790",
+   "name": "VJCDTAWA28 VAJRA CERAMIC DOSA TAWA 28 CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - CERAMIC"
+  },
+  {
+   "sr": "1791",
+   "name": "VJCDTAWA31 VAJRA CERAMIC DOSA TAWA 31 CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - CERAMIC"
+  },
+  {
+   "sr": "1792",
+   "name": "VJCFLATW26 VAJRA CERAMIC FLAT TAWA 26 CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - CERAMIC"
+  },
+  {
+   "sr": "1793",
+   "name": "VJCFLATW28 VAJRA CERAMIC FLAT TAWA 28 CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - CERAMIC"
+  },
+  {
+   "sr": "1794",
+   "name": "VJCFRYPN20 VAJRA CERAMIC FRYPAN 20 CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - CERAMIC"
+  },
+  {
+   "sr": "1795",
+   "name": "VJCFRYPN22 VAJRA CERAMIC FRYPAN 22 CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - CERAMIC"
+  },
+  {
+   "sr": "1796",
+   "name": "VJCFRYPN24 VAJRA CERAMIC FRYPAN 24 CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - CERAMIC"
+  },
+  {
+   "sr": "1797",
+   "name": "VJCSGPAN22 VAJRA CERAMIC SQR. GRILL PAN 22 CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - CERAMIC"
+  },
+  {
+   "sr": "1798",
+   "name": "VJCSGPAN24 VAJRA CERAMIC SQR. GRILL PAN 24 CM",
+   "top": "KITCHEN WARE",
+   "end": "VAJRA DIE CAST COOKWARE SERIES - CERAMIC"
+  },
+  {
+   "sr": "1799",
+   "name": "SF0500GLCS11 SS CURRY SERVER 500ML",
+   "top": "KITCHEN WARE",
+   "end": "SERVE FRESH SS INSULATED RANGE"
+  },
+  {
+   "sr": "1800",
+   "name": "SF0900GLCS12 SS CURRY SERVER 900ML",
+   "top": "KITCHEN WARE",
+   "end": "SERVE FRESH SS INSULATED RANGE"
+  },
+  {
+   "sr": "1801",
+   "name": "SF1500GLCS13 SS CURRY SERVER 1500 ML",
+   "top": "KITCHEN WARE",
+   "end": "SERVE FRESH SS INSULATED RANGE"
+  },
+  {
+   "sr": "1802",
+   "name": "SF2700GLCS14 SS CURRY SERVER 2700 ML",
+   "top": "KITCHEN WARE",
+   "end": "SERVE FRESH SS INSULATED RANGE"
+  },
+  {
+   "sr": "1803",
+   "name": "SFSET2CS11 SS S/2 SS CURRY SERVER (500 ML+900 ML)",
+   "top": "KITCHEN WARE",
+   "end": "SERVE FRESH SS INSULATED RANGE"
+  },
+  {
+   "sr": "1804",
+   "name": "SFSET3CS11 SF S/3 SS CURRY SERVER (500 ML+900 ML+1.5 L",
+   "top": "KITCHEN WARE",
+   "end": "SERVE FRESH SS INSULATED RANGE"
+  },
+  {
+   "sr": "1805",
+   "name": "SF0800GLHS11 SS HANDI SERVER 800 ML",
+   "top": "KITCHEN WARE",
+   "end": "SERVE FRESH SS INSULATED RANGE"
+  },
+  {
+   "sr": "1806",
+   "name": "SF1200GLHS12 SS HANDI SERVER 1200 ML",
+   "top": "KITCHEN WARE",
+   "end": "SERVE FRESH SS INSULATED RANGE"
+  },
+  {
+   "sr": "1807",
+   "name": "SF2500GLHS13 SS HANDI SERVER 2500 ML",
+   "top": "KITCHEN WARE",
+   "end": "SERVE FRESH SS INSULATED RANGE"
+  },
+  {
+   "sr": "1808",
+   "name": "SFSET2HS12 SF S/2 SS HANDI SERVER (800 ML+1.2 L)",
+   "top": "KITCHEN WARE",
+   "end": "SERVE FRESH SS INSULATED RANGE"
+  },
+  {
+   "sr": "1809",
+   "name": "SFSET3GLHS14 SET OF 3 - HANDI SERVER-800 ML+1.2 L+2.5 L",
+   "top": "KITCHEN WARE",
+   "end": "SERVE FRESH SS INSULATED RANGE"
+  },
+  {
+   "sr": "1810",
+   "name": "SF0900SSIS11 SS IDLI SERVER 900ML WITH SS LID LOCKING",
+   "top": "KITCHEN WARE",
+   "end": "SERVE FRESH SS INSULATED RANGE"
+  },
+  {
+   "sr": "1811",
+   "name": "SF1200SSIS12 SS IDLI SERVER 1.2 L WITH SS LID LOCKING",
+   "top": "KITCHEN WARE",
+   "end": "SERVE FRESH SS INSULATED RANGE"
+  },
+  {
+   "sr": "1812",
+   "name": "SF2000SSIS14 SS IDLI SERVER 2 L WITH SS LID LOCKING",
+   "top": "KITCHEN WARE",
+   "end": "SERVE FRESH SS INSULATED RANGE"
+  },
+  {
+   "sr": "1813",
+   "name": "SF3000SSIS13 SS IDLI SERVER 3 L WITH SS LID LOCKING",
+   "top": "KITCHEN WARE",
+   "end": "SERVE FRESH SS INSULATED RANGE"
+  },
+  {
+   "sr": "1814",
+   "name": "SF5000SSIS15 SS IDLI SERVER 5 L WITH SS LID LOCKING",
+   "top": "KITCHEN WARE",
+   "end": "SERVE FRESH SS INSULATED RANGE"
+  },
+  {
+   "sr": "1815",
+   "name": "SF1150GLRS11 SS ROTI SERVER 1.1 L WITH GLASS LID",
+   "top": "KITCHEN WARE",
+   "end": "SERVE FRESH SS INSULATED RANGE"
+  },
+  {
+   "sr": "1816",
+   "name": "SF2500GLRS12 SS ROTI SERVER 2.5 L WITH GLASS LID",
+   "top": "KITCHEN WARE",
+   "end": "SERVE FRESH SS INSULATED RANGE"
+  },
+  {
+   "sr": "1817",
+   "name": "CFTCS18SS54 TRI-PLY CASSEROLE 2.1 L/18 CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1818",
+   "name": "CFTCS20SS55 TRI-PLY CASSEROLE 2.8 L/20 CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1819",
+   "name": "CFTCS22SS56 TRI-PLY CASSEROLE 3.6 L/22 CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1820",
+   "name": "CFTCS24SS57 TRI-PLY CASSEROLE 4.6 L/24 CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1821",
+   "name": "CFTFP20SS51 TRI-PLY FRYPAN 1.3 L/20 CM (W/O LID)",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1822",
+   "name": "CFTFP22SS52 TRI-PLY FRYPAN 1.75 L/22 CM (W/O LID)",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1823",
+   "name": "CFTFP24SS53 TRI-PLY FRYPAN 2.3 L/24 CM (W/O LID)",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1824",
+   "name": "CFTKD20SS41 TRI-PLY KADHAI 1.6 L/20 CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1825",
+   "name": "CFTKD22SS42 TRI-PLY KADHAI 2.1 L/22 CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1826",
+   "name": "CFTKD24SS43 TRI-PLY KADHAI 2.7 L/24 CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1827",
+   "name": "CFMLKB010 MILK BOILER 1.0 L",
+   "top": "KITCHEN WARE",
+   "end": "MILK BOILER"
+  },
+  {
+   "sr": "1828",
+   "name": "CFMLKB015 MILK BOILER 1.5 L",
+   "top": "KITCHEN WARE",
+   "end": "MILK BOILER"
+  },
+  {
+   "sr": "1829",
+   "name": "CFMLKB020 MILK BOILER 2.0 L",
+   "top": "KITCHEN WARE",
+   "end": "MILK BOILER"
+  },
+  {
+   "sr": "1830",
+   "name": "CFTKD26SS44 TRI-PLY KADHAI 3.6 L/26 CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1831",
+   "name": "CFTKD28SS45 TRI-PLY KADHAI 4.6 L/28 CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1832",
+   "name": "CFTKD30SS46 TRI-PLY KADHAI 5.5 L/30 CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1833",
+   "name": "CFTKD32SS47 TRI-PLY KADHAI 6.4 L/32 CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1834",
+   "name": "CFTKD22SS70 TRI-PLY DEEP KADHAI 2.5 L/22 CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1835",
+   "name": "CFTKD24SS71 TRI-PLY DEEP KADHAI 3.1 L/24 CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1836",
+   "name": "CFTKD26SS72 TRI-PLY DEEP KADHAI 3.9 L/26 CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1837",
+   "name": "CFTKD28SS73 TRI-PLY DEEP KADHAI 4.9 L/28 CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1838",
+   "name": "CFTSP16SS48 TRI-PLY SAUCEPAN 1.6 L/16 CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1839",
+   "name": "CFTSP18SS49 TRI-PLY SAUCEPAN 2.3 L/18 CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1840",
+   "name": "CFTSP20SS50 TRI-PLY SAUCEPAN 3.1L/20 CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1841",
+   "name": "CFTWOK20 TRI-PLY WOK-1.75 L/20CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1842",
+   "name": "CFTWOK22 TRI-PLY WOK-2.25 L/22CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1843",
+   "name": "CFTWOK24 TRI-PLY WOK-2.85 L/24CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1844",
+   "name": "CFTWOK26 TRI-PLY WOK-3.5 L/26CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1845",
+   "name": "CFTSPPOUT16 SAUCE PAN WITH SPOUT W/OUT LID 16CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1846",
+   "name": "CFTSPPOUT18 SAUCE PAN WITH SPOUT W/OUT LID 18CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1847",
+   "name": "CFTSPWL16 STRAIGHT SHAPE SAUCE PAN WITH LID 16CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1848",
+   "name": "CFTSPWL18 STRAIGHT SHAPE SAUCE PAN WITH LID 18CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1849",
+   "name": "CFTSPWL20 STRAIGHT SHAPE SAUCE PAN WITH LID 20CM",
+   "top": "KITCHEN WARE",
+   "end": "SS TRI PLY CASTING HANDLE"
+  },
+  {
+   "sr": "1850",
+   "name": "CFCL16SS14 IMB CASSEROLE - 1.6 L / 16CM",
+   "top": "KITCHEN WARE",
+   "end": "COOKFRESH SS IMPACT BONDED RANGE"
+  },
+  {
+   "sr": "1851",
+   "name": "CFCL18SS15 IMB CASSEROLE - 2.3 L / 18CM",
+   "top": "KITCHEN WARE",
+   "end": "COOKFRESH SS IMPACT BONDED RANGE"
+  },
+  {
+   "sr": "1852",
+   "name": "CFCL20SS19 IMB CASSEROLE - 3.1 L/ 20CM",
+   "top": "KITCHEN WARE",
+   "end": "COOKFRESH SS IMPACT BONDED RANGE"
+  },
+  {
+   "sr": "1853",
+   "name": "CFHC16SS11 IMB HANDI CASSEROLE - 2.1 L/16CM",
+   "top": "KITCHEN WARE",
+   "end": "COOKFRESH SS IMPACT BONDED RANGE"
+  },
+  {
+   "sr": "1854",
+   "name": "CFHC18SS12 IMB HANDI CASSEROLE - 2.9 L/18CM",
+   "top": "KITCHEN WARE",
+   "end": "COOKFRESH SS IMPACT BONDED RANGE"
+  },
+  {
+   "sr": "1855",
+   "name": "CFHC20SS13 IMB HANDI CASSEROLE - 3.9 L / 20CM",
+   "top": "KITCHEN WARE",
+   "end": "COOKFRESH SS IMPACT BONDED RANGE"
+  },
+  {
+   "sr": "1856",
+   "name": "CFFP20SS11 IMB FRY PAN - 20CM",
+   "top": "KITCHEN WARE",
+   "end": "COOKFRESH SS IMPACT BONDED RANGE"
+  },
+  {
+   "sr": "1857",
+   "name": "CFFP24SS12 IMB FRY PAN - 24CM",
+   "top": "KITCHEN WARE",
+   "end": "COOKFRESH SS IMPACT BONDED RANGE"
+  },
+  {
+   "sr": "1858",
+   "name": "CFDK20SS16 IMB DEEP KADHAI WITH LID - 1.8 L /20CM",
+   "top": "KITCHEN WARE",
+   "end": "COOKFRESH SS IMPACT BONDED RANGE"
+  },
+  {
+   "sr": "1859",
+   "name": "CFDK22SS17 IMB DEEP KADHAI WITH LID - 2.3 L /22CM",
+   "top": "KITCHEN WARE",
+   "end": "COOKFRESH SS IMPACT BONDED RANGE"
+  },
+  {
+   "sr": "1860",
+   "name": "CFDK24SS18 IMB DEEP KADHAI WITH LID - 3.3 L /24CM",
+   "top": "KITCHEN WARE",
+   "end": "COOKFRESH SS IMPACT BONDED RANGE"
+  },
+  {
+   "sr": "1861",
+   "name": "CFFK20SS11 IMB FLAT KADHAI WITH LID - 1.8 L / 20CM",
+   "top": "KITCHEN WARE",
+   "end": "COOKFRESH SS IMPACT BONDED RANGE"
+  },
+  {
+   "sr": "1862",
+   "name": "CFFK24SS12 IMB FLAT KADHAI WITH LID - 2.8 L / 24CM",
+   "top": "KITCHEN WARE",
+   "end": "COOKFRESH SS IMPACT BONDED RANGE"
+  },
+  {
+   "sr": "1863",
+   "name": "CFSP14SS10 IMB SAUCE PAN - 1.1 L/14CM",
+   "top": "KITCHEN WARE",
+   "end": "COOKFRESH SS IMPACT BONDED RANGE"
+  },
+  {
+   "sr": "1864",
+   "name": "CFSP16SS11 IMB SAUCE PAN - 1.6 L/16CM",
+   "top": "KITCHEN WARE",
+   "end": "COOKFRESH SS IMPACT BONDED RANGE"
+  },
+  {
+   "sr": "1865",
+   "name": "CFSP18SS12 IMB SAUCE PAN - 2.3 L/18CM",
+   "top": "KITCHEN WARE",
+   "end": "COOKFRESH SS IMPACT BONDED RANGE"
+  },
+  {
+   "sr": "1866",
+   "name": "CFSP20SS20 IMB SAUCE PAN - 3.1 L/20CM",
+   "top": "KITCHEN WARE",
+   "end": "COOKFRESH SS IMPACT BONDED RANGE"
+  },
+  {
+   "sr": "1867",
+   "name": "CFSET2IB04 CF S/2 DEEP KADHAI 1.8 /20 CM + FRY PAN 20",
+   "top": "KITCHEN WARE",
+   "end": "COOKFRESH SS IMPACT BONDED RANGE"
+  },
+  {
+   "sr": "1868",
+   "name": "NSFP18GR18 GRANITO NON-STICK FRY PAN 18CM",
+   "top": "KITCHEN WARE",
+   "end": "GRANITO NON STICK COOKWARE"
+  },
+  {
+   "sr": "1869",
+   "name": "NSFP20GR17 GRANITO NONSTICK IB FRY PAN 20CM",
+   "top": "KITCHEN WARE",
+   "end": "GRANITO NON STICK COOKWARE"
+  },
+  {
+   "sr": "1870",
+   "name": "NSFP24GR12 GRANITO NONSTICK IB FRY PAN 24 CM",
+   "top": "KITCHEN WARE",
+   "end": "GRANITO NON STICK COOKWARE"
+  },
+  {
+   "sr": "1871",
+   "name": "NSFP26GR13 GRANITO NONSTICK IB FRY PAN 26 CM",
+   "top": "KITCHEN WARE",
+   "end": "GRANITO NON STICK COOKWARE"
+  },
+  {
+   "sr": "1872",
+   "name": "NSFP28GR14 GRANITO NONSTICK IB FRY PAN 28 CM",
+   "top": "KITCHEN WARE",
+   "end": "GRANITO NON STICK COOKWARE"
+  },
+  {
+   "sr": "1873",
+   "name": "NSDFP22GR19 GRANITO NONSTICK DEEP FRYPAN 22/1.5 L + LID",
+   "top": "KITCHEN WARE",
+   "end": "GRANITO NON STICK COOKWARE"
+  },
+  {
+   "sr": "1874",
+   "name": "NSDFP24GR20 GRANITO NONSTICK DEEP FRYPAN 24/2.0 L + LID",
+   "top": "KITCHEN WARE",
+   "end": "GRANITO NON STICK COOKWARE"
+  },
+  {
+   "sr": "1875",
+   "name": "NSDFP26GR21 GRANITO NONSTICK DEEP FRYPAN 26/2.7 L + LID",
+   "top": "KITCHEN WARE",
+   "end": "GRANITO NON STICK COOKWARE"
+  },
+  {
+   "sr": "1876",
+   "name": "NSKD20GR07 GRANITO NONSTICK IB KADAI WITH LID 20 CM",
+   "top": "KITCHEN WARE",
+   "end": "GRANITO NON STICK COOKWARE"
+  },
+  {
+   "sr": "1877",
+   "name": "NSKD24GR08 GRANITO NONSTICK IB KADAI WITH LID 24 CM",
+   "top": "KITCHEN WARE",
+   "end": "GRANITO NON STICK COOKWARE"
+  },
+  {
+   "sr": "1878",
+   "name": "NSKD26GR09 GRANITO NONSTICK IB KADAI WITH LID 26 CM",
+   "top": "KITCHEN WARE",
+   "end": "GRANITO NON STICK COOKWARE"
+  },
+  {
+   "sr": "1879",
+   "name": "NSKD28GR10 GRANITO NONSTICK IB KADAI WITH LID 28 CM",
+   "top": "KITCHEN WARE",
+   "end": "GRANITO NON STICK COOKWARE"
+  },
+  {
+   "sr": "1880",
+   "name": "NSCT25GR05 GRANITO NONSTICK CONCAVE TAVA 25 CM",
+   "top": "KITCHEN WARE",
+   "end": "GRANITO NON STICK COOKWARE"
+  },
+  {
+   "sr": "1881",
+   "name": "NSCT28GR06 GRANITO NONSTICK CONCAVE TAVA 27 CM",
+   "top": "KITCHEN WARE",
+   "end": "GRANITO NON STICK COOKWARE"
+  },
+  {
+   "sr": "1882",
+   "name": "NSDT31GR04 GRANITO NONSTICK DOSA TAVA 31 CM",
+   "top": "KITCHEN WARE",
+   "end": "GRANITO NON STICK COOKWARE"
+  },
+  {
+   "sr": "1883",
+   "name": "NSFT25GR01 GRANITO NONSTICK IB FLAT TAVA 25 CM",
+   "top": "KITCHEN WARE",
+   "end": "GRANITO NON STICK COOKWARE"
+  },
+  {
+   "sr": "1884",
+   "name": "NSFT28GR02 GRANITO NONSTICK IB FLAT TAVA 28 CM",
+   "top": "KITCHEN WARE",
+   "end": "GRANITO NON STICK COOKWARE"
+  },
+  {
+   "sr": "1885",
+   "name": "NSFT30GR03 GRANITO NONSTICK IB FLAT TAVA 30 CM",
+   "top": "KITCHEN WARE",
+   "end": "GRANITO NON STICK COOKWARE"
+  },
+  {
+   "sr": "1886",
+   "name": "NSCET4GR15 GRANITO 4PC COOKWARE SET",
+   "top": "KITCHEN WARE",
+   "end": "GRANITO NON STICK COOKWARE"
+  },
+  {
+   "sr": "1887",
+   "name": "NSGR4COOKST RUSSET 4PC COOKWARE SET",
+   "top": "KITCHEN WARE",
+   "end": "GRANITO NON STICK COOKWARE"
+  },
+  {
+   "sr": "1888",
+   "name": "NSFP18PRC01 NON STICK PROCHEF FRY PAN 18 CM",
+   "top": "KITCHEN WARE",
+   "end": "PROCHEF NON STICK COOKWARE"
+  },
+  {
+   "sr": "1889",
+   "name": "NSFP20PRC02 NON STICK PROCHEF FRY PAN 20 CM",
+   "top": "KITCHEN WARE",
+   "end": "PROCHEF NON STICK COOKWARE"
+  },
+  {
+   "sr": "1890",
+   "name": "NSFP24PRC03 NON STICK PROCHEF FRY PAN 24 CM",
+   "top": "KITCHEN WARE",
+   "end": "PROCHEF NON STICK COOKWARE"
+  },
+  {
+   "sr": "1891",
+   "name": "NSFP26PRC04 NON STICK PROCHEF FRY PAN 26 CM",
+   "top": "KITCHEN WARE",
+   "end": "PROCHEF NON STICK COOKWARE"
+  },
+  {
+   "sr": "1892",
+   "name": "NSDFP22PRC01 NON STICK PROCHEF DEEP PAN 22 CM/1.5 L + LID",
+   "top": "KITCHEN WARE",
+   "end": "PROCHEF NON STICK COOKWARE"
+  },
+  {
+   "sr": "1893",
+   "name": "NSDFP24PRC02 NON STICK PROCHEF DEEP PAN 24 CM/2.0 L + LID",
+   "top": "KITCHEN WARE",
+   "end": "PROCHEF NON STICK COOKWARE"
+  },
+  {
+   "sr": "1894",
+   "name": "NSDFP26PRC03 NON STICK PROCHEF DEEP PAN 26 CM/2.7 L + LID",
+   "top": "KITCHEN WARE",
+   "end": "PROCHEF NON STICK COOKWARE"
+  },
+  {
+   "sr": "1895",
+   "name": "NSKD22PRC01 NON STICK PROCHEF KADAI WT LID 2.2 L/22 CM",
+   "top": "KITCHEN WARE",
+   "end": "PROCHEF NON STICK COOKWARE"
+  },
+  {
+   "sr": "1896",
+   "name": "NSKD24PRC02 NON STICK PROCHEF KADAI WT LID 2.9 L/24 CM",
+   "top": "KITCHEN WARE",
+   "end": "PROCHEF NON STICK COOKWARE"
+  },
+  {
+   "sr": "1897",
+   "name": "NSKD26PRC03 NON STICK PROCHEF KADAI WT LID 4.0 L/26 CM",
+   "top": "KITCHEN WARE",
+   "end": "PROCHEF NON STICK COOKWARE"
+  },
+  {
+   "sr": "1898",
+   "name": "NSFT25PRC01 NON STICK PROCHEF FLAT TAVA 25 CM",
+   "top": "KITCHEN WARE",
+   "end": "PROCHEF NON STICK COOKWARE"
+  },
+  {
+   "sr": "1899",
+   "name": "NSFT28PRC02 NON STICK PROCHEF FLAT TAVA 28 CM",
+   "top": "KITCHEN WARE",
+   "end": "PROCHEF NON STICK COOKWARE"
+  },
+  {
+   "sr": "1900",
+   "name": "NSFT30PRC03 NON STICK PROCHEF FLAT TAVA 30 CM",
+   "top": "KITCHEN WARE",
+   "end": "PROCHEF NON STICK COOKWARE"
+  },
+  {
+   "sr": "1901",
+   "name": "SSDNRSET24 STAINLESS STEEL DINNER SET - 24 PCS",
+   "top": "KITCHEN WARE",
+   "end": "SS DINNER SETS"
+  },
+  {
+   "sr": "1902",
+   "name": "SSDNRSET30 STAINLESS STEEL DINNER SET - 36 PCS",
+   "top": "KITCHEN WARE",
+   "end": "SS DINNER SETS"
+  },
+  {
+   "sr": "1903",
+   "name": "SSDNRSET51 STAINLESS STEEL DINNER SET - 57 PCS",
+   "top": "KITCHEN WARE",
+   "end": "SS DINNER SETS"
+  },
+  {
+   "sr": "1904",
+   "name": "BOCHOP01 EAZYPULL CHOPPER 600ML WITH 3 BLADES",
+   "top": "KITCHEN WARE",
+   "end": "KITCHEN ACCESSORIES"
+  },
+  {
+   "sr": "1905",
+   "name": "BOCHOP02 EAZYPULL CHOPPER 900ML WITH 6 BLADES",
+   "top": "KITCHEN WARE",
+   "end": "KITCHEN ACCESSORIES"
+  },
+  {
+   "sr": "1906",
+   "name": "SPATULASET03 3 PCS SPATULA SET (TURNER/SPATULA/SPOON)",
+   "top": "KITCHEN WARE",
+   "end": "KITCHEN ACCESSORIES"
+  },
+  {
+   "sr": "1907",
+   "name": "GWCHOPB01 GREENWOOD DICE CHOPPING BOARD",
+   "top": "KITCHEN WARE",
+   "end": "KITCHEN ACCESSORIES"
+  },
+  {
+   "sr": "1908",
+   "name": "GWCHOPB02 GREENWOOD DICE PRO CHOPPING BOARD",
+   "top": "KITCHEN WARE",
+   "end": "KITCHEN ACCESSORIES"
+  },
+  {
+   "sr": "1909",
+   "name": "GWCHOPB03 GREENWOOD PREMIUM CHOPPING BOARD",
+   "top": "KITCHEN WARE",
+   "end": "KITCHEN ACCESSORIES"
+  },
+  {
+   "sr": "1910",
+   "name": "CFBODHNDSRW BODY HANDLE WITH SCREWS & WASHER",
+   "top": "KITCHEN WARE",
+   "end": "COOKER ACCESSORIES"
+  },
+  {
+   "sr": "1911",
+   "name": "CFLIDHNDSRW LID HANDLE WITH SCREWS & WASHER",
+   "top": "KITCHEN WARE",
+   "end": "COOKER ACCESSORIES"
+  },
+  {
+   "sr": "1912",
+   "name": "CFSUBHNDSRW SUBSIDIARY HANDLE WITH SCREWS & WASHER",
+   "top": "KITCHEN WARE",
+   "end": "COOKER ACCESSORIES"
+  },
+  {
+   "sr": "1913",
+   "name": "CFVNTUBENUT VENT TUBE WITH NUT & WASHER",
+   "top": "KITCHEN WARE",
+   "end": "COOKER ACCESSORIES"
+  },
+  {
+   "sr": "1914",
+   "name": "CFVENTWEIGHT VENT WEIGHT",
+   "top": "KITCHEN WARE",
+   "end": "COOKER ACCESSORIES"
+  },
+  {
+   "sr": "1915",
+   "name": "CFGASKET05L AL RUBBER GASKET 5L&6.5L-PRESTO N PRONTO",
+   "top": "KITCHEN WARE",
+   "end": "COOKER ACCESSORIES"
+  },
+  {
+   "sr": "1916",
+   "name": "CFGASKET03BB AL RUBBER GASKET PRESTO 3 L",
+   "top": "KITCHEN WARE",
+   "end": "COOKER ACCESSORIES"
+  },
+  {
+   "sr": "1917",
+   "name": "CFGASKET03L RUBBER GASKET 3 L",
+   "top": "KITCHEN WARE",
+   "end": "COOKER ACCESSORIES"
+  },
+  {
+   "sr": "1918",
+   "name": "CFGASKET02L RUBBER GASKET 2 L",
+   "top": "KITCHEN WARE",
+   "end": "COOKER ACCESSORIES"
+  },
+  {
+   "sr": "1919",
+   "name": "CFSILIGASK05 SILICONE GASKET 5 L",
+   "top": "KITCHEN WARE",
+   "end": "COOKER ACCESSORIES"
+  },
+  {
+   "sr": "1920",
+   "name": "CFSILIGASK03 SILICONE GASKET 3 L",
+   "top": "KITCHEN WARE",
+   "end": "COOKER ACCESSORIES"
+  },
+  {
+   "sr": "1921",
+   "name": "CFSILIGASK15 SILICONE GASKET 1.5 L",
+   "top": "KITCHEN WARE",
+   "end": "COOKER ACCESSORIES"
+  },
+  {
+   "sr": "1922",
+   "name": "CFSILIGASK15 SILICONE GASKET 1.5 L",
+   "top": "KITCHEN WARE",
+   "end": "COOKER ACCESSORIES"
+  },
+  {
+   "sr": "1923",
+   "name": "CFOLCGASK35 OT LID COOKER SILICONE GASKET 3 L,5 L& 6.5 L",
+   "top": "KITCHEN WARE",
+   "end": "COOKER ACCESSORIES"
+  },
+  {
+   "sr": "1924",
+   "name": "HDECOCOPPER COPPER 1 L",
+   "top": "KITCHEN WARE",
+   "end": "ECO COPPER BOTTLES"
+  },
+  {
+   "sr": "1925",
+   "name": "HDECOCPCURV CURVY 1 L",
+   "top": "KITCHEN WARE",
+   "end": "ECO COPPER BOTTLES"
+  },
+  {
+   "sr": "1926",
+   "name": "HDECOCPTPRO COPPER PRO 950 ml",
+   "top": "KITCHEN WARE",
+   "end": "ECO COPPER BOTTLES"
+  },
+  {
+   "sr": "1927",
+   "name": "HDSSLCOPPER CHAKRA 1 L",
+   "top": "KITCHEN WARE",
+   "end": "ECO COPPER BOTTLES"
+  },
+  {
+   "sr": "1928",
+   "name": "HDARTMAY800ML MAYA 1 L",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - ARTH SERIES"
+  },
+  {
+   "sr": "1929",
+   "name": "HDARTSJY800ML SKYLAR 1 L",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - ARTH SERIES"
+  },
+  {
+   "sr": "1930",
+   "name": "HDARTPLAIN800 PLAIN 950 ml",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - ARTH SERIES"
+  },
+  {
+   "sr": "1931",
+   "name": "HDTHRVESTA950 VESTA 950 ML",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - TIRTHA SERIES"
+  },
+  {
+   "sr": "1932",
+   "name": "HDTHRVESTA600 VESTA 600 M",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - TIRTHA SERIES"
+  },
+  {
+   "sr": "1933",
+   "name": "HDTHRVVERA950 VERA  950 ML",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - TIRTHA SERIES"
+  },
+  {
+   "sr": "1934",
+   "name": "HDTHRVVERA600 VERA 600 ML",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - TIRTHA SERIES"
+  },
+  {
+   "sr": "1935",
+   "name": "HDTHRPLAIN600 PLAIN 600 ML",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - TIRTHA SERIES"
+  },
+  {
+   "sr": "1936",
+   "name": "HDCANMAYA1LTR MAYA 1 L",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - CANVAS SERIES"
+  },
+  {
+   "sr": "1937",
+   "name": "HDCANMAY700ML 700 ML",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - CANVAS SERIES"
+  },
+  {
+   "sr": "1938",
+   "name": "HDCANOSCR1LTR OSCAR  1 L",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - CANVAS SERIES"
+  },
+  {
+   "sr": "1939",
+   "name": "HDCANOSR700ML 700 ML",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - CANVAS SERIES"
+  },
+  {
+   "sr": "1940",
+   "name": "HDCANVEST1LTR VESTA 1 L",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - CANVAS SERIES"
+  },
+  {
+   "sr": "1941",
+   "name": "HDCANVAST700ML 700 ML",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - CANVAS SERIES"
+  },
+  {
+   "sr": "1942",
+   "name": "HDCANPLAN1LTR PLAIN 1 L",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - CANVAS SERIES"
+  },
+  {
+   "sr": "1943",
+   "name": "HDCANPLAN700ML 700 ML",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - CANVAS SERIES"
+  },
+  {
+   "sr": "1944",
+   "name": "HDORRACLAR950 CLARA 950 ML",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - ORRA SERIES"
+  },
+  {
+   "sr": "1945",
+   "name": "HDORRACLAR600 600 M",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - ORRA SERIES"
+  },
+  {
+   "sr": "1946",
+   "name": "HDORRAOSCA950 OSCAR 950 ML",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - ORRA SERIES"
+  },
+  {
+   "sr": "1947",
+   "name": "HDORRAOSCA600 600 ML",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - ORRA SERIES"
+  },
+  {
+   "sr": "1948",
+   "name": "HDORAPLAIN950 PLAIN 950 ML",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - ORRA SERIES"
+  },
+  {
+   "sr": "1949",
+   "name": "HDORAPLAIN600 600 ML",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - ORRA SERIES"
+  },
+  {
+   "sr": "1950",
+   "name": "HDGEMQUIN1LTR QUINN 1 L",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - GEMINI SERIES"
+  },
+  {
+   "sr": "1951",
+   "name": "HDGEMQUINN800 800 M",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - GEMINI SERIES"
+  },
+  {
+   "sr": "1952",
+   "name": "HDGEMVERA1LTR VERA  1 L",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - GEMINI SERIES"
+  },
+  {
+   "sr": "1953",
+   "name": "HDGEMIVERA800 800 ML",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - GEMINI SERIES"
+  },
+  {
+   "sr": "1954",
+   "name": "HDGEMPLAI1LTR PLAIN 1 L",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - GEMINI SERIES"
+  },
+  {
+   "sr": "1955",
+   "name": "HDGEMPLAIN800 800 ML",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - GEMINI SERIES"
+  },
+  {
+   "sr": "1956",
+   "name": "AKHAND DIYA- BRASS-HDTRAKDB056 SMALL",
+   "top": "Home Decor",
+   "end": "Diyas & puja thali"
+  },
+  {
+   "sr": "1957",
+   "name": "AKHAND DIYA- BRASS-HDTRAKDB100 MEDIUM",
+   "top": "Home Decor",
+   "end": "Diyas & puja thali"
+  },
+  {
+   "sr": "1958",
+   "name": "AKHAND DIYA- BRASS-HDTRAKDB350 LARGE",
+   "top": "Home Decor",
+   "end": "Diyas & puja thali"
+  },
+  {
+   "sr": "1959",
+   "name": "HDCRTSKR950ML SKYLAR 950 ML",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - CREST SERIES"
+  },
+  {
+   "sr": "1960",
+   "name": "HDCANMAY700ML QUINN 950 ML",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - CREST SERIES"
+  },
+  {
+   "sr": "1961",
+   "name": "HDCANOSCR1LTR OSCAR 950 ML",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - CREST SERIES"
+  },
+  {
+   "sr": "1962",
+   "name": "AKHAND DIYA- NICKE-HDTRAKDN056 SMALL",
+   "top": "Home Decor",
+   "end": "Diyas & puja thali"
+  },
+  {
+   "sr": "1963",
+   "name": "AKHAND DIYA- NICKEL-HDTRAKDN100 MEDIUM",
+   "top": "Home Decor",
+   "end": "Diyas & puja thali"
+  },
+  {
+   "sr": "1964",
+   "name": "AKHAND DIYA- NICKEL-HDTRAKDN350 LARGE",
+   "top": "Home Decor",
+   "end": "Diyas & puja thali"
+  },
+  {
+   "sr": "1965",
+   "name": "AARTI DIYA-HDTRADSB100 MEDIUM",
+   "top": "Home Decor",
+   "end": "Diyas & puja thali"
+  },
+  {
+   "sr": "1966",
+   "name": "SHUBH DIYA-HDTRLTDB100 MEDIUM",
+   "top": "Home Decor",
+   "end": "Diyas & puja thali"
+  },
+  {
+   "sr": "1967",
+   "name": "KAMAL DIYA-HDTRLTDB056 SMALL",
+   "top": "Home Decor",
+   "end": "Diyas & puja thali"
+  },
+  {
+   "sr": "1968",
+   "name": "DIFFUSER - BRASS-HDTRDFBR100 MEDIUM",
+   "top": "Home Decor",
+   "end": "Diyas & puja thali"
+  },
+  {
+   "sr": "1969",
+   "name": "DHANALAXMI DIYA-HDTRDLDBR100 MEDIUM",
+   "top": "Home Decor",
+   "end": "Diyas & puja thali"
+  },
+  {
+   "sr": "1970",
+   "name": "HDECOCOPRGRY GREY 1.1 L",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - ECO SERIES"
+  },
+  {
+   "sr": "1971",
+   "name": "HDECOCOPRGRE GREEN 1.1 L",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - ECO SERIES"
+  },
+  {
+   "sr": "1972",
+   "name": "HDECOCOPRBRN BROWN 1.1 L",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - ECO SERIES"
+  },
+  {
+   "sr": "1973",
+   "name": "HDECOCOPRBLK BLACK 1.1 L",
+   "top": "KITCHEN WARE",
+   "end": "COPPER BOTTLES - ECO SERIES"
+  },
+  {
+   "sr": "1974",
+   "name": "MANGAL DIYA-HDTRAKHN100 MEDIUM",
+   "top": "Home Decor",
+   "end": "Diyas & puja thali"
+  },
+  {
+   "sr": "1975",
+   "name": "HDTRAKHN056 SMALL",
+   "top": "Home Decor",
+   "end": "Diyas & puja thali"
+  },
+  {
+   "sr": "1976",
+   "name": "PUJA THALI - BRASS-HDTRPTBR710 MEDIUM",
+   "top": "Home Decor",
+   "end": "Diyas & puja thali"
+  },
+  {
+   "sr": "1977",
+   "name": "HDSIPPPRGRAYEC GRAY 750 ml",
+   "top": "KITCHEN WARE",
+   "end": "COLOUR COPPER SIPPERS"
+  },
+  {
+   "sr": "1978",
+   "name": "HDSIPPPRGRENEC GREEN 750 ml",
+   "top": "KITCHEN WARE",
+   "end": "COLOUR COPPER SIPPERS"
+  },
+  {
+   "sr": "1979",
+   "name": "HDSIPPPRBRONEC BROWN 750 ml",
+   "top": "KITCHEN WARE",
+   "end": "COLOUR COPPER SIPPERS"
+  },
+  {
+   "sr": "1980",
+   "name": "HDSIPPPRBLAKEC BLACK 750 ml",
+   "top": "KITCHEN WARE",
+   "end": "COLOUR COPPER SIPPERS"
+  },
+  {
+   "sr": "1981",
+   "name": "FUSION THALI SET HDORRACLAR950 1 PLATE  2 BOWL  1 SMALL PLATE 1 GLASS-1 )",
+   "top": "KITCHEN WARE",
+   "end": "Combination set"
+  },
+  {
+   "sr": "1982",
+   "name": "ECO COPPER BOTTLE SET HDECOCOPERGL PLAIN  COPPER BOTTLE  1 L X 1 +  2 X GLASS 250  ML ( 80 GRM )",
+   "top": "KITCHEN WARE",
+   "end": "Combination set"
+  },
+  {
+   "sr": "1983",
+   "name": "ECO - COLOUR COPPER COMBINATION SETS- HDECOGRENCRST ECO - COLOUR COPPER BOTTLE 1 L X 1 + 2 X GLASS 250 ML  - GREEN",
+   "top": "KITCHEN WARE",
+   "end": "Combination set"
+  },
+  {
+   "sr": "1984",
+   "name": "ECO - COLOUR COPPER COMBINATION SETS-HDECOGRAYCRST ECO - COLOUR COPPER BOTTLE 1 L X 1 + 2 X GLASS 250 ML  - GRAY",
+   "top": "KITCHEN WARE",
+   "end": "Combination set"
+  },
+  {
+   "sr": "1985",
+   "name": "ECO - COLOUR COPPER COMBINATION SETS-HDECOBRWNCRST ECO - COLOUR COPPER BOTTLE 1 L X 1 + 2 X GLASS 250 ML  - BROWN",
+   "top": "KITCHEN WARE",
+   "end": "Combination set"
+  },
+  {
+   "sr": "1986",
+   "name": "ECO - COLOUR COPPER COMBINATION SETS-HDECOBLAKCRST ECO - COLOUR COPPER BOTTLE 1 L X 1 + 2 X GLASS 250 ML  - BLACK",
+   "top": "KITCHEN WARE",
+   "end": "Combination set"
+  },
+  {
+   "sr": "1987",
+   "name": "BT300BLK110 COFFEEMATE - 300 ML",
+   "top": "KITCHEN WARE",
+   "end": "COFFEEMATE SERIES"
+  },
+  {
+   "sr": "1988",
+   "name": "BT300WHE131 COFFEEMATE WHITE 300 ML",
+   "top": "KITCHEN WARE",
+   "end": "COFFEEMATE SERIES"
+  },
+  {
+   "sr": "1989",
+   "name": "BT300MCA132 COFFEEMATE- MOCHA 300 ML",
+   "top": "KITCHEN WARE",
+   "end": "COFFEEMATE SERIES"
+  },
+  {
+   "sr": "1990",
+   "name": "BT380BLK130 COFFEEMATE - 380 ML",
+   "top": "KITCHEN WARE",
+   "end": "COFFEEMATE SERIES"
+  },
+  {
+   "sr": "1991",
+   "name": "BOCOS320GD COSMIC GOLD 320 ML",
+   "top": "KITCHEN WARE",
+   "end": "COFFEEMATE SERIES"
+  },
+  {
+   "sr": "1992",
+   "name": "BOCOS320BL COSMIC  BLACK 320 ML",
+   "top": "KITCHEN WARE",
+   "end": "COFFEEMATE SERIES"
+  },
+  {
+   "sr": "1993",
+   "name": "BT300BLK126 TRAVELLER-300ML",
+   "top": "KITCHEN WARE",
+   "end": "TRAVEL BUDDY"
+  },
+  {
+   "sr": "1994",
+   "name": "BT350SSB109 TRAVELMATE - 350ML",
+   "top": "KITCHEN WARE",
+   "end": "TRAVEL BUDDY"
+  },
+  {
+   "sr": "1995",
+   "name": "BT360BN113 TRAVELEASE - BROWN 360 ML",
+   "top": "KITCHEN WARE",
+   "end": "TRAVEL BUDDY"
+  },
+  {
+   "sr": "1996",
+   "name": "BT360PE114 TRAVELEASE - 360 PURPLE 360 ML",
+   "top": "KITCHEN WARE",
+   "end": "TRAVEL BUDDY"
+  },
+  {
+   "sr": "1997",
+   "name": "BT420BN101 TRAVELEASE - 420 BROWN 420 ML",
+   "top": "KITCHEN WARE",
+   "end": "TRAVEL BUDDY"
+  },
+  {
+   "sr": "1998",
+   "name": "BT420PE102 TRAVELEASE - 420 PURPLE 420 ML",
+   "top": "KITCHEN WARE",
+   "end": "TRAVEL BUDDY"
+  },
+  {
+   "sr": "1999",
+   "name": "BT500BE111 NOVA - 500 BLUE 500 ML",
+   "top": "KITCHEN WARE",
+   "end": "TRAVEL BUDDY"
+  },
+  {
+   "sr": "2000",
+   "name": "BT500TM112 NOVA - 500 TITANIUM 500 ML",
+   "top": "KITCHEN WARE",
+   "end": "TRAVEL BUDDY"
+  },
+  {
+   "sr": "2001",
+   "name": "BT500SS113 NOVA - 500 500 ML",
+   "top": "KITCHEN WARE",
+   "end": "TRAVEL BUDDY"
+  },
+  {
+   "sr": "2002",
+   "name": "BLIS0500BK37 BLISS BLACK 500 ML",
+   "top": "KITCHEN WARE",
+   "end": "TRAVEL BUDDY"
+  },
+  {
+   "sr": "2003",
+   "name": "MUG410GDN22 EASYGO MUG-410 ML",
+   "top": "KITCHEN WARE",
+   "end": "MUG SERIES"
+  },
+  {
+   "sr": "2004",
+   "name": "BM0400BK04 CAFÉ TIME- 400 ML",
+   "top": "KITCHEN WARE",
+   "end": "MUG SERIES"
+  },
+  {
+   "sr": "2005",
+   "name": "BTU0500BLK36 HIKE TUMBLER 500-BLACK 500 ML",
+   "top": "KITCHEN WARE",
+   "end": "MUG SERIES"
+  },
+  {
+   "sr": "2006",
+   "name": "MUG540BLK40 KLASSIC SUPER MUG BLACK 540 ML",
+   "top": "KITCHEN WARE",
+   "end": "MUG SERIES"
+  },
+  {
+   "sr": "2007",
+   "name": "CM500PNK41 CARRY MATE PINK 500 ML",
+   "top": "KITCHEN WARE",
+   "end": "MUG SERIES"
+  },
+  {
+   "sr": "2008",
+   "name": "CM500BLK42 CARRY MATE BLACK 500 ML",
+   "top": "KITCHEN WARE",
+   "end": "MUG SERIES"
+  },
+  {
+   "sr": "2009",
+   "name": "BT0700GRN401 COLOR CRUSH GREEN - 700ML",
+   "top": "KITCHEN WARE",
+   "end": "COLOR CRUSH SERIES"
+  },
+  {
+   "sr": "2010",
+   "name": "BT0700BLE402 COLOR CRUSH BLUE - 700ML",
+   "top": "KITCHEN WARE",
+   "end": "COLOR CRUSH SERIES"
+  },
+  {
+   "sr": "2011",
+   "name": "BT0700VLT403 COLOR CRUSH VOILET - 700ML",
+   "top": "KITCHEN WARE",
+   "end": "COLOR CRUSH SERIES"
+  },
+  {
+   "sr": "2012",
+   "name": "BT0700RED404 COLOR CRUSH RED - 700 ML",
+   "top": "KITCHEN WARE",
+   "end": "COLOR CRUSH SERIES"
+  },
+  {
+   "sr": "2013",
+   "name": "FGFTL350BLA THERMO BLACK 350 ML",
+   "top": "KITCHEN WARE",
+   "end": "THERMO SERIES"
+  },
+  {
+   "sr": "2014",
+   "name": "FGFTL350BLU THERMO BLUE 350 ML",
+   "top": "KITCHEN WARE",
+   "end": "THERMO SERIES"
+  },
+  {
+   "sr": "2015",
+   "name": "FGFTL500BLU THERMO BLUE 500 ML",
+   "top": "KITCHEN WARE",
+   "end": "THERMO SERIES"
+  },
+  {
+   "sr": "2016",
+   "name": "FGFTL501BLK THERMO BLACK CP 500 ML",
+   "top": "KITCHEN WARE",
+   "end": "THERMO SERIES"
+  },
+  {
+   "sr": "2017",
+   "name": "FGFTL750BLU THERMO BLUE 750 ML",
+   "top": "KITCHEN WARE",
+   "end": "THERMO SERIES"
+  },
+  {
+   "sr": "2018",
+   "name": "FGBOLBT BOLT - 500 BLACK MATTE- NEW 500 ML",
+   "top": "KITCHEN WARE",
+   "end": "DOUBLE WALL SERIES BOLT SERIES"
+  },
+  {
+   "sr": "2019",
+   "name": "FGBO5LBLT4 BOLT BLUE - UP 500 ML",
+   "top": "KITCHEN WARE",
+   "end": "DOUBLE WALL SERIES BOLT SERIES"
+  },
+  {
+   "sr": "2020",
+   "name": "ISFGBO075S1 BOLT 750 CP 750 ML",
+   "top": "KITCHEN WARE",
+   "end": "DOUBLE WALL SERIES BOLT SERIES"
+  },
+  {
+   "sr": "2021",
+   "name": "FGBOL75BL2 BOLT TRANS BLUE - 750 750 ML",
+   "top": "KITCHEN WARE",
+   "end": "DOUBLE WALL SERIES BOLT SERIES"
+  },
+  {
+   "sr": "2022",
+   "name": "FGBOL75RD1 BOLT TRANS RED - 750 CP",
+   "top": "KITCHEN WARE",
+   "end": "DOUBLE WALL SERIES BOLT SERIES"
+  },
+  {
+   "sr": "2023",
+   "name": "ISFGBO10S4 BOLT 1L",
+   "top": "KITCHEN WARE",
+   "end": "DOUBLE WALL SERIES BOLT SERIES"
+  },
+  {
+   "sr": "2024",
+   "name": "FGBOL01LBT BOLT BLACK MATTE 1 L",
+   "top": "KITCHEN WARE",
+   "end": "DOUBLE WALL SERIES BOLT SERIES"
+  },
+  {
+   "sr": "2025",
+   "name": "FGBO1LBLT4 BOLT  BLUE 1 L",
+   "top": "KITCHEN WARE",
+   "end": "DOUBLE WALL SERIES BOLT SERIES"
+  },
+  {
+   "sr": "2026",
+   "name": "B1500CP01 BOLT 1500 CP 1.5 L",
+   "top": "KITCHEN WARE",
+   "end": "DOUBLE WALL SERIES BOLT SERIES"
+  },
+  {
+   "sr": "2027",
+   "name": "B1800CP02 BOLT -1800 CP 1.8 L",
+   "top": "KITCHEN WARE",
+   "end": "DOUBLE WALL SERIES BOLT SERIES"
+  },
+  {
+   "sr": "2028",
+   "name": "BT750SSB108 NATURAL - 750 750 ML",
+   "top": "KITCHEN WARE",
+   "end": "DOUBLE WALL SERIES BOLT SERIES"
+  },
+  {
+   "sr": "2029",
+   "name": "ISFGBO0350S BOLT - 350 350 ML",
+   "top": "KITCHEN WARE",
+   "end": "DOUBLE WALL SERIES BOLT SERIES"
+  },
+  {
+   "sr": "2030",
+   "name": "ISFGBO05S2 BOLT - 500",
+   "top": "KITCHEN WARE",
+   "end": "DOUBLE WALL SERIES BOLT SERIES"
+  },
+  {
+   "sr": "2031",
+   "name": "FGBOL5LBL4 BOLT TRANS BLUE 500 ML",
+   "top": "KITCHEN WARE",
+   "end": "DOUBLE WALL SERIES BOLT SERIES"
+  },
+  {
+   "sr": "2032",
+   "name": "FGBOL5LRD4 BOLT TRANS RED 500 ML",
+   "top": "KITCHEN WARE",
+   "end": "DOUBLE WALL SERIES BOLT SERIES"
+  },
+  {
+   "sr": "2033",
+   "name": "BDM750BKT4 DUOMATE BLACK 750 ML",
+   "top": "KITCHEN WARE",
+   "end": "DUOMATE SERIES"
+  },
+  {
+   "sr": "2034",
+   "name": "BDM750SBE4 DUOMATE BLUE 750 ML",
+   "top": "KITCHEN WARE",
+   "end": "DUOMATE SERIES"
+  },
+  {
+   "sr": "2035",
+   "name": "BDM750SGN4 DUOMATE GREEN 750 ML",
+   "top": "KITCHEN WARE",
+   "end": "DUOMATE SERIES"
+  },
+  {
+   "sr": "2036",
+   "name": "BDM900BKT4 DUOMATE BLACK 900 ML",
+   "top": "KITCHEN WARE",
+   "end": "DUOMATE SERIES"
+  },
+  {
+   "sr": "2037",
+   "name": "BDM900SBE4 DUOMATE BLUE 900 ML",
+   "top": "KITCHEN WARE",
+   "end": "DUOMATE SERIES"
+  },
+  {
+   "sr": "2038",
+   "name": "BDM900SGN4 DUOMATE GREEN 900 ML",
+   "top": "KITCHEN WARE",
+   "end": "DUOMATE SERIES"
+  },
+  {
+   "sr": "2039",
+   "name": "KBT500BLE14 SUPERHERO KIDS WATER BOTTLE 500 ML",
+   "top": "KITCHEN WARE",
+   "end": "KIDS BOTTLES SERIES"
+  },
+  {
+   "sr": "2040",
+   "name": "KBT500PNK15 PRINCESS KIDS WATER BOTTLE 500 ML",
+   "top": "KITCHEN WARE",
+   "end": "KIDS BOTTLES SERIES"
+  },
+  {
+   "sr": "2041",
+   "name": "KBT500ORE16 TIGRY KIDS WATER BOTTLE 500 ML",
+   "top": "KITCHEN WARE",
+   "end": "KIDS BOTTLES SERIES"
+  },
+  {
+   "sr": "2042",
+   "name": "BSW750SS40 GRIP-N-SIP 750 ML",
+   "top": "KITCHEN WARE",
+   "end": "GRIP-N-SIP SERIES"
+  },
+  {
+   "sr": "2043",
+   "name": "BSW750MR41 GRIP-N-SIP-MAROON 750 ML",
+   "top": "KITCHEN WARE",
+   "end": "GRIP-N-SIP SERIES"
+  },
+  {
+   "sr": "2044",
+   "name": "BSW750BK42 GRIP-N-SIP-BLACK 750 ML",
+   "top": "KITCHEN WARE",
+   "end": "GRIP-N-SIP SERIES"
+  },
+  {
+   "sr": "2045",
+   "name": "BSW1000SS43 GRIP-N-SIP 1 L",
+   "top": "KITCHEN WARE",
+   "end": "GRIP-N-SIP SERIES"
+  },
+  {
+   "sr": "2046",
+   "name": "BSW1000BK44 GRIP-N-SIP-BLACK 1 L",
+   "top": "KITCHEN WARE",
+   "end": "GRIP-N-SIP SERIES"
+  },
+  {
+   "sr": "2047",
+   "name": "BSW1000MR45 GRIP-N-SIP-MAROON 1 L",
+   "top": "KITCHEN WARE",
+   "end": "GRIP-N-SIP SERIES"
+  },
+  {
+   "sr": "2048",
+   "name": "FLKT20LOY11 TEAPOT - 2L OYSTER",
+   "top": "KITCHEN WARE",
+   "end": "TEAPOTS"
+  },
+  {
+   "sr": "2049",
+   "name": "FLKT15GRY43 TEAPOT-BIRCH 1500",
+   "top": "KITCHEN WARE",
+   "end": "TEAPOTS"
+  },
+  {
+   "sr": "2050",
+   "name": "FLKT15GRY43 TEAPOT-BIRCH 1500",
+   "top": "KITCHEN WARE",
+   "end": "TEAPOTS"
+  },
+  {
+   "sr": "2051",
+   "name": "FLKT15RED20 TEAPOT-1.5L-RED",
+   "top": "KITCHEN WARE",
+   "end": "TEAPOTS"
+  },
+  {
+   "sr": "2052",
+   "name": "FLKT15SS21 TEAPOT 1500 - SS",
+   "top": "KITCHEN WARE",
+   "end": "TEAPOTS"
+  },
+  {
+   "sr": "2053",
+   "name": "FLKT1LBLK15 TEAPOT 1000-BLACK",
+   "top": "KITCHEN WARE",
+   "end": "TEAPOTS"
+  },
+  {
+   "sr": "2054",
+   "name": "FLKT1LRED13 TEAPOT 1000-RED",
+   "top": "KITCHEN WARE",
+   "end": "TEAPOTS"
+  },
+  {
+   "sr": "2055",
+   "name": "FLKT1LSSB11 TEAPOT 1000-SS",
+   "top": "KITCHEN WARE",
+   "end": "TEAPOTS"
+  },
+  {
+   "sr": "2056",
+   "name": "FLKT75BLK16 TEAPOT - 750 BLACK",
+   "top": "KITCHEN WARE",
+   "end": "TEAPOTS"
+  },
+  {
+   "sr": "2057",
+   "name": "FLKT75RED14 TEAPOT - 750 RED",
+   "top": "KITCHEN WARE",
+   "end": "TEAPOTS"
+  },
+  {
+   "sr": "2058",
+   "name": "FLKT75SSB12 TEAPOT - 750 SS",
+   "top": "KITCHEN WARE",
+   "end": "TEAPOTS"
+  },
+  {
+   "sr": "2059",
+   "name": "FLKT50SSB11 TEAPOT - 500 SS",
+   "top": "KITCHEN WARE",
+   "end": "TEAPOTS"
+  },
+  {
+   "sr": "2060",
+   "name": "FLKT50RED12 TEAPOT - 500 RED",
+   "top": "KITCHEN WARE",
+   "end": "TEAPOTS"
+  },
+  {
+   "sr": "2061",
+   "name": "FLKT50BLK13 TEAPOT - 500 BLACK",
+   "top": "KITCHEN WARE",
+   "end": "TEAPOTS"
+  },
+  {
+   "sr": "2062",
+   "name": "BAP3000SS37 BOROSIL AIRPOT-3L",
+   "top": "KITCHEN WARE",
+   "end": "TEAPOTS"
+  },
+  {
+   "sr": "2063",
+   "name": "BWJPUF501 WONDER WATER JUG - 5.7L",
+   "top": "KITCHEN WARE",
+   "end": "WONDERJUG"
+  },
+  {
+   "sr": "2064",
+   "name": "BWJPUF502 WONDER WATER JUG - 7.6L",
+   "top": "KITCHEN WARE",
+   "end": "WONDERJUG"
+  },
+  {
+   "sr": "2065",
+   "name": "BWJPUF503 WONDER WATER JUG - 9.5L",
+   "top": "KITCHEN WARE",
+   "end": "WONDERJUG"
+  },
+  {
+   "sr": "2066",
+   "name": "FGSTIFFCON2 HOT N FRESH - 2 CONTAINERS",
+   "top": "KITCHEN WARE",
+   "end": "VACUUM LUNCH BOXES"
+  },
+  {
+   "sr": "2067",
+   "name": "FGSTIFFCON3 HOT N FRESH - 3 CONTAINERS",
+   "top": "KITCHEN WARE",
+   "end": "VACUUM LUNCH BOXES"
+  },
+  {
+   "sr": "2068",
+   "name": "FGCARRYMEGY3 CARRYME LUNCH BOX (GREY 3 CONTAINERS)",
+   "top": "KITCHEN WARE",
+   "end": "VACUUM LUNCH BOXES"
+  },
+  {
+   "sr": "2069",
+   "name": "FGSTIFFCON4 HOT N FRESH - 4 CONTAINERS",
+   "top": "KITCHEN WARE",
+   "end": "VACUUM LUNCH BOXES"
+  },
+  {
+   "sr": "2070",
+   "name": "BSW1LSS64 LAGUNA 1 L",
+   "top": "KITCHEN WARE",
+   "end": "LAGUNA SERIES"
+  },
+  {
+   "sr": "2071",
+   "name": "BSW1LRD65 LAGUNA RED 1 L",
+   "top": "KITCHEN WARE",
+   "end": "LAGUNA SERIES"
+  },
+  {
+   "sr": "2072",
+   "name": "BSW1LGN66 LAGUNA GREEN 1 L",
+   "top": "KITCHEN WARE",
+   "end": "LAGUNA SERIES"
+  },
+  {
+   "sr": "2073",
+   "name": "BSW1LGY67 LAGUNA GREY 1 L",
+   "top": "KITCHEN WARE",
+   "end": "LAGUNA SERIES"
+  },
+  {
+   "sr": "2074",
+   "name": "BSW1LCM55 COOLSIP MINT 1000",
+   "top": "KITCHEN WARE",
+   "end": "SINGLE WALL SERIES BOTTLE"
+  },
+  {
+   "sr": "2075",
+   "name": "BSW1LCL56 COOLSIP LAVENDER 1000",
+   "top": "KITCHEN WARE",
+   "end": "SINGLE WALL SERIES BOTTLE"
+  },
+  {
+   "sr": "2076",
+   "name": "BSW740CM57 CHILLMATE 740",
+   "top": "KITCHEN WARE",
+   "end": "SINGLE WALL SERIES BOTTLE"
+  },
+  {
+   "sr": "2077",
+   "name": "BSW1LSC58 SIP N CHILL BLACK 1000",
+   "top": "KITCHEN WARE",
+   "end": "SINGLE WALL SERIES BOTTLE"
+  },
+  {
+   "sr": "2078",
+   "name": "GRANDE 1000W 3 JAR MIXER GRINDER 1000W",
+   "top": "KITCHEN WARE",
+   "end": "MIXER GRINDER"
+  },
+  {
+   "sr": "2079",
+   "name": "DURAMAX MG 750W - NEW 750W",
+   "top": "KITCHEN WARE",
+   "end": "MIXER GRINDER"
+  },
+  {
+   "sr": "2080",
+   "name": "SILVERLINE 750 W MIXER GRINDER 750W",
+   "top": "KITCHEN WARE",
+   "end": "MIXER GRINDER"
+  },
+  {
+   "sr": "2081",
+   "name": "SILVERLINE 750 W MIXER GRINDER 750W",
+   "top": "KITCHEN WARE",
+   "end": "MIXER GRINDER"
+  },
+  {
+   "sr": "2082",
+   "name": "INFINITY 750W MIXER GRINDER 750W",
+   "top": "KITCHEN WARE",
+   "end": "MIXER GRINDER"
+  },
+  {
+   "sr": "2083",
+   "name": "INFINITY 750W 4 JAR MIXER GRINDER 750W",
+   "top": "KITCHEN WARE",
+   "end": "MIXER GRINDER"
+  },
+  {
+   "sr": "2084",
+   "name": "SUPERMAX 750W MIXER GRINDER-RED 750W",
+   "top": "KITCHEN WARE",
+   "end": "MIXER GRINDER"
+  },
+  {
+   "sr": "2085",
+   "name": "SILVERLINE RG 600W MG - NEW 600W",
+   "top": "KITCHEN WARE",
+   "end": "MIXER GRINDER"
+  },
+  {
+   "sr": "2086",
+   "name": "BEST 500W MIXER GRINDER 500W",
+   "top": "KITCHEN WARE",
+   "end": "MIXER GRINDER"
+  },
+  {
+   "sr": "2087",
+   "name": "BEST 500W BLUE MIXER GRINDER 500",
+   "top": "KITCHEN WARE",
+   "end": "MIXER GRINDER"
+  },
+  {
+   "sr": "2088",
+   "name": "HOME STAR 500W MIXER GRINDER 500W",
+   "top": "KITCHEN WARE",
+   "end": "MIXER GRINDER"
+  },
+  {
+   "sr": "2089",
+   "name": "MAX 500W MG - NEW 500W",
+   "top": "KITCHEN WARE",
+   "end": "MIXER GRINDER"
+  },
+  {
+   "sr": "2090",
+   "name": "STAR 500W-BLUE MIXER GRINDER 500W",
+   "top": "KITCHEN WARE",
+   "end": "MIXER GRINDER"
+  },
+  {
+   "sr": "2091",
+   "name": "STAR 500W-MAROON MIXER GRINDER 500W",
+   "top": "KITCHEN WARE",
+   "end": "MIXER GRINDER"
+  },
+  {
+   "sr": "2092",
+   "name": "PRIMA PRO 10L OTG - 800W",
+   "top": "KITCHEN WARE",
+   "end": "OVEN TOASTER GRILLER"
+  },
+  {
+   "sr": "2093",
+   "name": "PRIMA PRO 16L OTG - 1350 W",
+   "top": "KITCHEN WARE",
+   "end": "OVEN TOASTER GRILLER"
+  },
+  {
+   "sr": "2094",
+   "name": "PRO PLUS 20L OTG 1380W",
+   "top": "KITCHEN WARE",
+   "end": "OVEN TOASTER GRILLER"
+  },
+  {
+   "sr": "2095",
+   "name": "PRIMA 24L OTG 1600W",
+   "top": "KITCHEN WARE",
+   "end": "OVEN TOASTER GRILLER"
+  },
+  {
+   "sr": "2096",
+   "name": "PRIMA PRO 30L OTG -1500W",
+   "top": "KITCHEN WARE",
+   "end": "OVEN TOASTER GRILLER"
+  },
+  {
+   "sr": "2097",
+   "name": "PRIMA 42L OTG 2000W",
+   "top": "KITCHEN WARE",
+   "end": "OVEN TOASTER GRILLER"
+  },
+  {
+   "sr": "2098",
+   "name": "PRIMA 48L OTG 2000W",
+   "top": "KITCHEN WARE",
+   "end": "OVEN TOASTER GRILLER"
+  },
+  {
+   "sr": "2099",
+   "name": "KRISPY POP-UP TOASTER BLACK 750W",
+   "top": "KITCHEN WARE",
+   "end": "POP - UP TOASTER"
+  },
+  {
+   "sr": "2100",
+   "name": "KRISPY 4 SLICE SS POP TOASTER 1500W",
+   "top": "KITCHEN WARE",
+   "end": "POP - UP TOASTER"
+  },
+  {
+   "sr": "2101",
+   "name": "RED KRISPY POP-UP TOASTER-PR12 800W",
+   "top": "KITCHEN WARE",
+   "end": "POP - UP TOASTER"
+  },
+  {
+   "sr": "2102",
+   "name": "KRISPY (SS) POP-UP TOASTER 850W",
+   "top": "KITCHEN WARE",
+   "end": "POP - UP TOASTER"
+  },
+  {
+   "sr": "2103",
+   "name": "PRIME GRILL 700W",
+   "top": "KITCHEN WARE",
+   "end": "SANDWICH MAKER"
+  },
+  {
+   "sr": "2104",
+   "name": "ELITE PRIME GRILL - NEW 1000W",
+   "top": "KITCHEN WARE",
+   "end": "SANDWICH MAKER"
+  },
+  {
+   "sr": "2105",
+   "name": "JUMBO GRILL 1000W",
+   "top": "KITCHEN WARE",
+   "end": "SANDWICH MAKER"
+  },
+  {
+   "sr": "2106",
+   "name": "JUMBO 180° GRILL 1500W",
+   "top": "KITCHEN WARE",
+   "end": "SANDWICH MAKER"
+  },
+  {
+   "sr": "2107",
+   "name": "SUPER JUMBO 180 GRILL 2000W",
+   "top": "KITCHEN WARE",
+   "end": "SANDWICH MAKER"
+  },
+  {
+   "sr": "2108",
+   "name": "SUPER JUMBO GRILL SANDWICH MAKER 2000W",
+   "top": "KITCHEN WARE",
+   "end": "SANDWICH MAKER"
+  },
+  {
+   "sr": "2109",
+   "name": "TOAST SANDWICH MAKER - NEW 750W",
+   "top": "KITCHEN WARE",
+   "end": "SANDWICH MAKER"
+  },
+  {
+   "sr": "2110",
+   "name": "GRILLMATE SANDWICH MAKER - NEW 750W",
+   "top": "KITCHEN WARE",
+   "end": "SANDWICH MAKER"
+  },
+  {
+   "sr": "2111",
+   "name": "KLASSY GRILL SANDWICH MAKER - NEW 800W",
+   "top": "KITCHEN WARE",
+   "end": "SANDWICH MAKER"
+  },
+  {
+   "sr": "2112",
+   "name": "KLASSY SANDWICH MAKER 800W",
+   "top": "KITCHEN WARE",
+   "end": "SANDWICH MAKER"
+  },
+  {
+   "sr": "2113",
+   "name": "NUTRIFRESH PB33 400W",
+   "top": "KITCHEN WARE",
+   "end": "MINI BLENDER & GRINDER"
+  },
+  {
+   "sr": "2114",
+   "name": "NUTRIFRESH PB32 400W",
+   "top": "KITCHEN WARE",
+   "end": "MINI BLENDER & GRINDER"
+  },
+  {
+   "sr": "2115",
+   "name": "NUTRI FRESH-PB31 400W",
+   "top": "KITCHEN WARE",
+   "end": "MINI BLENDER & GRINDER"
+  },
+  {
+   "sr": "2116",
+   "name": "NUTRIFRESH PB41 400W",
+   "top": "KITCHEN WARE",
+   "end": "MINI BLENDER & GRINDER"
+  },
+  {
+   "sr": "2117",
+   "name": "NUTRIFRESH PB42-PURPLE -  400W",
+   "top": "KITCHEN WARE",
+   "end": "MINI BLENDER & GRINDER"
+  },
+  {
+   "sr": "2118",
+   "name": "NUTRIFRESH PB43-GOLD - NEW 400W",
+   "top": "KITCHEN WARE",
+   "end": "MINI BLENDER & GRINDER"
+  },
+  {
+   "sr": "2119",
+   "name": "NUTRIFRESH NB05 MAROON 400W",
+   "top": "KITCHEN WARE",
+   "end": "MINI BLENDER & GRINDER"
+  },
+  {
+   "sr": "2120",
+   "name": "NUTRIFRESH NB04 BLACK 400W",
+   "top": "KITCHEN WARE",
+   "end": "MINI BLENDER & GRINDER"
+  },
+  {
+   "sr": "2121",
+   "name": "NUTRIFRESH PB41 400W",
+   "top": "KITCHEN WARE",
+   "end": "MINI BLENDER & GRINDER"
+  },
+  {
+   "sr": "2122",
+   "name": "NEO WAFFLE MAKER 1000W",
+   "top": "KITCHEN WARE",
+   "end": "WAFFLE MAKER"
+  },
+  {
+   "sr": "2123",
+   "name": "NEO WAFFLE MAKER 1000W",
+   "top": "KITCHEN WARE",
+   "end": "WAFFLE MAKER"
+  },
+  {
+   "sr": "2124",
+   "name": "PRIMUS II 500 W JUICER MIXER GRINDER 500W",
+   "top": "KITCHEN WARE",
+   "end": "JUICER MIXER GRINDER"
+  },
+  {
+   "sr": "2125",
+   "name": "PRONTO 1.0 L RICE COOKER - 400W",
+   "top": "KITCHEN WARE",
+   "end": "ELECTRIC RICE COOKER"
+  },
+  {
+   "sr": "2126",
+   "name": "PRONTO 1.0 L RICE COOKER - 400W",
+   "top": "KITCHEN WARE",
+   "end": "ELECTRIC RICE COOKER"
+  },
+  {
+   "sr": "2127",
+   "name": "ELECTRIC EGG BOILER (7 EGG) -  360W",
+   "top": "KITCHEN WARE",
+   "end": "EGG BOILER"
+  },
+  {
+   "sr": "2128",
+   "name": "ELECTRIC PLUS EGG BOILER (8 EGG) 500W",
+   "top": "KITCHEN WARE",
+   "end": "EGG BOILER"
+  },
+  {
+   "sr": "2129",
+   "name": "EVA 0.6L COOLTOUCH SS KETTLE 750W",
+   "top": "KITCHEN WARE",
+   "end": "ELECTRIC KETTLE"
+  },
+  {
+   "sr": "2130",
+   "name": "OMNI 1.0L MULTI KETTLE 600W",
+   "top": "KITCHEN WARE",
+   "end": "ELECTRIC KETTLE"
+  },
+  {
+   "sr": "2131",
+   "name": "QUICK 1.3L MULTI KETTLE - NEW 600W",
+   "top": "KITCHEN WARE",
+   "end": "ELECTRIC KETTLE"
+  },
+  {
+   "sr": "2132",
+   "name": "OMNI 1.5L KETTLE 600W",
+   "top": "KITCHEN WARE",
+   "end": "ELECTRIC KETTLE"
+  },
+  {
+   "sr": "2133",
+   "name": "RIO 1.5L KETTLE 1350W",
+   "top": "KITCHEN WARE",
+   "end": "ELECTRIC KETTLE"
+  },
+  {
+   "sr": "2134",
+   "name": "COOLTOUCH 1.8L SS KETTLE 1800W",
+   "top": "KITCHEN WARE",
+   "end": "ELECTRIC KETTLE"
+  },
+  {
+   "sr": "2135",
+   "name": "ELECTRIC 1.8L GLASS KETTLE 1500W",
+   "top": "KITCHEN WARE",
+   "end": "ELECTRIC KETTLE"
+  },
+  {
+   "sr": "2136",
+   "name": "CRYSTAL 1.8L ELECTRIC GLASS   KETTLE - NEW 1500W",
+   "top": "KITCHEN WARE",
+   "end": "ELECTRIC KETTLE"
+  },
+  {
+   "sr": "2137",
+   "name": "CRYSTAL 1.2L ELECTRIC GLASS   KETTLE - NEW 1350W",
+   "top": "KITCHEN WARE",
+   "end": "ELECTRIC KETTLE"
+  },
+  {
+   "sr": "2138",
+   "name": "COOLTOUCH 1L SS KETTLE 1200W",
+   "top": "KITCHEN WARE",
+   "end": "ELECTRIC KETTLE"
+  },
+  {
+   "sr": "2139",
+   "name": "COOLTOUCH 1L SS KETTLE - NEW 1350W",
+   "top": "KITCHEN WARE",
+   "end": "ELECTRIC KETTLE"
+  },
+  {
+   "sr": "2140",
+   "name": "COOLTOUCH 1.2L KETTLE 1350W",
+   "top": "KITCHEN WARE",
+   "end": "ELECTRIC KETTLE"
+  },
+  {
+   "sr": "2141",
+   "name": "KLASSIC 1.2L MULTI KETTLE - NEW 650W",
+   "top": "KITCHEN WARE",
+   "end": "ELECTRIC KETTLE"
+  },
+  {
+   "sr": "2142",
+   "name": "COOLTOUCH 1.5L DIGITAL KETTLE - NEW 1350W",
+   "top": "KITCHEN WARE",
+   "end": "ELECTRIC KETTLE"
+  },
+  {
+   "sr": "2143",
+   "name": "COOLTOUCH 1.2L MULTI KETTLE 650W",
+   "top": "KITCHEN WARE",
+   "end": "ELECTRIC KETTLE"
+  },
+  {
+   "sr": "2144",
+   "name": "RED-DRY PRESS 1000W-PB11",
+   "top": "KITCHEN WARE",
+   "end": "IRONS"
+  },
+  {
+   "sr": "2145",
+   "name": "GLIDER 1000W",
+   "top": "KITCHEN WARE",
+   "end": "IRONS"
+  },
+  {
+   "sr": "2146",
+   "name": "SMARTPRESS STEAM IRON - 1380W",
+   "top": "KITCHEN WARE",
+   "end": "IRONS"
+  },
+  {
+   "sr": "2147",
+   "name": "PURPLEGLIDE STEAM IRON   1600W",
+   "top": "KITCHEN WARE",
+   "end": "IRONS"
+  },
+  {
+   "sr": "2148",
+   "name": "NIGHTGLIDE STEAM IRON - 2000W - NEW 2000W",
+   "top": "KITCHEN WARE",
+   "end": "IRONS"
+  },
+  {
+   "sr": "2149",
+   "name": "SMART KOOK-PC14 1200W",
+   "top": "KITCHEN WARE",
+   "end": "INDUCTION COOKER"
+  },
+  {
+   "sr": "2150",
+   "name": "SMART KOOK INDUCTION COOKER PC13 1400W",
+   "top": "KITCHEN WARE",
+   "end": "INDUCTION COOKER"
+  },
+  {
+   "sr": "2151",
+   "name": "SMART KOOK INDUCTION COOKER-PC11 1600W",
+   "top": "KITCHEN WARE",
+   "end": "INDUCTION COOKER"
+  },
+  {
+   "sr": "2152",
+   "name": "SMART KOOK INDUCTION COOKER TC14 2000W",
+   "top": "KITCHEN WARE",
+   "end": "INDUCTION COOKER"
+  },
+  {
+   "sr": "2153",
+   "name": "BEST 2.8L AIR FRYER BLACK 1200W",
+   "top": "KITCHEN WARE",
+   "end": "AIR FRYER"
+  },
+  {
+   "sr": "2154",
+   "name": "BEST 3.5L AIR FRYER BLACK 1450W",
+   "top": "KITCHEN WARE",
+   "end": "AIR FRYER"
+  },
+  {
+   "sr": "2155",
+   "name": "BEST 3.6L AIR FRYER -  1350W",
+   "top": "KITCHEN WARE",
+   "end": "AIR FRYER"
+  },
+  {
+   "sr": "2156",
+   "name": "BEST DIGI 4.7L AIR FRYER 1300W",
+   "top": "KITCHEN WARE",
+   "end": "AIR FRYER"
+  },
+  {
+   "sr": "2157",
+   "name": "BESTDIGI 6.1L AIR FRYER 1700 W",
+   "top": "KITCHEN WARE",
+   "end": "AIR FRYER"
+  },
+  {
+   "sr": "2158",
+   "name": "BEST 1.2L AIR FRYER -  800W",
+   "top": "KITCHEN WARE",
+   "end": "AIR FRYER"
+  },
+  {
+   "sr": "2159",
+   "name": "HANDHELD GARMENT STEAMER GS01 1000W",
+   "top": "KITCHEN WARE",
+   "end": "GARMENT STEAMER"
+  },
+  {
+   "sr": "2160",
+   "name": "HANDHELD DIGITAL GARMENT   STEAMER GS02 1600W",
+   "top": "KITCHEN WARE",
+   "end": "GARMENT STEAMER"
+  },
+  {
+   "sr": "2161",
+   "name": "PRONTO 1.8L RICE COOKER -  700W",
+   "top": "KITCHEN WARE",
+   "end": "ELECTRIC RICE COOKER"
+  },
+  {
+   "sr": "2162",
+   "name": "PRONTO DUAL 1.8L RICE COOKER - NEW 700W",
+   "top": "KITCHEN WARE",
+   "end": "ELECTRIC RICE COOKER"
+  },
+  {
+   "sr": "2163",
+   "name": "PRONTO DELUXE II 1.8L RICE COOKER 650W",
+   "top": "KITCHEN WARE",
+   "end": "ELECTRIC RICE COOKER"
+  },
+  {
+   "sr": "2164",
+   "name": "PRONTO DUAL 2.8L RICE COOKER - NEW 1000W",
+   "top": "KITCHEN WARE",
+   "end": "ELECTRIC RICE COOKER"
+  },
+  {
+   "sr": "2165",
+   "name": "PRONTO DELUXE II 2.8L RICE   COOKER - NEW 1000W",
+   "top": "KITCHEN WARE",
+   "end": "ELECTRIC RICE COOKER"
+  },
+  {
+   "sr": "2242",
+   "name": "Samarthya Onyx Double Wall Water Bottle 1500ML",
+   "top": "Clening & HouseHolds",
+   "end": "BOTTLES"
+  },
+  {
+   "sr": "2243",
+   "name": "Samarthya Onyx Double Wall Water Bottle 1800ML",
+   "top": "Clening & HouseHolds",
+   "end": "BOTTLES"
+  },
+  {
+   "sr": "2245",
+   "name": "Samarthya Onyx Double Wall Water Bottle 500ML",
+   "top": "Clening & HouseHolds",
+   "end": "BOTTLES"
+  },
+  {
+   "sr": "2248",
+   "name": "Samarthya Onyx Double Wall Water Bottle 1500ML",
+   "top": "Clening & HouseHolds",
+   "end": "BOTTLES"
+  },
+  {
+   "sr": "2249",
+   "name": "Samarthya Onyx Double Wall Water Bottle 1800ML",
+   "top": "Clening & HouseHolds",
+   "end": "BOTTLES"
+  },
+  {
+   "sr": "2251",
+   "name": "Samarthya Onyx Double Wall Water Bottle 500ML",
+   "top": "Clening & HouseHolds",
+   "end": "BOTTLES"
+  },
+  {
+   "sr": "2319",
+   "name": "Squre Jali Medium !003 NV",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "DEEP N V PRODUCTS"
+  },
+  {
+   "sr": "2330",
+   "name": "Smart patla NV",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "DEEP N V PRODUCTS"
+  },
+  {
+   "sr": "2348",
+   "name": "Caption Cushion Chair 1802",
+   "top": "Furniture",
+   "end": "Caption Series"
+  },
+  {
+   "sr": "2378",
+   "name": "Smart Bucket 5 LTR NV",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "DEEP N V PRODUCTS"
+  },
+  {
+   "sr": "2379",
+   "name": "Smart Bucket 8 Ltr NV",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "DEEP N V PRODUCTS"
+  },
+  {
+   "sr": "2380",
+   "name": "Smart Bucket 13 LTR NV",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "DEEP N V PRODUCTS"
+  },
+  {
+   "sr": "2381",
+   "name": "Smart Bucket 16 Ltr",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "DEEP N V PRODUCTS"
+  },
+  {
+   "sr": "2382",
+   "name": "Smart Bucket 20 LTR NV",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "DEEP N V PRODUCTS"
+  },
+  {
+   "sr": "2383",
+   "name": "Smart Bucket 25 Ltr NV",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "DEEP N V PRODUCTS"
+  },
+  {
+   "sr": "2384",
+   "name": "Smart Tub 25 Ltr",
+   "top": "NV PRODUCTS-FERIWALA",
+   "end": "DEEP N V PRODUCTS"
+  }
+ ],
+ "skipped_rows": [
+  {
+   "sr": "153",
+   "name": "SAMARTHYA PREMIUM TOILET CLEANER 1LTR",
+   "top": "Uncategorized",
+   "end": "Cleaning Liquid / Toilet Cleaner (Unassigned)"
+  }
+ ],
+ "db_products_untouched": [
+  "APDAIMONDPATLA",
+  "APDALA70LTR",
+  "APPAPP0001",
+  "APPAPP0002",
+  "APPAPP0003",
+  "APPAPP0004",
+  "APPAPP0005",
+  "APPAPP0006",
+  "APPAPP0007",
+  "APPAPX0001",
+  "APTUB40C",
+  "ASHASH0001",
+  "ASHASH0002",
+  "BLABLA0006",
+  "BLABLA0009",
+  "BLACK20\"",
+  "CATERINGTABELMS13.50KG",
+  "CRACRA0001",
+  "CRACRA0002",
+  "CRACRA0003",
+  "CRACRA0004",
+  "CRACRA0005",
+  "DEEDED0003",
+  "DEEDED0005",
+  "DEEDED0006",
+  "DEEDED0007",
+  "DEEDED0008",
+  "DEEDED0009",
+  "DEEDED0010",
+  "DEEDED0011",
+  "DEEDED0012",
+  "DEEDED0013",
+  "DEEDED0014",
+  "DEEDED0015",
+  "DEEDED0016",
+  "DEEDED0017",
+  "DEEDED0018",
+  "DEEDED0019",
+  "DEEDED0020",
+  "DEEDED0021",
+  "DEEDED0022",
+  "DEEDED0023",
+  "DEEDED0024",
+  "DEEDED0025",
+  "DEEDED0026",
+  "DEEDED0027",
+  "DEEDED0028",
+  "DEEDED0029",
+  "DEEDED0030",
+  "DEEDED0031",
+  "DEEDED0032",
+  "DEEDED0033",
+  "DEEDED0034",
+  "DEEDED0035",
+  "DEEDED0036",
+  "DEEDED0037",
+  "DEEDED0038",
+  "DEEDED0039",
+  "DEEDED0040",
+  "DEEDED0041",
+  "DEEDED0042",
+  "DEEDED0043",
+  "DEEDED0044",
+  "DEEDED0045",
+  "DEEDED0046",
+  "DEEDED0047",
+  "DEEDED0048",
+  "DEEDED0049",
+  "DEEDED0050",
+  "DEEDED0051",
+  "DEEDED0052",
+  "DEEDED0053",
+  "DEEDED0054",
+  "DEEDED0055",
+  "DEEDED0056",
+  "DEEDED0057",
+  "DEEDED0058",
+  "DEEDED0059",
+  "DEEDED0060",
+  "DEEDED0061",
+  "DEEDED0062",
+  "DEEDED0063",
+  "DEEDED0064",
+  "DEEDED0065",
+  "DEEDED0066",
+  "DEEDED0067",
+  "DEEDED0068",
+  "DEEDED0069",
+  "DEEDED0070",
+  "DEEDED0071",
+  "DEEDED0072",
+  "DEEDED0074",
+  "DEEDED0075",
+  "DEEDED0076",
+  "DEEDED0077",
+  "DEEDED0078",
+  "DEEDED0079",
+  "DEEDED0080",
+  "DEEDED0081",
+  "DEEDED0082",
+  "DEEDED0083",
+  "DEEDED0084",
+  "DEEDED0085",
+  "DEEDED0086",
+  "DEEDED0087",
+  "DEEDED0088",
+  "DEEDED0089",
+  "DEEDED0090",
+  "DEEDED0091",
+  "DEEDED0092",
+  "DEEDED0093",
+  "DEEDED0094",
+  "DEEDED0095",
+  "DEEDED0096",
+  "DEEDED0097",
+  "DEEDED0098",
+  "DEEDED0101",
+  "DEEDED0102",
+  "DEEDED0120",
+  "DEEDED0121",
+  "DEEDED0123",
+  "DEEDED0186",
+  "DEEDED0187",
+  "DEEDED0188",
+  "DEEDED0189",
+  "DEEDED0190",
+  "DEEDED0191",
+  "DEEDED0192",
+  "DEEDED0193",
+  "DEEDED0194",
+  "DEEDED0195",
+  "DEEDED0196",
+  "DEEDED0197",
+  "DEEDED0198",
+  "DEEDED0199",
+  "DEEDED0200",
+  "DEEDED0201",
+  "DEEDED0202",
+  "DEEDED0203",
+  "DEEDED0204",
+  "DEEDED0205",
+  "DEEDED0206",
+  "DEEDED0207",
+  "DEEDED0212",
+  "DEEDED0213",
+  "DEEDED0214",
+  "DEEDED0217",
+  "DEEDED0218",
+  "DEEDED0219",
+  "DEEDED0220",
+  "DEEDED0222",
+  "DEEDED0223",
+  "DEEDED0224",
+  "DEEDED0225",
+  "DEEDED0226",
+  "DEEDED0227",
+  "DEEDED0230",
+  "DEEDED0231",
+  "DEEDED0232",
+  "DEEDED0250",
+  "DEEDED0251",
+  "DEEDED0252",
+  "DEEDED0253",
+  "DEEDED0254",
+  "DEEDED0255",
+  "DEEDED0260",
+  "DEEDED0261",
+  "DEEDED0267",
+  "DEEDED0268",
+  "DEEDED0269",
+  "DEEDED0270",
+  "DEEDED0271",
+  "DEEDED0272",
+  "DEEDED0273",
+  "DEEDED0274",
+  "DEEDED0277",
+  "DEEDED0282",
+  "DEEDED0283",
+  "DEEDED0284",
+  "DEEDED0285",
+  "DEEDED0288",
+  "DEEDED0289",
+  "DEEDED0290",
+  "DEEDED0291",
+  "DEEDED0292",
+  "DEEDED0333",
+  "DEEDED0334",
+  "DEEDED0335",
+  "DEEDED0337",
+  "DEEDED0353",
+  "DEEDED0354",
+  "DEEDED0356",
+  "DEEDED0364",
+  "DEEDED0365",
+  "DEEDED0366",
+  "DEEDED0367",
+  "DEEDED0368",
+  "DEEDED0369",
+  "DEEDED0370",
+  "DEEDED0371",
+  "DEEDED0372",
+  "DEEDED0373",
+  "DEEDED0384",
+  "DEEDED0393",
+  "DEEDED0394",
+  "DEEDED0395",
+  "DEEDED0396",
+  "DEEDEE0002",
+  "DEESHA0001",
+  "DEESHA0002",
+  "DEESHA0003",
+  "DEESHA0004",
+  "DEESHA0005",
+  "DEESHA0006",
+  "DEESHA0007",
+  "DEESHA0008",
+  "DEESHA0009",
+  "DEESHA0010",
+  "DEESMA0001",
+  "DEESMA0002",
+  "DEESMA0003",
+  "DEESMA0004",
+  "DEESMA0005",
+  "DEESMA0006",
+  "DEESMA0007",
+  "DEESMA0008",
+  "DEESUN0013",
+  "DRUDRU0001",
+  "DRUDRU0002",
+  "DRUDRU0003",
+  "DRUDRU0004",
+  "DRUDRU0005",
+  "DRUM250",
+  "GALGAL0001",
+  "GALGAL0002",
+  "GALGAL0003",
+  "GALGAL0004",
+  "GALGAL0005",
+  "GALGAL0006",
+  "GALGAL0007",
+  "GALGAL0009",
+  "GALGAL0010",
+  "GALGAL0011",
+  "GALGAL0012",
+  "GALGAL0013",
+  "GALGAL0014",
+  "GALGAL0015",
+  "GALGAL0016",
+  "GALGAL0019",
+  "GARGDS0001",
+  "GPXGPX0001",
+  "GPXGPX0002",
+  "GPXGPX0003",
+  "GPXGPX0004",
+  "HARHAR0001",
+  "HARHAR0002",
+  "HARHAR0003",
+  "HARHAR0004",
+  "HDCHOPPERKRISTO",
+  "HDHANDYCHOPPER",
+  "HDKRISTO",
+  "HDPHDX0001",
+  "HDPHDX0002",
+  "HDPHDX0003",
+  "HDPHDX0004",
+  "HDPHDX0005",
+  "HDPHDX0006",
+  "HDPHDX0007",
+  "HDPUSH",
+  "HDSOLTACHOPPER",
+  "HIMHIM0001",
+  "HIMHIM0002",
+  "HIMHIM0003",
+  "HIMHIM0004",
+  "HIMHIM0005",
+  "HIMHIM0006",
+  "HIMHIM0007",
+  "KINKIN0001",
+  "KINKIN0002",
+  "KINKIN0003",
+  "KOHINOORDOLORA",
+  "KOHKOH0001",
+  "KOHKOH0002",
+  "KOHKOH0003",
+  "KOHKOH0004",
+  "MAEMAH0001",
+  "MAEMAH0002",
+  "MAEMAH0003",
+  "MAEMAH0004",
+  "MAEMAH0005",
+  "MAEMAH0006",
+  "MAEMAH0007",
+  "MAEMAH0008",
+  "MAEMAH0009",
+  "MAEMAH0010",
+  "MAEMAH0011",
+  "MAEMAH0012",
+  "MAEMAH0013",
+  "MAEMAH0014",
+  "MAEMAH0015",
+  "MAEMAH0016",
+  "MAHAMILKCAN15",
+  "MAHANANDABASIN",
+  "MAHANANDATUB110",
+  "MAHANANDATUB70LTR",
+  "MAHMAA0040",
+  "MAHMAA0053",
+  "MAHMAA0080",
+  "MAHMAA0102",
+  "MAHMAA0104",
+  "MAHMAA0105",
+  "MAHMAA0106",
+  "MAHMAA0107",
+  "MAHMAA0108",
+  "MAHMAA0109",
+  "MAHMAA0110",
+  "MAHMAH0004",
+  "MAHMAH0005",
+  "MAHMAH0006",
+  "MAHMAH0007",
+  "MAHMAH0028",
+  "MAHMAH0029",
+  "MANMAO0038",
+  "MAULIPATLA",
+  "MAULISUMOB",
+  "MAULISUP",
+  "MAUMAC0001",
+  "MAUMAC0002",
+  "MAUMAU0012",
+  "MAUMAU0013",
+  "MAUMAU0014",
+  "NILNIL0001",
+  "NOVNOV0001",
+  "NOVNOV0002",
+  "NOVNOV0003",
+  "NOVNOV0004",
+  "NOVNOV0005",
+  "NOVNOV0006",
+  "NOVNOV0007",
+  "PARI2020KITCHEN",
+  "PARIVAR12\"P",
+  "PARIVAR14\"P",
+  "PARIVAR16\"P",
+  "PARIVARBAHUBALI18",
+  "PARIVARBAHUBALI25",
+  "PARIVARPRINEDPLAN10",
+  "PARIVARROUND\"",
+  "PARIVARSQUARE10",
+  "PARIVRCERAMICPOTV6\"",
+  "PARPAR0003",
+  "PARPAR0012",
+  "PARPAR0014",
+  "PARPAR0021",
+  "PARPAR0022",
+  "PARPAR0023",
+  "PARPAR0024",
+  "PARPAR0031",
+  "PARPAR0032",
+  "PARPAR0033",
+  "PARPAR0034",
+  "PARPAR0035",
+  "PARPAR0036",
+  "PARPAR0037",
+  "PARPAR0038",
+  "PARPAR0043",
+  "PARPAR0044",
+  "PARPAR0045",
+  "PARPAR0046",
+  "PARPAR0047",
+  "PARPAR0051",
+  "PARPAR0052",
+  "PARPAR0056",
+  "PARPAR0057",
+  "PARPAR0058",
+  "PARPAR0060",
+  "PARPAR0063",
+  "PARPAR0066",
+  "PARPAR0067",
+  "PARPAR0069",
+  "PARPAR0072",
+  "PARPAR0074",
+  "PARPAR0075",
+  "PARPAR0077",
+  "PARPAR0079",
+  "PARPAR0081",
+  "PARPAR0083",
+  "PARPAR0084",
+  "PARPAR0085",
+  "PARPAR0086",
+  "PARPAR0091",
+  "PARPAR0092",
+  "PARPAR0093",
+  "PARPAR0094",
+  "PARPAR0095",
+  "PARPAR0096",
+  "PARPAR0097",
+  "PARPAR0098",
+  "PARPAR0099",
+  "PARPAR0105",
+  "PARPAR0120",
+  "PARPAR0121",
+  "PARPAR0122",
+  "PARPAR0123",
+  "PARPAR0124",
+  "PARPAR0125",
+  "PARPAR0132",
+  "PARPAR0150",
+  "PARPAR0151",
+  "PARPAR0153",
+  "PARPAR0154",
+  "PARPAR0156",
+  "PARPAR0157",
+  "PARPAR0158",
+  "PARPAR0161",
+  "PARPAR0162",
+  "PARPAR0168",
+  "PARPAR0169",
+  "PARPAR0170",
+  "PARPAR0171",
+  "PARPAR0172",
+  "PARPAR0173",
+  "PARPAR0174",
+  "PARPAR0176",
+  "PARPAR0179",
+  "PARPAR0180",
+  "PARPAR0184",
+  "PARPAR0189",
+  "PARPAR0191",
+  "PARPAR0192",
+  "PARPAR0203",
+  "PARPAR0206",
+  "PARPAR0207",
+  "PARPAR0208",
+  "PARPAR0212",
+  "PARPAR0217",
+  "PARPAR0218",
+  "PARPAR0219",
+  "PARPAR0220",
+  "PARPAR0221",
+  "PARPAR0222",
+  "PARPAR0223",
+  "PARPAR0224",
+  "PARPAR0225",
+  "PARPAR0226",
+  "PARPAR0227",
+  "PARPAR0238",
+  "PARPAR0239",
+  "PARPAR0240",
+  "PARPAR0241",
+  "PARPAR0242",
+  "PARPAR0243",
+  "PARPAR0244",
+  "PARPAR0245",
+  "PARPAR0246",
+  "PARPAR0247",
+  "POSPOI0001",
+  "POSPOI0002",
+  "POSPOI0003",
+  "POSPOI0004",
+  "PROUNDPATLA5LEG",
+  "PSUNTROLLY",
+  "RESTOWEBCH",
+  "SAISAI0001",
+  "SAISAI0002",
+  "SAISAI0003",
+  "SAISAI0004",
+  "SAISAI0005",
+  "SAISAI0006",
+  "SAISAI0007",
+  "SAISAI0008",
+  "SAMSAG0002",
+  "SAMSAM0018",
+  "SAMSAM0022",
+  "SAMSAM0035",
+  "SAMSAM0036",
+  "SAMSAM0039",
+  "SAMSAM0044",
+  "SAMSAM0046",
+  "SAMSAM0047",
+  "SAMSAM0048",
+  "SAMSAM0049",
+  "SAMSAM0050",
+  "SAMSAM0051",
+  "SAMSAM0052",
+  "SAMSAM0053",
+  "SAMSAM0056",
+  "SAMSAM0059",
+  "SAMSAM0062",
+  "SAMSAM0065",
+  "SAMSAM0075",
+  "SAMSAM0076",
+  "SAMSAM0077",
+  "SAMSAM0083",
+  "SAMSAM0086",
+  "SAMSAM0087",
+  "SAMSAM0088",
+  "SAMSAM0094",
+  "SAMSAM0122",
+  "SAMSAM0123",
+  "SAMSAM0128",
+  "SAMSAM0130",
+  "SAMSAM0132",
+  "SAMSAM0134",
+  "SAMSAM0136",
+  "SAMSAM0137",
+  "SAMSAM0140",
+  "SAMSAM0146",
+  "SAMSAM0172",
+  "SAMSAM0189",
+  "SAMSAM0191",
+  "SAMSAM0192",
+  "SAMSAM0203",
+  "SAMSAM0204",
+  "SAMSAM0205",
+  "SAMSAM0206",
+  "SAMSAM0207",
+  "SAMSAM0208",
+  "SAMSAM0209",
+  "SAMSAM0210",
+  "SAMSAM0211",
+  "SAMSAM0212",
+  "SAMSAM0213",
+  "SAMSAM0214",
+  "SAMSAM0215",
+  "SHEBLA0001",
+  "SHEBUT0001",
+  "SHEBUT0002",
+  "SHEORA0001",
+  "SHEORA0002",
+  "SHEORA0003",
+  "SHESHR0001",
+  "SHESHR0002",
+  "SHESHR0003",
+  "SHESHR0004",
+  "SHESHR0005",
+  "SHESHR0006",
+  "SHESHR0007",
+  "SHESHR0008",
+  "SHESHR0009",
+  "SHESHR0010",
+  "SHESHR0011",
+  "SHESHR0012",
+  "SHESHR0013",
+  "SHESHR0014",
+  "SHESHR0015",
+  "SHESHR0016",
+  "SHESHR0017",
+  "SHESHR0018",
+  "SHESHR0019",
+  "SHESHR0020",
+  "SHESHR0021",
+  "SHESHR0022",
+  "SHESHR0023",
+  "SHESHR0024",
+  "SHESHR0025",
+  "SHESHR0026",
+  "SHESHR0027",
+  "SHESHR0028",
+  "SHESWI0001",
+  "SHRADHA 17C",
+  "SHRSHE0002",
+  "SHRSHR0001",
+  "SHRSHR0002",
+  "SHRSHR0003",
+  "SHRSHR0004",
+  "SHRSHR0005",
+  "SHRSHR0006",
+  "SHRSHR0007",
+  "SHRSHR0008",
+  "SHRSHR0009",
+  "SHRSHR0010",
+  "SHRSHR0011",
+  "SHRSHR0012",
+  "SHRSHR0013",
+  "SHRSHR0014",
+  "SHRSHR0015",
+  "SKYCAN0001",
+  "SKYCAP0002",
+  "SKYMONTEYSTOOL",
+  "SKYSKY0031",
+  "SKYSKY0033",
+  "SKYSKY0034",
+  "SKYSKY0035",
+  "SKYSKY0037",
+  "SKYSKY0038",
+  "SKYSKY0039",
+  "SKYSKY0040",
+  "SKYSKY0041",
+  "SKYSKY0042",
+  "SKYTHA0004",
+  "SKYTIGERCAMELSTRIP",
+  "STASTA0001",
+  "STEELKINGCMOP",
+  "STEELKINGSOAP3IN1",
+  "STENEX0001",
+  "STENEX0002",
+  "STESNG0001",
+  "STESTE0001",
+  "STESTG0003",
+  "STESTG0007",
+  "STESTG0008",
+  "STESTG0016",
+  "STESTG0023",
+  "STESTG0025",
+  "STESTG0026",
+  "STESTG0027",
+  "STESTG0029",
+  "STESTG0030",
+  "STESTG0032",
+  "STESTG0039",
+  "STESTG0040",
+  "STESTG0041",
+  "STESTG0042",
+  "STESTG0044",
+  "STESTG0045",
+  "STESTG0046",
+  "STESTG0047",
+  "STESTG0048",
+  "STESTG0049",
+  "STESTG0053",
+  "STESTG0066",
+  "STESTG0068",
+  "STESTG0069",
+  "STESTG0070",
+  "STESTG0071",
+  "STESTG0077",
+  "STESTG0087",
+  "STESTG0089",
+  "STESTG0099",
+  "STESTG0100",
+  "STESTG0102",
+  "STESTG0103",
+  "STESTG0104",
+  "STESTG0110",
+  "STESTG0114",
+  "STESTG0116",
+  "STESTG0125",
+  "STESTG0126",
+  "STESTG0127",
+  "SUNSUN0001",
+  "Steelking",
+  "Steelkingclipeset",
+  "Steelkingpop"
+ ],
+ "distinct_top_end_pairs": 241
+}

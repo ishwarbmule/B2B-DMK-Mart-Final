@@ -3,6 +3,9 @@
  *   GET  ?warehouseId=&q=&page=   → product list with current qty in that warehouse (+ totals)
  *   POST { warehouseId, rows: [{ productId, qty }] } → upsert quantities
  *   POST { warehouseId, action: "seed" } → seed this warehouse from Product.stock (missing rows only)
+ *   POST { warehouseId, action: "bulkAdd" | "bulkRemove", mode: "ALL"|"BRAND"|"TOP"|"MID"|"END", id?, qty? }
+ *        → bulk assign products to a warehouse — individually, brand-wise or category-wise.
+ *          qty omitted/"STOCK" copies the product's live stock; a number sets a fixed qty.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -57,6 +60,53 @@ export async function POST(req: NextRequest) {
     if (!warehouseId) return jsonError("Missing warehouseId");
     const wh = await db.warehouse.findUnique({ where: { id: warehouseId } });
     if (!wh) return jsonError("Warehouse not found", 404);
+
+    if (body.action === "bulkAdd" || body.action === "bulkRemove") {
+      const mode = String(body.mode || "ALL").toUpperCase();
+      const id = String(body.id || "");
+      const isAdd = body.action === "bulkAdd";
+      const where: Record<string, unknown> = { active: true };
+      if (mode === "BRAND") where.brandId = id;
+      else if (mode === "TOP") where.topId = id;
+      else if (mode === "MID") where.midId = id;
+      else if (mode === "END") where.endId = id;
+      // ALL → every active product
+
+      const products = await db.product.findMany({ where, select: { id: true, stock: true } });
+      if (!products.length) return NextResponse.json({ ok: true, affected: 0, message: "No products matched" });
+      const ids = products.map((p) => p.id);
+
+      if (!isAdd) {
+        const res = await db.warehouseStock.deleteMany({ where: { warehouseId, productId: { in: ids } } });
+        await db.activityLog.create({
+          data: { action: "UPDATE", entity: "warehouse", entityId: warehouseId, detail: `Bulk removed ${res.count} products (${mode}${id ? `:${id}` : ""}) from warehouse "${wh.name}"` },
+        });
+        return NextResponse.json({ ok: true, affected: res.count });
+      }
+
+      const fixedQty = body.qty === undefined || body.qty === null || body.qty === "" || body.qty === "STOCK" ? null : Math.max(0, Math.round(Number(body.qty) || 0));
+      const existing = await db.warehouseStock.findMany({ where: { warehouseId, productId: { in: ids } }, select: { productId: true } });
+      const have = new Set(existing.map((e) => e.productId));
+      const qtyOf = (p: { id: string; stock: number }) => (fixedQty === null ? Math.max(0, Math.round(p.stock)) : fixedQty);
+
+      // create missing rows in bulk; refresh existing rows too (fixed qty) via raw UPDATE
+      const missing = products.filter((p) => !have.has(p.id));
+      for (let i = 0; i < missing.length; i += 500) {
+        await db.warehouseStock.createMany({
+          data: missing.slice(i, i + 500).map((p) => ({ warehouseId, productId: p.id, qty: qtyOf(p) })),
+          skipDuplicates: true,
+        });
+      }
+      let refreshed = 0;
+      if (fixedQty !== null) {
+        const res = await db.warehouseStock.updateMany({ where: { warehouseId, productId: { in: ids } }, data: { qty: fixedQty } });
+        refreshed = res.count;
+      }
+      await db.activityLog.create({
+        data: { action: "UPDATE", entity: "warehouse", entityId: warehouseId, detail: `Bulk added ${missing.length} products (${mode}${id ? `:${id}` : ""}) to warehouse "${wh.name}"${fixedQty !== null ? ` at fixed qty ${fixedQty}` : " from live stock"}` },
+      });
+      return NextResponse.json({ ok: true, affected: missing.length, refreshed });
+    }
 
     if (body.action === "seed") {
       // copy Product.stock into missing WarehouseStock rows for this warehouse
