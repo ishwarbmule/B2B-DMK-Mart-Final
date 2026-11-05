@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin, jsonError } from "@/lib/admin-auth";
+import { staffIdentity } from "@/lib/staff-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,28 @@ function def(entity: string): EntityDef {
   const d = ENTITIES[entity];
   if (!d) throw new Error("Unknown entity");
   return d;
+}
+
+/** Warehouse managers (permission-gated by admin) may only touch these entities:
+ *  entity → admin-panel sections that unlock it. Super Admin always passes. */
+const MANAGER_CRUD: Record<string, string[]> = {
+  customers: ["customers", "approvals"],
+  brands: ["products"],
+  tops: ["products"],
+  mids: ["products"],
+  ends: ["products"],
+};
+
+async function guardCrud(req: NextRequest, entity: string): Promise<Response | null> {
+  const identity = await staffIdentity(req);
+  if (!identity) return jsonError("Unauthorized", 401);
+  if (identity.role === "admin") return null;
+  if (identity.role !== "manager") return jsonError("Not available for this account", 403);
+  const allowed = MANAGER_CRUD[entity];
+  if (!allowed || !allowed.some((s) => identity.permissions.includes(s))) {
+    return jsonError("This section is not enabled for your account", 403);
+  }
+  return null;
 }
 
 /** DateTime fields used across crud-managed models (Offer/Coupon windows, etc.).
@@ -104,10 +127,10 @@ async function log(action: string, entity: string, detail: string) {
 }
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ entity: string }> }) {
-  const unauthorized = requireAdmin(req);
+  const { entity } = await ctx.params;
+  const unauthorized = await guardCrud(req, entity);
   if (unauthorized) return unauthorized;
   try {
-    const { entity } = await ctx.params;
     const d = def(entity);
     const rows = await (db as never as AnyRec)[d.model].findMany({
       include: d.include,
@@ -120,9 +143,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ entity: str
 }
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ entity: string }> }) {
-  const unauthorized = requireAdmin(req);
-  if (unauthorized) return unauthorized;
   const { entity } = await ctx.params;
+  const unauthorized = await guardCrud(req, entity);
+  if (unauthorized) return unauthorized;
   const d = def(entity);
   try {
     const body = sanitizeDates(((await req.json()) as AnyRec) ?? {});
@@ -138,9 +161,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ entity: st
 }
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ entity: string }> }) {
-  const unauthorized = requireAdmin(req);
-  if (unauthorized) return unauthorized;
   const { entity } = await ctx.params;
+  const unauthorized = await guardCrud(req, entity);
+  if (unauthorized) return unauthorized;
   const d = def(entity);
   try {
     const body = sanitizeDates(((await req.json()) as AnyRec) ?? {});
@@ -156,9 +179,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ entity: s
 }
 
 export async function DELETE(req: NextRequest, ctx: { params: Promise<{ entity: string }> }) {
-  const unauthorized = requireAdmin(req);
-  if (unauthorized) return unauthorized;
   const { entity } = await ctx.params;
+  const unauthorized = await guardCrud(req, entity);
+  if (unauthorized) return unauthorized;
   const d = def(entity);
   try {
     const id = req.nextUrl.searchParams.get("id");

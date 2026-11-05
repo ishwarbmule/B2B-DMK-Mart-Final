@@ -322,16 +322,24 @@ export const CONFIGS: Record<
     tableImage: "image",
   },
   salespersons: {
-    title: "Manage Salespersons", sub: "Field team that places refer orders", nameField: "name",
+    title: "Salesperson Accounts", sub: "Field team — /salesteam portal logins (username + password created here), area of working, and orders brought", nameField: "name",
     fields: [
       { key: "name", label: "Name", type: "text" },
       { key: "mobile", label: "Mobile", type: "text" },
+      { key: "username", label: "Portal Username (login for /salesteam)", type: "text", required: false, placeholder: "e.g. ramesh-pune" },
+      { key: "password", label: "Portal Password", type: "password", required: false, placeholder: "min 4 characters — share with the salesperson" },
+      { key: "email", label: "Email", type: "text", required: false },
+      { key: "area", label: "Area of Working (location)", type: "text", required: false, placeholder: "e.g. Pune — Hadapsar, Solapur Rd" },
       { key: "historyAccess", label: "History Access Allowed", type: "toggle", default: true },
+      { key: "active", label: "Account Active (can log in)", type: "toggle", default: true },
     ],
     columns: [
       { key: "name", label: "Name", render: (r) => <span className="font-semibold">{String(r.name)}</span> },
       { key: "mobile", label: "Mobile", render: (r) => String(r.mobile) },
-      { key: "historyAccess", label: "History Access", render: (r) => (r.historyAccess ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Allowed</span> : <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-500">Blocked</span>) },
+      { key: "username", label: "Portal Login", render: (r) => r.username ? <code className="text-[10px]">{String(r.username)}</code> : <span className="text-[10px] text-orange-500">no login yet</span> },
+      { key: "area", label: "Area", render: (r) => String(r.area || "—") },
+      { key: "active", label: "Status", render: (r) => (r.active ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Active</span> : <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-500">Disabled</span>) },
+      { key: "historyAccess", label: "History", render: (r) => (r.historyAccess ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Allowed</span> : <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-500">Blocked</span>) },
     ],
   },
   delivery: {

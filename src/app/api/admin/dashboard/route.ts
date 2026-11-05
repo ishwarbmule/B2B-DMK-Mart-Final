@@ -2,11 +2,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-auth";
+import { requireStaff } from "@/lib/staff-auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireStaff(req, "dashboard");
   if (unauthorized) return unauthorized;
   const now = new Date();
   const daysAgo = (n: number) => new Date(now.getTime() - n * 86400000);

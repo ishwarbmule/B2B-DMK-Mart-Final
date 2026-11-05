@@ -170,6 +170,7 @@ model Customer {
   approvedBy   String   @default("")
   source       String   @default("WEB") // WEB | ERP
   erpId        String   @default("")
+  createdBy    String   @default("") // "WEB" | "ADMIN" | salesperson name (salesteam portal)
   orders       Int      @default(0)
   totalSpent   Float    @default(0)
   createdAt    DateTime @default(now())
@@ -210,6 +211,9 @@ model Order {
   fulfillment          String  @default("DELIVERY")
   pickupWarehouseId    String  @default("")
   pickupWarehouseName  String  @default("")
+  // serving warehouse — pickup warehouse, or the nearest/default godown for delivery orders
+  warehouseId          String  @default("")
+  warehouseName        String  @default("")
   confirmedAt    DateTime?
   confirmedBy    String      @default("")
   nextDeliveryAt String      @default("")
@@ -260,6 +264,7 @@ model Warehouse {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   stocks    WarehouseStock[]
+  managers  WarehouseManager[]
   transfersFrom StockTransfer[] @relation("transfersFrom")
   transfersTo   StockTransfer[] @relation("transfersTo")
 }
@@ -468,8 +473,27 @@ model SalesPerson {
   id            String   @id @default(cuid())
   name          String
   mobile        String   @unique
+  username      String   @default("") // login id for the /salesteam portal (uniqueness enforced in API)
+  password      String   @default("") // portal password (created by admin)
+  email         String   @default("")
+  area          String   @default("") // area / location of working
   historyAccess Boolean  @default(true)
+  active        Boolean  @default(true)
   createdAt     DateTime @default(now())
+}
+
+model WarehouseManager {
+  id          String    @id @default(cuid())
+  name        String
+  username    String    @unique // login id for the /warehouse portal
+  password    String
+  phone       String    @default("")
+  email       String    @default("")
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  permissions String    @default("[]") // JSON array of admin module ids the manager can open
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
 }
 
 model DeliveryMan {

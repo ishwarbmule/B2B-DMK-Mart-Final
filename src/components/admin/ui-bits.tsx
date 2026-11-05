@@ -106,15 +106,16 @@ export function ModuleHeader({ title, sub, children }: { title: string; sub?: st
 }
 
 export function StatCard({ icon: Icon, label, value, sub, color = "#111" }: {
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ className?: string }> | null | undefined;
   label: string; value: string | number; sub?: string; color?: string;
 }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border bg-white p-4">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${color}18`, color }}>
-        <Icon className="h-5 w-5" />
+        {/* icon is optional — a null icon must never crash the module (financial section outage) */}
+        {Icon ? <Icon className="h-5 w-5" /> : <span className="text-sm font-black">₹</span>}
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-gray-500">{label}</p>
         <p className="text-lg font-black leading-tight text-gray-900">{value}</p>
         {sub && <p className="truncate text-[10px] text-gray-400">{sub}</p>}

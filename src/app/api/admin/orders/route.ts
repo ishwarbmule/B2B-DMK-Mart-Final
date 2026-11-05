@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin, jsonError } from "@/lib/admin-auth";
+import { requireStaff, staffIdentity } from "@/lib/staff-auth";
 import { smsTemplates } from "@/lib/sms";
 import { notifyCustomer } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const unauthorized = requireAdmin(req);
+  // Super Admin sees everything; a warehouse manager (permission "orders") is scoped
+  // to the godown the order is routed to.
+  const unauthorized = await requireStaff(req, "orders");
   if (unauthorized) return unauthorized;
   const sp = req.nextUrl.searchParams;
   const q = sp.get("q")?.trim() || "";
@@ -15,6 +18,7 @@ export async function GET(req: NextRequest) {
   const payment = sp.get("payment") || "";
   const shipping = sp.get("shipping") || "";
   const source = sp.get("source") || "";
+  const warehouseId = sp.get("warehouseId") || "";
   const from = sp.get("from") || "";
   const to = sp.get("to") || "";
   const page = Math.max(1, parseInt(sp.get("page") || "1"));
@@ -33,6 +37,10 @@ export async function GET(req: NextRequest) {
   if (payment) where.paymentStatus = payment;
   if (shipping) where.shippingStatus = shipping;
   if (source) where.source = source;
+  if (warehouseId) where.warehouseId = warehouseId;
+  // manager scope — a godown manager only ever sees orders routed to their warehouse
+  const identity = await staffIdentity(req);
+  if (identity?.role === "manager") where.warehouseId = identity.warehouseId;
   if (from || to) {
     where.createdAt = {
       ...(from ? { gte: new Date(from) } : {}),
@@ -53,11 +61,24 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const unauthorized = requireAdmin(req);
-  if (unauthorized) return unauthorized;
+  // manager scope: a warehouse manager may only touch orders routed to their godown
+  const identity = await staffIdentity(req);
+  if (!identity || (identity.role !== "admin" && identity.role !== "manager")) {
+    return jsonError("Unauthorized", 401);
+  }
+  const isManager = identity.role === "manager";
+  if (isManager && !identity.permissions.includes("orders")) {
+    return jsonError("This section is not enabled for your account", 403);
+  }
   try {
     const { id, status, paymentStatus, shippingStatus, deliveryMan, regenerateOtp } = await req.json();
     if (!id) return jsonError("Missing id");
+    if (isManager) {
+      const scope = await db.order.findUnique({ where: { id: String(id) }, select: { warehouseId: true } });
+      if (!scope || scope.warehouseId !== identity.warehouseId) {
+        return jsonError("This order is not routed to your warehouse", 403);
+      }
+    }
     const data: Record<string, unknown> = {};
     if (status) data.status = status;
     if (paymentStatus) data.paymentStatus = paymentStatus;

@@ -230,6 +230,10 @@ export interface OrderRow {
   fulfillment?: string; // PICKUP | DELIVERY
   pickupWarehouseId?: string;
   pickupWarehouseName?: string;
+  // serving warehouse routing + sales-team attribution
+  warehouseId?: string;
+  warehouseName?: string;
+  salesPerson?: string;
   note?: string;
   confirmedAt?: string;
   nextDeliveryAt?: string;

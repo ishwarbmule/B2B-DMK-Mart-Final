@@ -2,6 +2,7 @@
 import { NextRequest } from "next/server";
 import * as XLSX from "xlsx";
 import { requireAdmin } from "@/lib/admin-auth";
+import { requireStaff } from "@/lib/staff-auth";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ function bookFromColumns(columns: string[], rows: unknown[][], sheetName: string
 }
 
 export async function GET(req: NextRequest) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireStaff(req, "reports");
   if (unauthorized) return unauthorized;
   const sp = req.nextUrl.searchParams;
   const type = sp.get("type") || "sales";

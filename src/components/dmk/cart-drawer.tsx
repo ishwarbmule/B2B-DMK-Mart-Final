@@ -45,7 +45,7 @@ export function CartDrawer({ onCheckout }: { onCheckout: (couponCode: string, co
     <div className="grid grid-cols-2 gap-2">
       {([
         { mode: "PICKUP" as Fulfillment, icon: Store, title: "Pickup", sub: "Pack rates · no delivery fee" },
-        { mode: "DELIVERY" as Fulfillment, icon: Truck, title: "Delivery", sub: "Piece rates · flat ₹250 delivery" },
+        { mode: "DELIVERY" as Fulfillment, icon: Truck, title: "Delivery", sub: "Piece rates · delivery charges applied" },
       ]).map(({ mode, icon: Icon, title, sub }) => {
         const active = fulfillment === mode;
         return (
@@ -106,7 +106,7 @@ export function CartDrawer({ onCheckout }: { onCheckout: (couponCode: string, co
               </p>
             ) : (
               <p className="flex items-center gap-1 text-[10px] text-gray-300">
-                <Truck className="h-3 w-3" /> Delivery to your address — flat ₹250 charge on every order
+                <Truck className="h-3 w-3" /> Delivery to your address — delivery charges applied as per your selection
               </p>
             )}
           </div>
@@ -196,26 +196,13 @@ export function CartDrawer({ onCheckout }: { onCheckout: (couponCode: string, co
                   Rates &amp; charges are applied automatically — no payment needed now.
                 </p>
               </div>
-              {/* OVERALL TOTAL — always visible in the cart */}
+              {/* OVERALL TOTAL — the only amount shown in the cart (owner rule: no breakdown) */}
               <div className="rounded-xl border bg-white p-3">
-                <div className="flex items-center justify-between text-gray-600">
-                  <span>Item total · {totalPieces} pcs</span>
-                  <span className="font-bold tabular-nums text-gray-900">{formatINR(t.itemTotal)}</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-black text-gray-900">Total Amount</span>
+                  <span className="text-xl font-black tabular-nums text-gray-900">{formatINR(t.grandTotal)}</span>
                 </div>
-                {t.slabDisc > 0 && (
-                  <div className="mt-0.5 flex items-center justify-between text-emerald-700">
-                    <span>Wholesale slab ({t.slabPct}%)</span>
-                    <span className="font-bold tabular-nums">−{formatINR(t.slabDisc)}</span>
-                  </div>
-                )}
-                <div className="mt-0.5 flex items-center justify-between text-gray-600">
-                  <span>{fulfillment === "PICKUP" ? "Delivery (pickup — you collect)" : "Delivery"}</span>
-                  <span className="font-bold tabular-nums text-gray-900">{fulfillment === "PICKUP" ? "₹0" : formatINR(t.deliveryFee)}</span>
-                </div>
-                <div className="mt-1.5 flex items-center justify-between border-t border-gray-200 pt-1.5">
-                  <span className="text-sm font-black text-gray-900">Total</span>
-                  <span className="text-base font-black tabular-nums text-gray-900">{formatINR(t.grandTotal)}</span>
-                </div>
+                <p className="mt-0.5 text-[10px] font-semibold text-gray-400">{t.totalLines} line{t.totalLines !== 1 ? "s" : ""} · {totalPieces} pcs — final invoice as per pickup / delivery selection</p>
               </div>
               {/* SALESMAN — mandatory: every order flows through a field salesman */}
               {salespersons.length > 0 ? (
