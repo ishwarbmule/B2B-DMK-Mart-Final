@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const now = new Date();
-  const [tops, brands, sliders, ads, settingsRaw, activeOffer, homeCoupons, pages, topCounts, approvedStores] = await Promise.all([
+  const [tops, brands, sliders, ads, settingsRaw, activeOffer, homeCoupons, pages, topCounts, approvedStores, warehouses, salespersons] = await Promise.all([
     db.topCategory.findMany({
       orderBy: { sortOrder: "asc" },
       include: { mids: { orderBy: { name: "asc" }, include: { ends: { orderBy: { name: "asc" } } } } },
@@ -31,6 +31,13 @@ export async function GET() {
     db.page.findMany({ where: { active: true, inFooter: true }, orderBy: { sortOrder: "asc" }, select: { slug: true, title: true, type: true } }),
     db.product.groupBy({ by: ["topId"], _count: { _all: true }, where: { active: true } }),
     db.store.count({ where: { status: "APPROVED" } }),
+    // storefront filter: warehouse-wise products (mandatory filter) + salesman dropdown in the cart
+    db.warehouse.findMany({
+      where: { active: true },
+      orderBy: [{ isDefault: "desc" }, { sortOrder: "asc" }],
+      select: { id: true, name: true, city: true, isDefault: true },
+    }),
+    db.salesPerson.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
 
   const settings: Record<string, string> = {};
@@ -55,6 +62,8 @@ export async function GET() {
     activeOffer: activeOffer ?? null,
     homeCoupons,
     footerPages: pages,
+    warehouses,
+    salespersons,
   });
   // Short edge cache only — NO stale-while-revalidate (SWR served the previous
   // copy first, making the site flash old banners/offers for a few seconds).

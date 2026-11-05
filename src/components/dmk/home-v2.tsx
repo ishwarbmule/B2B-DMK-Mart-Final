@@ -340,7 +340,7 @@ export function DealsBento({
 
 const TABS = [
   { key: "featured", label: "Featured" },
-  { key: "top", label: "Top Selling" },
+  { key: "top", label: "Ready to Dispatch" },
   { key: "hot", label: "Hot Deals" },
   { key: "deals", label: "Budget Bulk" },
 ] as const;

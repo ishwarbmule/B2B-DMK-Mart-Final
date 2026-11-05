@@ -76,6 +76,9 @@ interface CartState {
   /** fulfillment chosen in the cart drawer — drives every rate/total shown there and seeds checkout */
   fulfillment: Fulfillment;
   setFulfillment: (f: Fulfillment) => void;
+  /** salesman picked in the cart (admin-managed list) — mandatory before checkout, saved on the order */
+  salesman: string;
+  setSalesman: (name: string) => void;
   addItem: (item: CartItem, qty?: number) => void;
   setQty: (key: string, qty: number) => void;
   remove: (key: string) => void;
@@ -91,6 +94,8 @@ export const useCartStore = create<CartState>()(
       isOpen: false,
       fulfillment: "DELIVERY",
       setFulfillment: (f) => set({ fulfillment: f }),
+      salesman: "",
+      setSalesman: (name) => set({ salesman: name }),
       addItem: (item, qty = 1) =>
         set((state) => {
           const key = lineKey(item.id, item.unitType);
@@ -119,7 +124,7 @@ export const useCartStore = create<CartState>()(
     { name: "dmk-cart-v3",
       // persist ONLY cart data — isOpen must stay session-only, otherwise a drawer left open
       // when the tab closed re-opens the cart on the next visit (mobile reported this)
-      partialize: (s) => ({ items: s.items, fulfillment: s.fulfillment }) as CartState,
+      partialize: (s) => ({ items: s.items, fulfillment: s.fulfillment, salesman: s.salesman }) as CartState,
     }
   )
 );

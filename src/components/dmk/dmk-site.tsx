@@ -184,7 +184,7 @@ export function DmkSite() {
               onOpen={setDetail}
               onSeeAll={(tab) => {
                 if (tab === "featured") openCatalog("featured", "Featured Products");
-                else if (tab === "top") openCatalog("top", "Top Selling Products");
+                else if (tab === "top") openCatalog("top", "Ready to Dispatch");
                 else if (tab === "hot") openCatalog("hot", "Hot Deals");
                 else openCatalog("", "Budget Bulk");
               }}

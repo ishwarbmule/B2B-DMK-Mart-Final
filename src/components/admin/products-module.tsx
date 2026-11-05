@@ -21,7 +21,7 @@ type Top = { id: string; name: string };
 
 const FLAGS = [
   { key: "active", label: "Active", icon: Power, cls: "bg-blue-600" },
-  { key: "isTop", label: "Top Selling", icon: TrendingUp, cls: "bg-emerald-600" },
+  { key: "isTop", label: "Ready to Dispatch", icon: TrendingUp, cls: "bg-emerald-600" },
   { key: "isFeatured", label: "Featured", icon: Star, cls: "bg-yellow-400 text-black" },
   { key: "isHot", label: "Hot Products", icon: Flame, cls: "bg-orange-500" },
   { key: "isDeal", label: "Deal of the Day", icon: Zap, cls: "bg-red-500" },
@@ -187,7 +187,7 @@ export function ProductsModule({ token }: { token: string }) {
 
   return (
     <div>
-      <ModuleHeader title="Product Management" sub={`${total} products · bulk-manage homepage sections: Top Selling, Featured, Hot Products & Deals of the Day`}>
+      <ModuleHeader title="Product Management" sub={`${total} products · bulk-manage homepage sections: Ready to Dispatch, Featured, Hot Products & Deals of the Day`}>
         <button onClick={() => setAddOpen(true)} className="flex h-9 items-center gap-1.5 rounded-lg bg-black px-3.5 text-xs font-bold text-yellow-400 hover:bg-gray-800">
           <Plus className="h-4 w-4" /> Add Product
         </button>
@@ -211,7 +211,7 @@ export function ProductsModule({ token }: { token: string }) {
         </select>
         <select value={flag} onChange={(e) => { setFlag(e.target.value); setPage(1); }} className="h-9 rounded-lg border text-xs">
           <option value="">All Sections</option>
-          <option value="top">Top Selling</option>
+          <option value="top">Ready to Dispatch</option>
           <option value="featured">Featured</option>
           <option value="hot">Hot</option>
           <option value="deal">Deals</option>

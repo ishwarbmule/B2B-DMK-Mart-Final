@@ -158,3 +158,8 @@
 @utility animate-dmk-marquee-slim {
   animation: dmk-marquee 24s linear infinite;
 }
+
+/* Sponsored-ads drift — very slow continuous left scroll (desktop + mobile), pauses on hover */
+@utility animate-dmk-marquee-slow {
+  animation: dmk-marquee 55s linear infinite;
+}

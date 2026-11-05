@@ -280,7 +280,7 @@ export function BrandStorefront({ brand, tops, featured, hot, deals, top, all, c
             </section>
           )}
           <section>
-            <SectionHead icon={TrendingUp} title="Top Selling" />
+            <SectionHead icon={TrendingUp} title="Ready to Dispatch" />
             <Grid products={top.length ? top : all.slice(0, 12)} />
           </section>
           <BrandCategoryTabs brand={brand} categories={categories} all={all} />
@@ -312,7 +312,7 @@ export function BrandStorefront({ brand, tops, featured, hot, deals, top, all, c
             { title: "Featured Showcase", list: featured },
             { title: "Hot Right Now", list: hot },
             { title: "Deals of the Day", list: deals },
-            { title: "Top Selling", list: top },
+            { title: "Ready to Dispatch", list: top },
           ].filter((s) => s.list.length > 0).map((s) => (
             <section key={s.title}>
               <SectionHead icon={Star} title={s.title} />
@@ -421,7 +421,7 @@ export function BrandStorefront({ brand, tops, featured, hot, deals, top, all, c
           )}
           {cfg.showTopProducts !== false && top.length > 0 && (
             <section>
-              <SectionHead icon={TrendingUp} title="Top Selling" />
+              <SectionHead icon={TrendingUp} title="Ready to Dispatch" />
               <Grid products={top} />
             </section>
           )}

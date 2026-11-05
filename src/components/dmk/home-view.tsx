@@ -1,9 +1,9 @@
 "use client";
 
-import { type CSSProperties, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, BadgePercent, Building2, Check, Copy, LayoutGrid, ListFilter, Megaphone, PackageCheck, PhoneCall, Star, Ticket, Truck, ChevronRight, Sparkles } from "lucide-react";
 import { useCatalog } from "./site-header-v2";
 import { HeroBanner } from "./hero-banner";
@@ -354,19 +354,15 @@ function CategoryGrid({ cfg, title, sub }: { cfg?: HomeSectionCfg; title?: strin
 }
 
 /* ─────────────── Product row / tabs ─────────────── */
-function useFlagRows() {
-  const [rows, setRows] = useState<{ featured: DProduct[]; top: DProduct[]; hot: DProduct[]; deals: DProduct[] }>({ featured: [], top: [], hot: [], deals: [] });
+function useDeals() {
+  const [deals, setDeals] = useState<DProduct[]>([]);
   useEffect(() => {
-    const get = async (extra: string) => {
-      const r = await fetch(`/api/products?limit=12&${extra}`);
-      const d = await r.json();
-      return (d.products ?? []) as DProduct[];
-    };
-    Promise.all([get("flag=featured"), get("flag=top"), get("flag=hot"), get("flag=deal")]).then(([featured, top, hot, deals]) =>
-      setRows({ featured, top, hot, deals })
-    );
+    fetch("/api/products?limit=12&flag=deal")
+      .then((r) => r.json())
+      .then((d) => setDeals((d.products ?? []) as DProduct[]))
+      .catch(() => {});
   }, []);
-  return rows;
+  return deals;
 }
 
 function DealsRail({ cfg, deals, title, sub }: { cfg?: HomeSectionCfg; deals: DProduct[]; title?: string; sub?: string }) {
@@ -392,35 +388,184 @@ function DealsRail({ cfg, deals, title, sub }: { cfg?: HomeSectionCfg; deals: DP
   );
 }
 
-const TABS = [
-  { key: "featured", label: "Featured Picks" },
-  { key: "top", label: "Top Selling" },
-  { key: "hot", label: "Hot Products" },
+/* ─────────────── Homepage showcase — TWO SQUARE TABS, centered, icon over label.
+      Ready to Dispatch  → in-demand SKUs, 20 at a time with a Load More button (no pagination)
+      Brand Products     → every brand as a logo tile
+      Switching tabs plays a smooth, slow crossfade+slide (desktop and mobile). ─────────────── */
+const SHOWCASE_TABS = [
+  { key: "dispatch", label: "Ready to Dispatch", icon: Truck },
+  { key: "brands", label: "Brand Products", icon: Building2 },
 ] as const;
 
-function TabbedShowcase() {
-  const rows = useFlagRows();
-  const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("featured");
-  const products = rows[tab];
-  return (
-    <section>
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`rounded-lg px-4 py-2 text-xs font-bold transition ${
-              tab === t.key ? "bg-black text-yellow-400" : "border bg-white text-gray-600 hover:border-yellow-400"
-            }`}
-          >
-            {t.label}
-          </button>
+type ShowcaseTab = (typeof SHOWCASE_TABS)[number]["key"];
+const DISPATCH_PAGE_SIZE = 20;
+
+function ReadyToDispatchGrid() {
+  const [products, setProducts] = useState<DProduct[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const loadPage = useCallback(async (nextPage: number, replace: boolean) => {
+    if (replace) setLoading(true);
+    else setLoadingMore(true);
+    try {
+      const r = await fetch(`/api/products?flag=top&limit=${DISPATCH_PAGE_SIZE}&page=${nextPage}`);
+      const d = await r.json();
+      const fresh = (d.products ?? []) as DProduct[];
+      setProducts((prev) => (replace ? fresh : [...prev, ...fresh]));
+      setTotal(d.total ?? 0);
+      setPage(nextPage);
+    } catch {
+      /* keep previous content on failure */
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPage(1, true);
+  }, [loadPage]);
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+        {Array.from({ length: 12 }).map((_, i) => (
+          <div key={i} className="animate-pulse">
+            <div className="aspect-square rounded-xl bg-gray-100" />
+            <div className="mt-2 h-3 w-3/4 rounded bg-gray-100" />
+            <div className="mt-1.5 h-3 w-1/2 rounded bg-gray-100" />
+          </div>
         ))}
-        <Link href={`/catalog?flag=${tab}`} className="ml-auto text-xs font-bold text-yellow-600 hover:underline">See all →</Link>
       </div>
+    );
+  }
+
+  if (!products.length) {
+    return (
+      <div className="rounded-xl border border-dashed py-12 text-center">
+        <p className="text-sm font-semibold text-gray-700">Nothing queued for dispatch right now</p>
+        <p className="mt-1 text-xs text-gray-400">Check back soon — fresh stock is added daily.</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
         {products.map((p) => <ProductCard key={p.id} p={p} />)}
       </div>
+      {/* Load More appends the next 20 inline — never a pagination jump */}
+      {products.length < total && (
+        <div className="mt-6 flex flex-col items-center gap-1.5">
+          <button
+            onClick={() => loadPage(page + 1, false)}
+            disabled={loadingMore}
+            className="flex items-center gap-2 rounded-xl bg-black px-8 py-3 text-sm font-bold uppercase tracking-wide text-yellow-400 transition-all duration-500 hover:bg-gray-800 disabled:opacity-50"
+          >
+            {loadingMore ? (
+              <>
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-yellow-400 border-t-transparent" /> Loading…
+              </>
+            ) : (
+              <>
+                Load More <ArrowRight className="h-4 w-4" />
+              </>
+            )}
+          </button>
+          <p className="text-[11px] font-semibold text-gray-400">Showing {products.length} of {total} SKUs</p>
+        </div>
+      )}
+    </>
+  );
+}
+
+function BrandProductsGrid() {
+  const catalog = useCatalog();
+  const brands = catalog?.brands ?? [];
+  return (
+    <div>
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-8">
+        {brands.map((b, i) => (
+          <motion.div
+            key={b.id}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: Math.min(i * 0.03, 0.4), ease: "easeOut" }}
+          >
+            <Link
+              href={`/brand/${b.slug}`}
+              className="group flex h-full flex-col items-center gap-2 rounded-2xl border bg-white p-3 text-center transition-all duration-500 hover:border-yellow-400 hover:shadow-md"
+            >
+              <span className="flex h-16 w-16 items-center justify-center overflow-hidden">
+                {b.logo ? (
+                  <Image src={b.logo} alt={b.name} width={64} height={64} className="h-16 w-16 object-contain transition duration-500 group-hover:scale-110" unoptimized />
+                ) : (
+                  <span className="text-xl font-black text-gray-300">{b.name.slice(0, 2).toUpperCase()}</span>
+                )}
+              </span>
+              <span className="line-clamp-1 text-[11px] font-bold text-gray-800">{b.name}</span>
+              <span className="text-[10px] text-gray-400">{b._count?.products ?? 0} SKUs</span>
+            </Link>
+          </motion.div>
+        ))}
+      </div>
+      <div className="mt-5 flex justify-center">
+        <Link href="/brands" className="text-xs font-bold text-yellow-600 hover:underline">View all brands →</Link>
+      </div>
+    </div>
+  );
+}
+
+function TabbedShowcase() {
+  const [tab, setTab] = useState<ShowcaseTab>("dispatch");
+  return (
+    <section>
+      {/* square tabs — icon on top, label below, centered; slow smooth morph on every interaction */}
+      <div className="mb-6 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+        {SHOWCASE_TABS.map((t) => {
+          const active = tab === t.key;
+          return (
+            <motion.button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              whileTap={{ scale: 0.94 }}
+              transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
+              aria-pressed={active}
+              className={`flex h-24 w-24 flex-col items-center justify-center gap-1.5 rounded-2xl sm:h-28 sm:w-28 ${
+                active
+                  ? "bg-black text-yellow-400 shadow-lg shadow-black/20 ring-2 ring-yellow-400 ring-offset-2"
+                  : "border border-gray-200 bg-white text-gray-600 hover:border-yellow-400 hover:bg-yellow-50/60 hover:shadow-md"
+              }`}
+              style={{ transition: "all 0.5s cubic-bezier(0.4, 0, 0.2, 1)" }}
+            >
+              <t.icon className="h-7 w-7 sm:h-8 sm:w-8" strokeWidth={active ? 2.2 : 1.8} />
+              <span className="px-1 text-center text-[10px] font-black uppercase leading-tight tracking-wide sm:text-[11px]">{t.label}</span>
+            </motion.button>
+          );
+        })}
+      </div>
+      {/* smooth slow content swap — crossfade + slide, works identically on touch devices */}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={tab}
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -12 }}
+          transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
+        >
+          <div className="mb-3 flex justify-end">
+            {tab === "dispatch" ? (
+              <Link href="/catalog?flag=top" className="text-xs font-bold text-yellow-600 hover:underline">See all →</Link>
+            ) : (
+              <span className="text-xs text-gray-400">Tap a brand to open its storefront</span>
+            )}
+          </div>
+          {tab === "dispatch" ? <ReadyToDispatchGrid /> : <BrandProductsGrid />}
+        </motion.div>
+      </AnimatePresence>
     </section>
   );
 }
@@ -450,49 +595,68 @@ function AdImage({ src, alt }: { src: string; alt: string }) {
   );
 }
 
+function AdCard({ a }: { a: AdRow }) {
+  return (
+    <Link
+      href={a.brand?.slug ? `/brand/${a.brand.slug}` : a.link || "#"}
+      className="group relative block h-44 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm transition hover:shadow-md md:h-52 lg:h-56"
+      aria-label={a.title}
+    >
+      {a.image ? (
+        <AdImage src={a.image} alt={a.title} />
+      ) : (
+        <span className="flex h-full w-64 flex-col items-center justify-center gap-1 bg-gradient-to-br from-[#FFF6E0] to-[#FBE8B4] text-center">
+          <Megaphone className="h-6 w-6 text-yellow-500" />
+          <span className="px-3 text-xs font-bold text-gray-800">{a.title}</span>
+        </span>
+      )}
+      <span className="absolute left-2 top-2 rounded bg-black/70 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-yellow-400">Ad</span>
+      {/* touch devices have no hover — always show a slim bottom label */}
+      <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/75 via-black/30 to-transparent px-3 pb-2 pt-7 text-[11px] font-bold text-white sm:group-hover:opacity-0">
+        {a.brand?.name || a.title}
+      </span>
+      {/* hover detail — half-corner TRANSPARENT overlay (bottom-left ~55% of the card):
+          the ad image stays visible on the rest of the card, nothing is fully covered */}
+      <span className="pointer-events-none absolute bottom-0 left-0 w-[55%] max-w-[240px] translate-y-2 rounded-tr-2xl bg-black/55 p-3 opacity-0 backdrop-blur-[3px] transition-all duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100">
+        <span className="block text-[9px] font-black uppercase tracking-[0.18em] text-yellow-400">Sponsored</span>
+        <span className="mt-0.5 line-clamp-2 block text-xs font-black leading-tight text-white">{a.title}</span>
+        {a.brand?.name && <span className="block text-[10px] font-semibold text-gray-300">by {a.brand.name}</span>}
+        <span className="mt-1.5 flex w-fit items-center gap-1 rounded-md bg-yellow-400 px-2 py-0.5 text-[9px] font-black text-black">
+          Visit now <ArrowRight className="h-2.5 w-2.5" strokeWidth={3} />
+        </span>
+      </span>
+    </Link>
+  );
+}
+
 function AdsStrip({ cfg, title }: { cfg?: HomeSectionCfg; title?: string }) {
   const catalog = useCatalog();
   const ads = ((catalog?.ads ?? []) as AdRow[]).filter((a) => a.active).slice(0, 6);
   if (!ads.length) return null;
+  // AUTO-SCROLL: the strip drifts slowly to the left forever (desktop AND mobile),
+  // pausing while the buyer hovers/touches a card. Two identical halves animate by -50%
+  // for a seamless loop; each half repeats the list enough times to exceed any viewport.
+  const reps = Math.max(3, Math.ceil(8 / ads.length));
+  const half = Array.from({ length: reps }, () => ads).flat();
   return (
     <section>
       <h2 className={`mb-3 flex items-center gap-2 ${secSize(cfg?.size)} font-black`} style={{ color: secColor(cfg?.color) }}>
         <Megaphone className="h-5 w-5 text-yellow-500" /> {title || "Sponsored Promotions"}
       </h2>
-      {/* one aligned row — every ad keeps its own shape at the same height, swipeable on mobile */}
-      <div className="flex items-stretch gap-3 overflow-x-auto pb-1 scrollbar-hide lg:justify-center">
-        {ads.map((a) => (
-          <Link
-            key={a.id}
-            href={a.brand?.slug ? `/brand/${a.brand.slug}` : a.link || "#"}
-            className="group relative block h-44 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm transition hover:shadow-md md:h-52 lg:h-56"
-            aria-label={a.title}
-          >
-            {a.image ? (
-              <AdImage src={a.image} alt={a.title} />
-            ) : (
-              <span className="flex h-full w-64 flex-col items-center justify-center gap-1 bg-gradient-to-br from-[#FFF6E0] to-[#FBE8B4] text-center">
-                <Megaphone className="h-6 w-6 text-yellow-500" />
-                <span className="px-3 text-xs font-bold text-gray-800">{a.title}</span>
-              </span>
-            )}
-            <span className="absolute left-2 top-2 rounded bg-black/70 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-yellow-400">Ad</span>
-            {/* touch devices have no hover — always show a slim bottom label */}
-            <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/75 via-black/30 to-transparent px-3 pb-2 pt-7 text-[11px] font-bold text-white sm:group-hover:opacity-0">
-              {a.brand?.name || a.title}
-            </span>
-            {/* hover detail — half-corner TRANSPARENT overlay (bottom-left ~55% of the card):
-                the ad image stays visible on the rest of the card, nothing is fully covered */}
-            <span className="pointer-events-none absolute bottom-0 left-0 w-[55%] max-w-[240px] translate-y-2 rounded-tr-2xl bg-black/55 p-3 opacity-0 backdrop-blur-[3px] transition-all duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100">
-              <span className="block text-[9px] font-black uppercase tracking-[0.18em] text-yellow-400">Sponsored</span>
-              <span className="mt-0.5 line-clamp-2 block text-xs font-black leading-tight text-white">{a.title}</span>
-              {a.brand?.name && <span className="block text-[10px] font-semibold text-gray-300">by {a.brand.name}</span>}
-              <span className="mt-1.5 flex w-fit items-center gap-1 rounded-md bg-yellow-400 px-2 py-0.5 text-[9px] font-black text-black">
-                Visit now <ArrowRight className="h-2.5 w-2.5" strokeWidth={3} />
-              </span>
-            </span>
-          </Link>
-        ))}
+      <div
+        className="relative overflow-hidden rounded-xl pb-1"
+        style={{
+          maskImage: "linear-gradient(to right, transparent, black 3%, black 97%, transparent)",
+          WebkitMaskImage: "linear-gradient(to right, transparent, black 3%, black 97%, transparent)",
+        }}
+      >
+        <div className="flex w-max animate-dmk-marquee-slow items-stretch gap-3 hover:[animation-play-state:paused]">
+          {[0, 1].map((halfIdx) => (
+            <div key={halfIdx} className="flex items-stretch gap-3" aria-hidden={halfIdx === 1}>
+              {half.map((a, i) => <AdCard key={`${halfIdx}-${a.id}-${i}`} a={a} />)}
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -607,7 +771,7 @@ function TrustStrip() {
 }
 
 export function HomeView() {
-  const rows = useFlagRows();
+  const deals = useDeals();
   const catalog = useCatalog();
   const cfg = parseSections(catalog?.settings?.home_sections);
   const offer = catalog?.activeOffer ?? null;
@@ -632,7 +796,7 @@ export function HomeView() {
           case "categoryGrid": return <CategoryGrid key={s.id} cfg={s} title={s.title} sub={s.sub} />;
           case "dealsRail": return (
             <div key={s.id} className="space-y-8">
-              <DealsRail cfg={s} deals={rows.deals} title={s.title} sub={s.sub} />
+              <DealsRail cfg={s} deals={deals} title={s.title} sub={s.sub} />
               {/* slim copyable coupon ticker — auto-appears only while coupons are live */}
               {coupons.length > 0 && <CouponMarquee coupons={coupons} />}
             </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Heart, Package, Flame, TrendingUp, Star, Zap, Minus, Plus, ShoppingCart, Store, Truck } from "lucide-react";
@@ -25,6 +25,57 @@ export function toCartItem(p: DProduct, unitType: UnitType = "SINGLE"): CartItem
 }
 
 const UNIT_LABEL: Record<UnitType, string> = { SINGLE: "Pc", PACK: "Pack", BULK: "Case" };
+
+/** BULK ORDERING — type the exact quantity instead of tapping "+" 72 times.
+ *  Direct-edit number box: digits only, commits on every keystroke, normalises to ≥1 on blur. */
+export function QtyInput({
+  value,
+  onCommit,
+  className,
+  ariaLabel = "Quantity — type the exact number you need",
+}: {
+  value: number;
+  onCommit: (n: number) => void;
+  className?: string;
+  ariaLabel?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(value));
+  // keep the box in sync with external +/- buttons, but never fight the user's typing
+  useEffect(() => {
+    if (!editing) setDraft(String(value));
+  }, [value, editing]);
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={draft}
+      onFocus={() => {
+        setEditing(true);
+        setDraft(String(value));
+      }}
+      onChange={(e) => {
+        const digits = e.target.value.replace(/[^0-9]/g, "").slice(0, 6);
+        setDraft(digits);
+        const n = parseInt(digits, 10);
+        if (Number.isFinite(n) && n >= 1) onCommit(n);
+      }}
+      onBlur={() => {
+        setEditing(false);
+        const n = parseInt(draft, 10);
+        if (!Number.isFinite(n) || n < 1) {
+          setDraft("1");
+          onCommit(1);
+        } else {
+          setDraft(String(n));
+        }
+      }}
+      aria-label={ariaLabel}
+      title="Type the exact quantity — no need to press + repeatedly"
+      className={className ?? "w-9 bg-transparent text-center text-xs font-black outline-none"}
+    />
+  );
+}
 
 export function ProductCard({ p }: { p: DProduct }) {
   const hydrated = useHydrated();
@@ -109,9 +160,9 @@ export function ProductCard({ p }: { p: DProduct }) {
         </div>
         <div className="mt-auto pt-1">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-base font-bold text-gray-900">{formatINR(priceShown)}</span>
-            <span className="text-[11px] text-gray-400">/pc</span>
-            {p.mrp > priceShown && <span className="text-[11px] text-gray-400 line-through">{formatINR(p.mrp)}</span>}
+            <span className="text-lg font-extrabold tracking-tight text-gray-900 sm:text-xl">{formatINR(priceShown)}</span>
+            <span className="text-[11px] font-semibold text-gray-400">/pc</span>
+            {p.mrp > priceShown && <span className="text-xs font-medium text-gray-400 line-through">{formatINR(p.mrp)}</span>}
             {hydrated && loaded && sessionTier && sessionTier !== "tier2" && (
               <span className="ml-auto rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-700">Your slab</span>
             )}
@@ -123,18 +174,18 @@ export function ProductCard({ p }: { p: DProduct }) {
               <span className="flex shrink-0 items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide text-gray-500" title="Pack rate — collect from your nearest warehouse">
                 <Store className="h-2.5 w-2.5 shrink-0 text-yellow-600" /> Pickup
               </span>
-              <span className="truncate text-[11px] font-black tabular-nums text-gray-900">
+              <span className="truncate text-xs font-black tabular-nums text-gray-900 sm:text-sm">
                 {formatINR(packPerPc)}
-                <span className="ml-px text-[9px] font-semibold text-gray-400">/pc</span>
+                <span className="ml-px text-[10px] font-semibold text-gray-400">/pc</span>
               </span>
             </div>
             <div className="flex items-center justify-between gap-1.5 border-t border-gray-200 pt-1">
               <span className="flex shrink-0 items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide text-gray-500" title="Single piece price — delivered to your address">
                 <Truck className="h-2.5 w-2.5 shrink-0 text-gray-500" /> Delivery
               </span>
-              <span className="truncate text-[11px] font-black tabular-nums text-gray-900">
+              <span className="truncate text-xs font-black tabular-nums text-gray-900 sm:text-sm">
                 {formatINR(priceShown)}
-                <span className="ml-px text-[9px] font-semibold text-gray-400">/pc</span>
+                <span className="ml-px text-[10px] font-semibold text-gray-400">/pc</span>
               </span>
             </div>
           </div>
@@ -147,7 +198,11 @@ export function ProductCard({ p }: { p: DProduct }) {
               >
                 <Minus className="h-3.5 w-3.5" />
               </button>
-              <span className="text-xs font-bold">{inCart} pc</span>
+              {/* bulk ordering — the count itself is an editable box: type 72 directly */}
+              <span className="flex items-center">
+                <QtyInput value={inCart} onCommit={(n) => setQty(key, n)} className="w-9 bg-transparent text-center text-xs font-black outline-none" />
+                <span className="pr-0.5 text-[10px] font-bold">pc</span>
+              </span>
               <button
                 onClick={() => setQty(key, inCart + 1)}
                 aria-label="Increase"
@@ -198,8 +253,8 @@ export function ProductCardMini({ p }: { p: DProduct }) {
         </Link>
         <div className="mt-auto flex items-center justify-between pt-1.5">
           <div>
-            <span className="text-sm font-bold">{formatINR(priceShown)}</span>
-            {p.mrp > priceShown && <span className="ml-1 text-[10px] text-gray-400 line-through">{formatINR(p.mrp)}</span>}
+            <span className="text-base font-extrabold text-gray-900">{formatINR(priceShown)}</span>
+            {p.mrp > priceShown && <span className="ml-1 text-[11px] text-gray-400 line-through">{formatINR(p.mrp)}</span>}
           </div>
           <button
             onClick={() => {

@@ -3,12 +3,14 @@
 import Image from "next/image";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { Minus, Plus, Trash2, Package, Truck, ArrowRight, TicketPercent, CheckCircle2, Store, ReceiptText } from "lucide-react";
+import { Minus, Plus, Trash2, Package, Truck, ArrowRight, TicketPercent, CheckCircle2, Store, ReceiptText, UserCheck } from "lucide-react";
 import { useCartStore, cartTotals, formatINR, lineKey, unitPriceFor, piecesPerUnit, type UnitType } from "@/lib/store";
 import type { Fulfillment } from "@/lib/pricing";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { useEffect } from "react";
 import { toast } from "sonner";
+import { QtyInput } from "./product-card";
+import { useCatalog } from "./site-header-v2";
 
 const UNIT_BADGE: Record<UnitType, { label: string; cls: string }> = {
   SINGLE: { label: "Piece", cls: "bg-gray-100 text-gray-700" },
@@ -25,6 +27,10 @@ export function CartDrawer({ onCheckout }: { onCheckout: (couponCode: string, co
   const remove = useCartStore((s) => s.remove);
   const fulfillment = useCartStore((s) => s.fulfillment);
   const setFulfillment = useCartStore((s) => s.setFulfillment);
+  const salesman = useCartStore((s) => s.salesman);
+  const setSalesman = useCartStore((s) => s.setSalesman);
+  const catalog = useCatalog();
+  const salespersons = catalog?.salespersons ?? [];
   const [coupon, setCoupon] = useState("");
   const [couponDisc, setCouponDisc] = useState(0);
   const [appliedCode, setAppliedCode] = useState("");
@@ -139,11 +145,12 @@ export function CartDrawer({ onCheckout }: { onCheckout: (couponCode: string, co
                         <div className="mt-1.5 flex items-center justify-between">
                           <div className="flex items-center rounded-lg bg-yellow-400">
                             <button onClick={() => setQty(key, i.qty - 1)} aria-label="Decrease" className="flex h-6 w-6 items-center justify-center hover:bg-black/10"><Minus className="h-3 w-3" /></button>
-                            <span className="w-9 text-center text-[11px] font-black">{i.qty}</span>
+                            {/* bulk ordering — type the exact quantity (e.g. 72) instead of tapping + */}
+                            <QtyInput value={i.qty} onCommit={(n) => setQty(key, n)} className="w-9 bg-transparent text-center text-[11px] font-black outline-none" />
                             <button onClick={() => setQty(key, i.qty + 1)} aria-label="Increase" className="flex h-6 w-6 items-center justify-center hover:bg-black/10"><Plus className="h-3 w-3" /></button>
                           </div>
                           <div className="text-right">
-                            <p className="text-xs font-black text-gray-900">{formatINR(Math.round(up * i.qty * 100) / 100)}</p>
+                            <p className="text-sm font-black text-gray-900">{formatINR(Math.round(up * i.qty * 100) / 100)}</p>
                             <button onClick={() => remove(key)} className="flex items-center gap-0.5 text-[10px] text-red-500 hover:underline">
                               <Trash2 className="h-3 w-3" /> Remove
                             </button>
@@ -181,7 +188,7 @@ export function CartDrawer({ onCheckout }: { onCheckout: (couponCode: string, co
             </div>
 
             <div className="space-y-2 border-t bg-gray-50 p-4 text-xs">
-              {/* Invoice note — no totals in the cart: the itemised invoice is generated per pickup/delivery selection */}
+              {/* Invoice note — the itemised invoice is generated per pickup/delivery selection */}
               <div className="flex items-start gap-2 rounded-xl border border-yellow-200 bg-yellow-50 p-3">
                 <ReceiptText className="mt-0.5 h-4 w-4 shrink-0 text-yellow-600" />
                 <p className="text-[11px] font-semibold leading-relaxed text-gray-700">
@@ -189,14 +196,68 @@ export function CartDrawer({ onCheckout }: { onCheckout: (couponCode: string, co
                   Rates &amp; charges are applied automatically — no payment needed now.
                 </p>
               </div>
+              {/* OVERALL TOTAL — always visible in the cart */}
+              <div className="rounded-xl border bg-white p-3">
+                <div className="flex items-center justify-between text-gray-600">
+                  <span>Item total · {totalPieces} pcs</span>
+                  <span className="font-bold tabular-nums text-gray-900">{formatINR(t.itemTotal)}</span>
+                </div>
+                {t.slabDisc > 0 && (
+                  <div className="mt-0.5 flex items-center justify-between text-emerald-700">
+                    <span>Wholesale slab ({t.slabPct}%)</span>
+                    <span className="font-bold tabular-nums">−{formatINR(t.slabDisc)}</span>
+                  </div>
+                )}
+                <div className="mt-0.5 flex items-center justify-between text-gray-600">
+                  <span>{fulfillment === "PICKUP" ? "Delivery (pickup — you collect)" : "Delivery"}</span>
+                  <span className="font-bold tabular-nums text-gray-900">{fulfillment === "PICKUP" ? "₹0" : formatINR(t.deliveryFee)}</span>
+                </div>
+                <div className="mt-1.5 flex items-center justify-between border-t border-gray-200 pt-1.5">
+                  <span className="text-sm font-black text-gray-900">Total</span>
+                  <span className="text-base font-black tabular-nums text-gray-900">{formatINR(t.grandTotal)}</span>
+                </div>
+              </div>
+              {/* SALESMAN — mandatory: every order flows through a field salesman */}
+              {salespersons.length > 0 ? (
+                <div className="rounded-xl border border-yellow-300 bg-yellow-50 p-3">
+                  <label htmlFor="cart-salesman" className="flex items-center gap-1 text-[11px] font-black uppercase tracking-wide text-gray-700">
+                    <UserCheck className="h-3.5 w-3.5 text-yellow-600" /> Select Salesman <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    id="cart-salesman"
+                    value={salesman}
+                    onChange={(e) => setSalesman(e.target.value)}
+                    className={`mt-1.5 h-9 w-full rounded-lg border bg-white px-2 text-xs font-semibold outline-none ${salesman ? "border-gray-200" : "border-red-300"}`}
+                  >
+                    <option value="">— Choose your salesman —</option>
+                    {salespersons.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
+                  </select>
+                  <p className="mt-1 text-[10px] font-semibold text-gray-500">Required to proceed — your order is placed through this salesman.</p>
+                </div>
+              ) : (
+                <p className="rounded-xl border border-dashed border-gray-200 p-2 text-center text-[10px] font-semibold text-gray-400">
+                  Salesman selection opens once the sales team is configured.
+                </p>
+              )}
               {couponDisc > 0 && (
                 <p className="flex items-center justify-center gap-1 text-[11px] font-semibold text-emerald-700">
                   <CheckCircle2 className="h-3 w-3" /> {appliedCode} will apply {formatINR(couponDisc)} off on your invoice
                 </p>
               )}
               <button
-                onClick={() => { closeCart(); onCheckout(couponDisc > 0 ? appliedCode : "", couponDisc); }}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-black py-3 text-sm font-bold uppercase tracking-wide text-yellow-400 hover:bg-gray-800"
+                onClick={() => {
+                  if (salespersons.length > 0 && !salesman) {
+                    toast.error("Please select a salesman to proceed to checkout");
+                    return;
+                  }
+                  closeCart();
+                  onCheckout(couponDisc > 0 ? appliedCode : "", couponDisc);
+                }}
+                className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold uppercase tracking-wide transition ${
+                  salespersons.length > 0 && !salesman
+                    ? "cursor-not-allowed bg-gray-400 text-white"
+                    : "bg-black text-yellow-400 hover:bg-gray-800"
+                }`}
               >
                 Proceed to Checkout <ArrowRight className="h-4 w-4" />
               </button>
