@@ -35,6 +35,8 @@ const orderSchema = z.object({
   zone: z.string().optional(),
   slot: z.string().optional(),
   paymentMethod: z.enum(["UPI", "CARD", "COD", "CREDIT"]),
+  // salesman picked in the cart (from the admin-managed salesperson list) — stored on the order
+  salesman: z.string().max(120).optional().or(z.literal("")),
   couponCode: z.string().optional().or(z.literal("")),
   note: z.string().optional().or(z.literal("")),
   waOptIn: z.boolean().optional(),
@@ -224,6 +226,7 @@ export async function POST(req: NextRequest) {
         paymentStatus: d.paymentMethod === "CREDIT" ? "PENDING" : "PAID",
         status: "PENDING",
         source: "WEB",
+        salesPerson: d.salesman || "",
         note: d.note || "",
       },
     });

@@ -21,7 +21,7 @@ export function CatalogClient() {
     if (flag === "deal") return "Deals of the Day";
     if (flag === "hot") return "Hot Products";
     if (flag === "featured") return "Featured Picks";
-    if (flag === "top") return "Top Selling";
+    if (flag === "top") return "Ready to Dispatch";
     if (brand) {
       const b = catalog?.brands.find((x) => x.slug === brand);
       const cat = end && catalog ? catalog.tops.flatMap((t) => t.mids).flatMap((m) => m.ends).find((e) => e.id === end) : null;

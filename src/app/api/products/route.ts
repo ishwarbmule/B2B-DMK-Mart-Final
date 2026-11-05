@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { customerFromReq } from "@/lib/customer-auth";
 import { rankWarehouses } from "@/lib/geo";
+import { GUEST_TIER } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -55,13 +56,15 @@ export async function GET(req: NextRequest) {
   if (flag === "top") where.isTop = true;
   if (flag === "deal") where.isDeal = true;
 
-  // ── location-aware catalog: customer's nearest warehouse decides visibility ──
+  // ── buyer identity once: tier drives BOTH the location catalog and the price filter ──
+  const customerId = customerFromReq(req);
+  let buyerTier = GUEST_TIER; // logged-out visitors see wholesale (tier2) piece prices
   let buyerWarehouseName = "";
-  if (!warehouseId && !allWarehouses && !includeInactive) {
-    const customerId = customerFromReq(req);
-    if (customerId) {
-      const cust = await db.customer.findUnique({ where: { id: customerId }, select: { city: true, pincode: true } });
-      if (cust && (cust.city || cust.pincode)) {
+  if (customerId) {
+    const cust = await db.customer.findUnique({ where: { id: customerId }, select: { city: true, pincode: true, tier: true } });
+    if (cust) {
+      buyerTier = /^tier[1-5]$/.test(cust.tier) ? cust.tier : GUEST_TIER;
+      if (!warehouseId && !allWarehouses && !includeInactive && (cust.city || cust.pincode)) {
         const whs = await db.warehouse.findMany({
           where: { active: true },
           orderBy: [{ isDefault: "desc" }, { sortOrder: "asc" }],
@@ -77,10 +80,20 @@ export async function GET(req: NextRequest) {
   }
   if (warehouseId) where.warehouseStocks = { some: { warehouseId, qty: { gt: 0 } } };
   if (!Number.isNaN(minPrice) || !Number.isNaN(maxPrice)) {
-    where.dealerPrice = {
+    // ACCURATE price filter: match the piece price the buyer actually SEES on the card —
+    // their own slab's rate, with the exact fallback the client pricing engine applies
+    // (tier column 0 → dealerPrice). Filtering raw dealerPrice made results not match prices shown.
+    const range: Record<string, number> = {
       ...(Number.isNaN(minPrice) ? {} : { gte: minPrice }),
       ...(Number.isNaN(maxPrice) ? {} : { lte: maxPrice }),
     };
+    const seenPrice = {
+      OR: [
+        { [buyerTier]: { gt: 0, ...range } },
+        { AND: [{ [buyerTier]: { lte: 0 } }, { dealerPrice: range }] },
+      ],
+    };
+    where.AND = [...((where.AND as unknown[]) ?? []), seenPrice];
   }
 
   const orderBy =

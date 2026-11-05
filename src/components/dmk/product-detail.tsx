@@ -10,7 +10,7 @@ import { useHydrated } from "@/hooks/use-hydrated";
 import { discountPct, type DProduct } from "@/lib/types";
 import { useCustomerSession } from "@/lib/customer-client";
 import type { Fulfillment } from "@/lib/pricing";
-import { toCartItem, ProductCard } from "./product-card";
+import { toCartItem, ProductCard, QtyInput } from "./product-card";
 
 export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[] }) {
   const hydrated = useHydrated();
@@ -82,7 +82,7 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
               {disc > 0 && <span className="rounded-full bg-yellow-400 px-2.5 py-1 text-[11px] font-black text-black">{disc}% OFF</span>}
               {p.isDeal && <span className="flex items-center gap-1 rounded-full bg-red-500 px-2.5 py-1 text-[11px] font-bold text-white"><Zap className="h-3 w-3" /> Deal of the Day</span>}
               {p.isHot && <span className="flex items-center gap-1 rounded-full bg-orange-500 px-2.5 py-1 text-[11px] font-bold text-white"><Flame className="h-3 w-3" /> Hot</span>}
-              {p.isTop && <span className="flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white"><TrendingUp className="h-3 w-3" /> Top Selling</span>}
+              {p.isTop && <span className="flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white"><TrendingUp className="h-3 w-3" /> Ready to Dispatch</span>}
             </div>
           </div>
           {gallery.length > 1 && (
@@ -151,14 +151,15 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
             </div>
             {p.mrp > up && (
               <div className="text-right">
-                <p className="text-sm text-gray-400 line-through">{formatINR(p.mrp)}</p>
+                <p className="text-base font-semibold text-gray-400 line-through">{formatINR(p.mrp)}</p>
                 <p className="text-[11px] font-bold text-emerald-600">Save {formatINR(p.mrp - up)}</p>
               </div>
             )}
             <div className="ml-auto flex items-center gap-2">
               <div className="flex items-center rounded-lg border">
                 <button onClick={() => setQty((q2) => Math.max(1, q2 - 1))} aria-label="Decrease qty" className="flex h-9 w-9 items-center justify-center hover:bg-gray-50"><Minus className="h-4 w-4" /></button>
-                <span className="w-10 text-center text-sm font-black">{qty}</span>
+                {/* bulk ordering — type the exact quantity instead of tapping + */}
+                <QtyInput value={qty} onCommit={(n) => setQty(Math.max(1, n))} className="w-11 bg-transparent text-center text-sm font-black outline-none" />
                 <button onClick={() => setQty((q2) => q2 + 1)} aria-label="Increase qty" className="flex h-9 w-9 items-center justify-center hover:bg-gray-50"><Plus className="h-4 w-4" /></button>
               </div>
               <button onClick={() => addNow(false)} className="rounded-lg bg-black px-4 py-2.5 text-xs font-bold uppercase text-yellow-400 hover:bg-gray-800">

@@ -1,15 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { SlidersHorizontal, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { SlidersHorizontal, X, ChevronLeft, ChevronRight, Warehouse } from "lucide-react";
 import type { DProduct, TopCategoryNode, BrandNode } from "@/lib/types";
 import { useCartStore } from "@/lib/store";
 import { getCustomerToken } from "@/lib/customer-session";
 import { ProductCard } from "./product-card";
+import { useCatalog } from "./site-header-v2";
 
 interface Filters {
   top: string; mid: string; end: string; brand: string;
   minPrice: string; maxPrice: string; sort: string; q: string; flag: string;
+  warehouse: string;
 }
 
 const SORTS = [
@@ -33,9 +35,11 @@ export function CatalogView({
   initial?: Partial<Filters>;
 }) {
   const [filters, setFilters] = useState<Filters>({
-    top: "", mid: "", end: "", brand: "", minPrice: "", maxPrice: "", sort: "relevance", q: "", flag: "",
+    top: "", mid: "", end: "", brand: "", minPrice: "", maxPrice: "", sort: "relevance", q: "", flag: "", warehouse: "",
     ...initial,
   });
+  const catalog = useCatalog();
+  const warehouses = catalog?.warehouses ?? [];
   const [page, setPage] = useState(1);
   const [data, setData] = useState<{ products: DProduct[]; total: number; pages: number }>({ products: [], total: 0, pages: 1 });
   const [loading, setLoading] = useState(true);
@@ -43,9 +47,20 @@ export function CatalogView({
 
   const setF = (patch: Partial<Filters>) => {
     setLoading(true);
-    setFilters((f) => ({ ...f, ...patch, ...(patch.top ? { mid: "", end: "" } : {}), ...(patch.mid ? { end: "" } : {}) }));
+    // an end-category chosen from the flat list implies its own parents — drop the others;
+    // picking a department clears the end selection so the two never contradict
+    setFilters((f) => ({
+      ...f,
+      ...patch,
+      ...(patch.top ? { mid: "", end: "" } : {}),
+      ...(patch.mid ? { end: "" } : {}),
+      ...(patch.end ? { top: "", mid: "" } : {}),
+    }));
     setPage(1);
   };
+
+  // price inputs stay freely editable — the fetch debounces so partial numbers ("5", "50") never fire
+  const priceDigits = (v: string) => v.replace(/[^0-9]/g, "");
 
   const fetchPage = useCallback(async (params: Record<string, string>) => {
     // customer token rides along → the API filters the catalog to the buyer's nearest warehouse
@@ -67,11 +82,15 @@ export function CatalogView({
     if (filters.maxPrice) params.maxPrice = filters.maxPrice;
     if (filters.q) params.q = filters.q;
     if (filters.flag) params.flag = filters.flag;
-    fetchPage(params)
-      .then((d) => { if (!cancelled) setData(d); })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+    if (filters.warehouse) params.warehouseId = filters.warehouse;
+    // 300 ms debounce — price/keyword typing settles before the query fires
+    const timer = setTimeout(() => {
+      fetchPage(params)
+        .then((d) => { if (!cancelled) setData(d); })
+        .catch(() => {})
+        .finally(() => { if (!cancelled) setLoading(false); });
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [filters, page, fetchPage]);
 
   const activeTop = tops.find((t) => t.id === filters.top);
@@ -107,6 +126,22 @@ export function CatalogView({
           </select>
         </div>
       )}
+      {/* END-LEVEL CATEGORY — independent flat list, every end category grouped under its department */}
+      <div>
+        <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-500">End-Level Category</p>
+        <select value={filters.end} onChange={(e) => setF({ end: e.target.value })} className="h-9 w-full max-h-32 rounded-lg border border-gray-200 bg-white px-2 text-xs">
+          <option value="">All End Categories</option>
+          {tops.map((t) => {
+            const ends = t.mids.flatMap((m) => m.ends);
+            if (!ends.length) return null;
+            return (
+              <optgroup key={t.id} label={`${t.emoji} ${t.name}`}>
+                {ends.map((en) => <option key={en.id} value={en.id}>{en.name}</option>)}
+              </optgroup>
+            );
+          })}
+        </select>
+      </div>
       <div>
         <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-500">Brand</p>
         <select value={filters.brand} onChange={(e) => setF({ brand: e.target.value })} className="h-9 w-full rounded-lg border border-gray-200 bg-white px-2 text-xs">
@@ -117,7 +152,7 @@ export function CatalogView({
       <div>
         <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-500">Sections</p>
         <div className="flex flex-wrap gap-1.5">
-          {[["", "All"], ["featured", "Featured"], ["top", "Top"], ["hot", "Hot"], ["deal", "Deals"]].map(([v, l]) => (
+          {[["", "All"], ["featured", "Featured"], ["top", "Ready to Dispatch"], ["hot", "Hot"], ["deal", "Deals"]].map(([v, l]) => (
             <button
               key={v || "all"}
               onClick={() => setF({ flag: v })}
@@ -128,16 +163,27 @@ export function CatalogView({
           ))}
         </div>
       </div>
+      {/* WAREHOUSE — mandatory filter: stock location decides which SKUs actually ship */}
+      <div>
+        <p className="mb-1.5 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-gray-500">
+          <Warehouse className="h-3 w-3 text-yellow-600" /> Warehouse
+        </p>
+        <select value={filters.warehouse} onChange={(e) => setF({ warehouse: e.target.value })} className="h-9 w-full rounded-lg border border-gray-200 bg-white px-2 text-xs">
+          <option value="">All Warehouses</option>
+          {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}{w.city ? ` — ${w.city}` : ""}</option>)}
+        </select>
+      </div>
       <div>
         <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-500">Price / piece (₹)</p>
         <div className="flex items-center gap-1.5">
-          <input value={filters.minPrice} onChange={(e) => setF({ minPrice: e.target.value })} placeholder="Min" inputMode="numeric" className="h-9 w-full rounded-lg border border-gray-200 px-2 text-xs" />
+          <input value={filters.minPrice} onChange={(e) => setF({ minPrice: priceDigits(e.target.value) })} placeholder="Min" inputMode="numeric" className="h-9 w-full rounded-lg border border-gray-200 px-2 text-xs" />
           <span className="text-gray-400">–</span>
-          <input value={filters.maxPrice} onChange={(e) => setF({ maxPrice: e.target.value })} placeholder="Max" inputMode="numeric" className="h-9 w-full rounded-lg border border-gray-200 px-2 text-xs" />
+          <input value={filters.maxPrice} onChange={(e) => setF({ maxPrice: priceDigits(e.target.value) })} placeholder="Max" inputMode="numeric" className="h-9 w-full rounded-lg border border-gray-200 px-2 text-xs" />
         </div>
+        <p className="mt-1 text-[10px] text-gray-400">Matches the piece price shown on cards for your slab.</p>
       </div>
       <button
-        onClick={() => setF({ top: "", mid: "", end: "", brand: "", minPrice: "", maxPrice: "", flag: "", q: "" })}
+        onClick={() => setF({ top: "", mid: "", end: "", brand: "", minPrice: "", maxPrice: "", flag: "", q: "", warehouse: "" })}
         className="w-full rounded-lg border border-gray-200 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50"
       >
         Clear All Filters

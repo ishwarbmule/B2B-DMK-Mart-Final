@@ -135,6 +135,10 @@ export interface CatalogPayload {
   activeOffer: OfferNode | null;
   homeCoupons: CouponNode[];
   footerPages: { slug: string; title: string; type: string }[];
+  /** active warehouses — powers the mandatory warehouse filter in every catalog filter panel */
+  warehouses: { id: string; name: string; city: string; isDefault: boolean }[];
+  /** salesman list (admin-managed) — the cart requires the buyer to pick one before checkout */
+  salespersons: { id: string; name: string }[];
 }
 
 export interface DProduct {

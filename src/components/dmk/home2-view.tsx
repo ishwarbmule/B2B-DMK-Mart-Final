@@ -3,7 +3,7 @@
 /**
  * Home-2 — "Everyday Essentials" retail-style homepage (second homepage URL).
  * Layout mirrors the approved demo: warm hero with USP chips → Shop by Category
- * circles → Shop by Price bands → Sponsored Ads banners → Top Selling grid →
+ * circles → Shop by Price bands → Sponsored Ads banners → Ready to Dispatch grid →
  * Top Companies logo wall. Runs on the live catalog + real cart.
  */
 
@@ -277,7 +277,7 @@ function TopSelling() {
   if (!rows.length) return null;
   return (
     <section>
-      <SectionHead pre="Top Selling Products" fire href="/catalog?flag=top" />
+      <SectionHead pre="Ready to Dispatch" fire href="/catalog?flag=top" />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {rows.map((p) => <TopSellingCard key={p.id} p={p} />)}
       </div>

@@ -37,7 +37,7 @@ export function DashboardModule({ token }: { token: string }) {
         <StatCard icon={IndianRupee} label="Total Revenue" value={formatINR(s.revenue)} sub={`${s.ordersTotal} orders lifetime`} color="#7c3aed" />
         <StatCard icon={CalendarDays} label="Orders Today" value={s.ordersToday} sub="since midnight" color="#06b6d4" />
         <StatCard icon={Flame} label="Hot Products" value={s.hotProducts} sub="deep discount flags" color="#f97316" />
-        <StatCard icon={TrendingUp} label="Top Selling" value={s.topSelling} sub="flagged bestsellers" color="#dc2626" />
+        <StatCard icon={TrendingUp} label="Ready to Dispatch" value={s.topSelling} sub="flagged bestsellers" color="#dc2626" />
         <StatCard icon={Package} label="Products" value={s.products} sub={`${s.companies} companies`} color="#2563eb" />
         <StatCard icon={Clock} label="Pending Orders" value={s.pendingOrders} sub="awaiting action" color="#e11d48" />
         <StatCard icon={CheckCircle2} label="Completed Orders" value={s.completedOrders} sub={`${s.cancelled} cancelled`} color="#16a34a" />

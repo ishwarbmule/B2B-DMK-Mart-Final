@@ -41,6 +41,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
   const clearCart = useCartStore((s) => s.clearCart);
   const cartFulfillment = useCartStore((s) => s.fulfillment);
   const setCartFulfillment = useCartStore((s) => s.setFulfillment);
+  const salesman = useCartStore((s) => s.salesman); // picked in the cart — saved on the order
   const customer = useCustomerSession((s) => s.customer);
   const warehouses = useCustomerSession((s) => s.warehouses); // nearest-first for this buyer
   const sessionLoaded = useCustomerSession((s) => s.loaded);
@@ -122,6 +123,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
           ...form,
           fulfillment,
           pickupWarehouseId: fulfillment === "PICKUP" ? pickupWh : "",
+          salesman,
           waOptIn,
           couponCode,
           items: items.map((i) => ({ id: i.id, unitType: i.unitType, qty: i.qty })),
@@ -178,6 +180,9 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
         })}
       </div>
       <div className="space-y-1.5 border-t bg-gray-50 p-3 text-xs">
+        {salesman && (
+          <div className="flex justify-between text-gray-600"><span>Salesman</span><span className="font-semibold text-gray-900">{salesman}</span></div>
+        )}
         <div className="flex justify-between text-gray-600"><span>Item total ({t.totalPieces} pcs)</span><span className="font-semibold">{formatINR(t.itemTotal)}</span></div>
         {t.slabPct > 0 && (
           <div className="flex justify-between text-emerald-600"><span>Slab discount ({t.slabTitle})</span><span className="font-semibold">− {formatINR(t.slabDisc)}</span></div>
