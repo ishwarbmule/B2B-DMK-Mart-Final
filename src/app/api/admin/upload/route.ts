@@ -1,4 +1,5 @@
-/** POST /api/admin/upload — multipart image upload → Cloudinary (folder: dmk-mart/ads).
+/** POST /api/admin/upload — multipart image upload → Cloudinary.
+ *  Folder form field picks the destination (default ads): ads | products | brands | categories.
  *  Returns { url }. Admin-only. Validations: image/* only, ≤ 8 MB. */
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
@@ -37,8 +38,12 @@ export async function POST(req: NextRequest) {
   if (!ALLOWED.includes(file.type)) return jsonError(`Unsupported file type ${file.type}. Use JPG, PNG, WEBP, GIF or AVIF.`, 400);
   if (file.size > MAX_BYTES) return jsonError("Image is larger than 8 MB.", 400);
 
+  // Folder routing — product images go to dmk-mart/products, ads stay in dmk-mart/ads
+  const FOLDERS: Record<string, string> = { ads: "ads", products: "products", brands: "brands", categories: "categories" };
+  const folderKey = FOLDERS[String(form.get("folder") || "ads").toLowerCase()] ? String(form.get("folder")).toLowerCase() : "ads";
+  const folder = `dmk-mart/${FOLDERS[folderKey]}`;
+
   // Timestamp + signature (sha1 of `folder=...&timestamp=...` + api_secret)
-  const folder = "dmk-mart/ads";
   const timestamp = Math.floor(Date.now() / 1000);
   const signature = createHash("sha1")
     .update(`folder=${folder}&timestamp=${timestamp}${secret}`)
@@ -67,7 +72,7 @@ export async function POST(req: NextRequest) {
 
   try {
     await db.activityLog.create({
-      data: { action: "UPLOAD", entity: "ad-image", detail: `Uploaded ${folder}/${(file.name || "image").slice(0, 60)} → ${result.secure_url}`, user: "Super Admin" },
+      data: { action: "UPLOAD", entity: `image-${folderKey}`, detail: `Uploaded ${folder}/${(file.name || "image").slice(0, 60)} → ${result.secure_url}`, user: "Super Admin" },
     });
   } catch { /* non-blocking */ }
 
