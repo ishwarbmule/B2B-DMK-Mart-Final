@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin, jsonError } from "@/lib/admin-auth";
+import { requireStaff } from "@/lib/staff-auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireStaff(req, "products");
   if (unauthorized) return unauthorized;
   const sp = req.nextUrl.searchParams;
   const q = sp.get("q")?.trim() || "";
@@ -51,7 +52,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireStaff(req, "products");
   if (unauthorized) return unauthorized;
   try {
     const b = await req.json();
@@ -100,7 +101,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireStaff(req, "products");
   if (unauthorized) return unauthorized;
   try {
     const { id, ...data } = await req.json();
@@ -127,7 +128,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireStaff(req, "products");
   if (unauthorized) return unauthorized;
   try {
     const id = req.nextUrl.searchParams.get("id");

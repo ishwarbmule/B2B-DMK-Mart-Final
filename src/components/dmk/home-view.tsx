@@ -523,7 +523,7 @@ function TabbedShowcase() {
   const [tab, setTab] = useState<ShowcaseTab>("dispatch");
   return (
     <section>
-      {/* square tabs — icon on top, label below, centered; slow smooth morph on every interaction */}
+      {/* tabs — mobile: SQUARE (icon over label) · laptop: RECTANGLE (icon left of label); centered; slow smooth morph */}
       <div className="mb-6 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
         {SHOWCASE_TABS.map((t) => {
           const active = tab === t.key;
@@ -534,15 +534,15 @@ function TabbedShowcase() {
               whileTap={{ scale: 0.94 }}
               transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
               aria-pressed={active}
-              className={`flex h-24 w-24 flex-col items-center justify-center gap-1.5 rounded-2xl sm:h-28 sm:w-28 ${
+              className={`flex h-24 w-24 flex-col items-center justify-center gap-1.5 rounded-2xl md:h-auto md:w-auto md:flex-row md:gap-3 md:rounded-2xl md:px-8 md:py-5 ${
                 active
                   ? "bg-black text-yellow-400 shadow-lg shadow-black/20 ring-2 ring-yellow-400 ring-offset-2"
                   : "border border-gray-200 bg-white text-gray-600 hover:border-yellow-400 hover:bg-yellow-50/60 hover:shadow-md"
               }`}
               style={{ transition: "all 0.5s cubic-bezier(0.4, 0, 0.2, 1)" }}
             >
-              <t.icon className="h-7 w-7 sm:h-8 sm:w-8" strokeWidth={active ? 2.2 : 1.8} />
-              <span className="px-1 text-center text-[10px] font-black uppercase leading-tight tracking-wide sm:text-[11px]">{t.label}</span>
+              <t.icon className="h-7 w-7 shrink-0 sm:h-8 sm:w-8 md:h-7 md:w-7" strokeWidth={active ? 2.2 : 1.8} />
+              <span className="px-1 text-center text-[10px] font-black uppercase leading-tight tracking-wide sm:text-[11px] md:px-0 md:text-sm">{t.label}</span>
             </motion.button>
           );
         })}

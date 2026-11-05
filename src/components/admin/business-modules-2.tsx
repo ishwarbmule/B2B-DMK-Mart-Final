@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar } from "recharts";
-import { Download, FileSpreadsheet, Printer, RefreshCcw, Save } from "lucide-react";
+import { Download, FileSpreadsheet, Printer, RefreshCcw, Save, IndianRupee, TrendingUp, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { api, ModuleHeader, StatCard } from "./ui-bits";
 import { formatINR } from "@/lib/store";
@@ -54,9 +54,9 @@ export function FinancialModule({ token }: { token: string }) {
       </ModuleHeader>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard icon={null as never} label="Gross Sales" value={formatINR(s.gross)} sub={`${s.orders} orders`} color="#111111" />
-        <StatCard icon={null as never} label="Net Revenue" value={formatINR(s.net)} sub={`after ${formatINR(s.discounts)} discounts`} color="#1d4ed8" />
-        <StatCard icon={null as never} label="Gross Profit" value={formatINR(s.grossProfit)} sub={`margin ${s.profitMargin}% (COGS ${formatINR(s.cogs)})`} color="#059669" />
+        <StatCard icon={IndianRupee} label="Gross Sales" value={formatINR(s.gross)} sub={`${s.orders} orders`} color="#111111" />
+        <StatCard icon={Wallet} label="Net Revenue" value={formatINR(s.net)} sub={`after ${formatINR(s.discounts)} discounts`} color="#1d4ed8" />
+        <StatCard icon={TrendingUp} label="Gross Profit" value={formatINR(s.grossProfit)} sub={`margin ${s.profitMargin}% (COGS ${formatINR(s.cogs)})`} color="#059669" />
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -98,7 +98,7 @@ export function FinancialModule({ token }: { token: string }) {
             <tbody>
               {data.bySource.map((r) => (
                 <tr key={r.source} className="border-t">
-                  <td className="px-2 py-2 font-bold">{r.source === "WEB" ? "Website" : "POS Counter"}</td>
+                  <td className="px-2 py-2 font-bold">{r.source === "WEB" ? "Website" : r.source === "SALESTEAM" ? "Sales Team" : r.source === "ERP" ? "ERP Sync" : "POS Counter"}</td>
                   <td className="px-2 py-2 text-right">{r.count} orders</td>
                   <td className="px-2 py-2 text-right font-black">{formatINR(r.amount)}</td>
                 </tr>

@@ -22,14 +22,18 @@ type TransferRow = {
   items: { id: string; sku: string; name: string; qty: number }[];
 };
 
-export function WarehouseStockModule({ token }: { token: string }) {
+export function WarehouseStockModule({ token, lockedWarehouseId }: { token: string; lockedWarehouseId?: string }) {
   const call = api(token);
   const [tab, setTab] = useState<"levels" | "transfer" | "bulk">("levels");
   const [warehouses, setWarehouses] = useState<Wh[]>([]);
 
   useEffect(() => {
-    call("/api/admin/warehouse-stock").then((d) => setWarehouses(d.warehouses ?? [])).catch(() => {});
-  }, [call]);
+    // manager portal: only their godown appears in every selector
+    call("/api/admin/warehouse-stock").then((d) => {
+      const all = (d.warehouses ?? []) as Wh[];
+      setWarehouses(lockedWarehouseId ? all.filter((w) => w.id === lockedWarehouseId) : all);
+    }).catch(() => {});
+  }, [call, lockedWarehouseId]);
 
   return (
     <div>

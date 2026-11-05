@@ -2,11 +2,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-auth";
+import { requireStaff } from "@/lib/staff-auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireStaff(req, "financial");
   if (unauthorized) return unauthorized;
   const sp = req.nextUrl.searchParams;
   const to = sp.get("to") ? new Date(sp.get("to") + "T23:59:59") : new Date();

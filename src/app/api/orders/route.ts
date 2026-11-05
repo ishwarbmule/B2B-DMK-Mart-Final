@@ -76,6 +76,23 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // serving warehouse — the godown that fulfils this order:
+    //   PICKUP   → the chosen pickup warehouse
+    //   DELIVERY → nearest active warehouse to the buyer's city, else the default godown
+    // Order flows to admin AND this warehouse (manager panel at /warehouse).
+    let servingWarehouseId = pickupWarehouseId;
+    let servingWarehouseName = pickupWarehouseName;
+    if (fulfillment === "DELIVERY") {
+      const warehouses = await db.warehouse.findMany({ where: { active: true }, orderBy: [{ isDefault: "desc" }, { sortOrder: "asc" }] });
+      const city = (d.city || "").trim().toLowerCase();
+      const byCity = city ? warehouses.find((w) => (w.city || "").trim().toLowerCase() === city) : undefined;
+      const chosen = byCity ?? warehouses.find((w) => w.isDefault) ?? warehouses[0];
+      if (chosen) {
+        servingWarehouseId = chosen.id;
+        servingWarehouseName = chosen.name;
+      }
+    }
+
     // LOGIN REQUIRED to place any order — guests may browse and fill a cart, but this API
     // refuses unauthenticated calls (owner rule: login / signup first, then purchase).
     const customerId = customerFromReq(req);
@@ -219,6 +236,8 @@ export async function POST(req: NextRequest) {
         fulfillment,
         pickupWarehouseId,
         pickupWarehouseName,
+        warehouseId: servingWarehouseId,
+        warehouseName: servingWarehouseName,
         zone: d.zone || "",
         slot: d.slot || "Standard dispatch",
         paymentMethod: d.paymentMethod,
@@ -244,7 +263,7 @@ export async function POST(req: NextRequest) {
       await db.coupon.updateMany({ where: { code: appliedCoupon }, data: { usedCount: { increment: 1 } } });
     }
     await db.activityLog.create({
-      data: { action: "CREATE", entity: "order", entityId: order.id, detail: `Web order ${invoiceNo} placed by ${d.customerName} (₹${grandTotal}) — OTP ${otp}` },
+      data: { action: "CREATE", entity: "order", entityId: order.id, detail: `Web order ${invoiceNo} placed by ${d.customerName} (₹${grandTotal}) — OTP ${otp} — warehouse ${servingWarehouseName || "unassigned"}` },
     });
 
     // Order confirmation (WhatsApp free-first → SMS gateway → demo log). Honours the

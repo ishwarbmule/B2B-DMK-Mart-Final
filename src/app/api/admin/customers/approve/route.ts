@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin, jsonError } from "@/lib/admin-auth";
+import { requireStaff } from "@/lib/staff-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +46,7 @@ function waTextFor(c: { shopName: string; name: string; phone: string; customerT
 }
 
 export async function GET(req: NextRequest) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireStaff(req, "approvals");
   if (unauthorized) return unauthorized;
   const [pending, counts] = await Promise.all([
     db.customer.findMany({ where: { status: "PENDING" }, orderBy: { createdAt: "desc" } }),
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireStaff(req, "approvals");
   if (unauthorized) return unauthorized;
   try {
     const { id, action, tier, customerType } = await req.json();

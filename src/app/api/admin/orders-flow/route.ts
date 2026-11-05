@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin, jsonError } from "@/lib/admin-auth";
+import { requireStaff } from "@/lib/staff-auth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -41,7 +42,7 @@ function recomputeTotals(order: NonNullable<Awaited<ReturnType<typeof loadOrder>
 }
 
 export async function GET(req: NextRequest) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireStaff(req, "orders");
   if (unauthorized) return unauthorized;
   const orderId = req.nextUrl.searchParams.get("orderId");
   if (!orderId) return jsonError("Missing orderId");
@@ -86,7 +87,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireStaff(req, "orders");
   if (unauthorized) return unauthorized;
   try {
     const body = await req.json();

@@ -2,11 +2,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin, jsonError } from "@/lib/admin-auth";
+import { requireStaff } from "@/lib/staff-auth";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireStaff(req, "products");
   if (unauthorized) return unauthorized;
   try {
     const { ids, flag, value } = (await req.json()) as { ids: string[]; flag: string; value: boolean };

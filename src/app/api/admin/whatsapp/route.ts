@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin, jsonError } from "@/lib/admin-auth";
+import { requireStaff } from "@/lib/staff-auth";
 import { normalizePhone } from "@/lib/sms";
 import { notifyCustomer, getWhatsAppConfig } from "@/lib/whatsapp";
 
@@ -62,7 +63,7 @@ async function attemptSend(phone: string, message: string, opts?: { useOtpTempla
 }
 
 export async function GET(req: NextRequest) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireStaff(req, ["orders", "customers", "approvals"]);
   if (unauthorized) return unauthorized;
   const sp = req.nextUrl.searchParams;
   if (sp.get("action") !== "order-preview") return jsonError("Unknown action", 400);
@@ -75,7 +76,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireStaff(req, ["orders", "customers", "approvals"]);
   if (unauthorized) return unauthorized;
   const body = await req.json().catch(() => ({}));
   const action = String(body.action || "");

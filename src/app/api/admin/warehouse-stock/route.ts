@@ -10,18 +10,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin, jsonError } from "@/lib/admin-auth";
+import { requireStaff, staffIdentity } from "@/lib/staff-auth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireStaff(req, "warehouseStock");
   if (unauthorized) return unauthorized;
   const sp = req.nextUrl.searchParams;
-  const warehouseId = sp.get("warehouseId") || "";
+  let warehouseId = sp.get("warehouseId") || "";
   const q = (sp.get("q") || "").trim();
   const page = Math.max(1, parseInt(sp.get("page") || "1"));
   const limit = 40;
+
+  // manager scope — a godown manager can only read their own warehouse's stock
+  const identity = await staffIdentity(req);
+  if (identity?.role === "manager") warehouseId = identity.warehouseId;
 
   const warehouses = await db.warehouse.findMany({ where: { active: true }, orderBy: [{ isDefault: "desc" }, { sortOrder: "asc" }] });
   if (!warehouseId) return NextResponse.json({ warehouses, rows: [], total: 0, page, pages: 1 });
@@ -52,11 +57,14 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireStaff(req, "warehouseStock");
   if (unauthorized) return unauthorized;
   try {
     const body = await req.json();
-    const warehouseId = String(body.warehouseId || "");
+    let warehouseId = String(body.warehouseId || "");
+    // manager scope — writes are forced onto their own godown
+    const identity = await staffIdentity(req);
+    if (identity?.role === "manager") warehouseId = identity.warehouseId;
     if (!warehouseId) return jsonError("Missing warehouseId");
     const wh = await db.warehouse.findUnique({ where: { id: warehouseId } });
     if (!wh) return jsonError("Warehouse not found", 404);

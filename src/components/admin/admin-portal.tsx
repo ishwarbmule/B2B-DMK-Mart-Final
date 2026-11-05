@@ -21,6 +21,7 @@ import { SyncModule } from "./sync-module";
 import { BarcodeStudio } from "./barcode-studio";
 import { CrudModule } from "./ui-bits";
 import { CONFIGS } from "./crud-configs";
+import { SalesTeamModule, WarehouseManagersModule } from "./staff-modules";
 
 type ModuleId = string;
 
@@ -60,6 +61,8 @@ const NAV: { group: string; items: { id: ModuleId; label: string; icon: React.Co
     { id: "ads", label: "Brand Ads", icon: Megaphone },
   ]},
   { group: "People", items: [
+    { id: "salesTeam", label: "Salesperson Management", icon: Users },
+    { id: "warehouseManagers", label: "Warehouse Managers", icon: Users },
     { id: "approvals", label: "Buyer Approvals", icon: Users },
     { id: "customers", label: "Customer Management", icon: Users },
   ]},
@@ -183,6 +186,8 @@ export function AdminPortal() {
       case "warehouseStock": return <WarehouseStockModule token={token} />;
       case "barcodes": return <BarcodeStudio token={token} />;
       case "customers": return <CustomersModule token={token} />;
+      case "salesTeam": return <SalesTeamModule token={token} />;
+      case "warehouseManagers": return <WarehouseManagersModule token={token} />;
       case "pricing": return <PricingModule token={token} />;
       case "financial": return <FinancialModule token={token} />;
       case "reports": return <ReportsModule token={token} />;
@@ -224,7 +229,9 @@ export function AdminPortal() {
           </button>
           <Image src="/dmk-logo.png" alt="DMK" width={30} height={30} className="h-[30px] w-[30px] rounded-full" unoptimized />
           <p className="text-sm font-black text-white">DMK Mart <span className="hidden text-yellow-400 sm:inline">Super Admin</span></p>
-          <span className="rounded-md bg-yellow-400 px-2 py-0.5 text-[10px] font-black uppercase text-black">14 Modules</span>
+          <span className="rounded-md bg-yellow-400 px-2 py-0.5 text-[10px] font-black uppercase text-black">
+            {NAV.flatMap((g) => g.items).reduce((n, it) => n + (it.sub ? it.sub.length : 1), 0)} Modules
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => router.push("/")} className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-1.5 text-xs font-semibold text-gray-300 hover:bg-gray-900">

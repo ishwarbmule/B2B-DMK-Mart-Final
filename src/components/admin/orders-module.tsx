@@ -28,7 +28,7 @@ type StockCheck = {
   summary: { okCount: number; oosCount: number; oosAmount: number; hasCustomerId: boolean };
 };
 
-export function OrdersModule({ token }: { token: string }) {
+export function OrdersModule({ token, lockedWarehouseId }: { token: string; lockedWarehouseId?: string }) {
   const call = api(token);
   const [rows, setRows] = useState<OrderRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -64,6 +64,7 @@ export function OrdersModule({ token }: { token: string }) {
       if (q) params.set("q", q);
       if (status) params.set("status", status);
       if (source) params.set("source", source);
+      if (lockedWarehouseId) params.set("warehouseId", lockedWarehouseId); // manager portal: only this godown
       const d = await call(`/api/admin/orders?${params}`);
       setRows(d.rows ?? []);
       setTotal(d.total ?? 0);
@@ -75,7 +76,7 @@ export function OrdersModule({ token }: { token: string }) {
       setLoading(false);
     }
 
-  }, [token, page, q, status, source]);
+  }, [token, page, q, status, source, lockedWarehouseId]);
 
   useEffect(() => {
     load();
@@ -259,6 +260,20 @@ export function OrdersModule({ token }: { token: string }) {
                   <td className="px-3 py-2.5">
                     <p className="font-semibold">{o.customerName}</p>
                     <p className="text-[10px] text-gray-400">{o.phone} · {o.city} · {o.customerType}</p>
+                    {(o.salesPerson || o.warehouseName) && (
+                      <p className="mt-1 flex flex-wrap gap-1">
+                        {o.salesPerson && (
+                          <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 text-[9px] font-bold text-indigo-700" title="Order brought by this salesperson (source: Sales Team or cart selection)">
+                            👤 {o.salesPerson}
+                          </span>
+                        )}
+                        {o.warehouseName && (
+                          <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-bold text-blue-700" title="Serving warehouse (pickup choice or nearest to the buyer)">
+                            🏭 {o.warehouseName}
+                          </span>
+                        )}
+                      </p>
+                    )}
                   </td>
                   <td className="px-3 py-2.5">{o.items?.length ?? 0} lines</td>
                   <td className="px-3 py-2.5">
