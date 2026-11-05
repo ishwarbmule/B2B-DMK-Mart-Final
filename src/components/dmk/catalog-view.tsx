@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { SlidersHorizontal, X, ChevronLeft, ChevronRight, Warehouse } from "lucide-react";
+import { SlidersHorizontal, X, ChevronLeft, ChevronRight, Warehouse, LayoutGrid } from "lucide-react";
 import type { DProduct, TopCategoryNode, BrandNode } from "@/lib/types";
+import { EndCategoryIconTile } from "@/lib/category-icons";
 import { useCartStore } from "@/lib/store";
 import { getCustomerToken } from "@/lib/customer-session";
 import { ProductCard } from "./product-card";
@@ -45,16 +46,17 @@ export function CatalogView({
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
 
-  const setF = (patch: Partial<Filters>) => {
+  const setF = (patch: Partial<Filters>, opts?: { keepParents?: boolean }) => {
     setLoading(true);
     // an end-category chosen from the flat list implies its own parents — drop the others;
-    // picking a department clears the end selection so the two never contradict
+    // picking a department clears the end selection so the two never contradict.
+    // keepParents: icon-tile category picks stay scoped under the chosen department.
     setFilters((f) => ({
       ...f,
       ...patch,
-      ...(patch.top ? { mid: "", end: "" } : {}),
-      ...(patch.mid ? { end: "" } : {}),
-      ...(patch.end ? { top: "", mid: "" } : {}),
+      ...(patch.top && !opts?.keepParents ? { mid: "", end: "" } : {}),
+      ...(patch.mid && !opts?.keepParents ? { end: "" } : {}),
+      ...(patch.end && !opts?.keepParents ? { top: "", mid: "" } : {}),
     }));
     setPage(1);
   };
@@ -117,30 +119,42 @@ export function CatalogView({
           </select>
         </div>
       )}
-      {activeTop && (singleMid || activeMid) && (
-        <div>
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-500">Category</p>
-          <select value={filters.end} onChange={(e) => setF({ end: e.target.value })} className="h-9 w-full max-h-32 rounded-lg border border-gray-200 bg-white px-2 text-xs">
-            <option value="">All Categories</option>
-            {(singleMid ? singleMid.ends : activeMid?.ends ?? []).map((e2) => <option key={e2.id} value={e2.id}>{e2.name}</option>)}
-          </select>
-        </div>
-      )}
-      {/* END-LEVEL CATEGORY — independent flat list, every end category grouped under its department */}
+      {/* END-LEVEL CATEGORIES — meaningful icon on top, category name below.
+          Scope follows the department picker: a mid's ends, a top's ends, or everything. */}
       <div>
-        <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-500">End-Level Category</p>
-        <select value={filters.end} onChange={(e) => setF({ end: e.target.value })} className="h-9 w-full max-h-32 rounded-lg border border-gray-200 bg-white px-2 text-xs">
-          <option value="">All End Categories</option>
-          {tops.map((t) => {
-            const ends = t.mids.flatMap((m) => m.ends);
-            if (!ends.length) return null;
-            return (
-              <optgroup key={t.id} label={`${t.emoji} ${t.name}`}>
-                {ends.map((en) => <option key={en.id} value={en.id}>{en.name}</option>)}
-              </optgroup>
-            );
-          })}
-        </select>
+        <div className="mb-1.5 flex items-center justify-between">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Categories</p>
+          {filters.end && (
+            <button onClick={() => setF({ end: "" }, { keepParents: true })} className="text-[10px] font-bold text-yellow-600 hover:underline">
+              Clear category
+            </button>
+          )}
+        </div>
+        <div className="max-h-72 overflow-y-auto rounded-xl border border-gray-100 bg-gray-50/60 p-2">
+          {(activeTop
+            ? activeMid
+              ? [{ label: activeMid.name, ends: activeMid.ends }]
+              : activeTop.mids.filter((m) => m.ends.length > 0).map((m) => ({ label: m.name, ends: m.ends }))
+            : tops.map((t) => ({ label: t.name, ends: t.mids.flatMap((m) => m.ends) }))
+          )
+            .filter((g) => g.ends.length > 0)
+            .map((g) => (
+              <div key={g.label} className="mb-2.5 last:mb-0">
+                <p className="mb-1 truncate px-0.5 text-[10px] font-black uppercase tracking-wide text-gray-400">{g.label}</p>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {g.ends.map((en) => (
+                    <EndCategoryIconTile
+                      key={en.id}
+                      name={en.name}
+                      active={filters.end === en.id}
+                      onClick={() => setF({ end: filters.end === en.id ? "" : en.id }, { keepParents: true })}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+        </div>
+        <p className="mt-1 text-[10px] text-gray-400">Tap a category — the icon shows what lives inside.</p>
       </div>
       <div>
         <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-500">Brand</p>
@@ -228,6 +242,30 @@ export function CatalogView({
         )}
 
         <div className="min-w-0 flex-1">
+          {/* CATEGORY STRIP — end-level icon tiles for the active department (icon on top, name below) */}
+          {activeTop && !filters.end && (() => {
+            const strip = activeMid ? activeMid.ends : activeTop.mids.flatMap((m) => m.ends);
+            if (!strip.length) return null;
+            return (
+              <div className="mb-4">
+                <p className="mb-2 flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-gray-500">
+                  <LayoutGrid className="h-3.5 w-3.5 text-yellow-500" />
+                  Categories in {activeTop.name}{activeMid ? ` › ${activeMid.name}` : ""}
+                </p>
+                <div className="flex gap-2 overflow-x-auto pb-2 [scrollbar-width:thin]">
+                  {strip.map((en) => (
+                    <div key={en.id} className="w-[88px] shrink-0">
+                      <EndCategoryIconTile
+                        name={en.name}
+                        active={filters.end === en.id}
+                        onClick={() => setF({ end: en.id }, { keepParents: true })}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
           {loading ? (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {Array.from({ length: 10 }).map((_, i) => (
