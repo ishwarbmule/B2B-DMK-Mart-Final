@@ -119,13 +119,13 @@ model Product {
 
   // media + content
   image             String      @default("")
-  gallery           String      @default("[]")
+  gallery           String      @default("[]") @db.Text // JSON array of Cloudinary URLs — TEXT, URLs overflow VARCHAR(191)
   description       String      @default("") @db.Text
 
   // SEO
   seoTitle          String      @default("")
-  seoDesc           String      @default("")
-  keywords          String      @default("")
+  seoDesc           String      @default("") @db.Text
+  keywords          String      @default("") @db.Text
 
   // merchandising
   rating            Float       @default(4.5)
