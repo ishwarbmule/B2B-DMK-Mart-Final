@@ -15,7 +15,8 @@ export async function GET(req: NextRequest) {
   const top = sp.get("top") || "";
   const mid = sp.get("mid") || "";
   const end = sp.get("end") || "";
-  const brand = sp.get("brand") || ""; // brand slug or id
+  const brand = sp.get("brand") || ""; // legacy brand page links
+  const company = sp.get("company")?.trim() || ""; // company-based browsing (brands removed from inventory)
   const flag = sp.get("flag") || ""; // featured | hot | top | deal
   const minPrice = parseFloat(sp.get("minPrice") || "");
   const maxPrice = parseFloat(sp.get("maxPrice") || "");
@@ -39,6 +40,7 @@ export async function GET(req: NextRequest) {
           { name: { contains: t } },
           { sku: { contains: t } },
           { barcode: { contains: t } },
+          { company: { contains: t } },
           { brand: { is: { name: { contains: t } } } },
         ],
       }));
@@ -47,6 +49,7 @@ export async function GET(req: NextRequest) {
   if (top) where.topId = top;
   if (mid) where.midId = mid;
   if (end) where.endId = end;
+  if (company) where.company = company;
   if (brand) {
     const brandRow = await db.brand.findFirst({ where: { OR: [{ slug: brand }, { id: brand }] }, select: { id: true } });
     if (brandRow) where.brandId = brandRow.id;
@@ -125,6 +128,7 @@ export async function GET(req: NextRequest) {
     barcode: p.barcode, gst: p.gst, image: p.image,
     isHot: p.isHot, isTop: p.isTop, isFeatured: p.isFeatured, isDeal: p.isDeal, dealPrice: p.dealPrice,
     active: p.active, rating: p.rating, reviewCount: p.reviewCount,
+    company: p.company,
     brand: p.brand, topId: p.topId, midId: p.midId, endId: p.endId, createdAt: p.createdAt,
   }));
 

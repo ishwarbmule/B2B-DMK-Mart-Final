@@ -66,8 +66,8 @@ type Opt = { id: string; name: string };
 function BulkAssign({ token, warehouses }: { token: string; warehouses: Wh[] }) {
   const call = api(token);
   const [wh, setWh] = useState("");
-  const [mode, setMode] = useState<"ALL" | "BRAND" | "TOP" | "MID" | "END">("BRAND");
-  const [brands, setBrands] = useState<Opt[]>([]);
+  const [mode, setMode] = useState<"ALL" | "COMPANY" | "TOP" | "MID" | "END">("COMPANY");
+  const [companies, setCompanies] = useState<Opt[]>([]);
   const [tops, setTops] = useState<Opt[]>([]);
   const [mids, setMids] = useState<Opt[]>([]);
   const [ends, setEnds] = useState<Opt[]>([]);
@@ -81,7 +81,7 @@ function BulkAssign({ token, warehouses }: { token: string; warehouses: Wh[] }) 
   }, [warehouses, wh]);
 
   useEffect(() => {
-    call("/api/admin/crud/brands").then((d) => setBrands((d.rows ?? []).map((r: Record<string, unknown>) => ({ id: String(r.id), name: String(r.name) })))).catch(() => {});
+    call("/api/admin/products/companies").then((d) => setCompanies((d.companies ?? []).map((c: { name: string }) => ({ id: c.name, name: c.name })))).catch(() => {});
     call("/api/admin/crud/tops").then((d) => setTops((d.rows ?? []).map((r: Record<string, unknown>) => ({ id: String(r.id), name: String(r.name) })))).catch(() => {});
   }, [call]);
 
@@ -115,12 +115,12 @@ function BulkAssign({ token, warehouses }: { token: string; warehouses: Wh[] }) 
     }
   };
 
-  const options: Opt[] = mode === "BRAND" ? brands : mode === "TOP" ? tops : mode === "MID" ? mids : ends;
+  const options: Opt[] = mode === "COMPANY" ? companies : mode === "TOP" ? tops : mode === "MID" ? mids : ends;
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <div className="rounded-xl border bg-white p-5">
-        <ModuleHeader title="Bulk Assign Products" sub="Add or remove products from a warehouse — all at once, brand-wise, or category-wise" />
+        <ModuleHeader title="Bulk Assign Products" sub="Add or remove products from a warehouse — all at once, company-wise, or category-wise" />
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div>
             <label className="mb-1 block text-[11px] font-semibold text-gray-600">Warehouse *</label>
@@ -132,7 +132,7 @@ function BulkAssign({ token, warehouses }: { token: string; warehouses: Wh[] }) 
             <label className="mb-1 block text-[11px] font-semibold text-gray-600">Assign by</label>
             <select value={mode} onChange={(e) => { setMode(e.target.value as typeof mode); setSelId(""); }} className="h-10 w-full rounded-lg border px-2 text-xs font-semibold">
               <option value="ALL">All products</option>
-              <option value="BRAND">Brand-wise</option>
+              <option value="COMPANY">Company-wise</option>
               <option value="TOP">Department (top category)</option>
               <option value="MID">Sub-department (mid)</option>
               <option value="END">Category (end)</option>
@@ -143,7 +143,7 @@ function BulkAssign({ token, warehouses }: { token: string; warehouses: Wh[] }) 
         {mode !== "ALL" && (
           <div className="mt-3">
             <label className="mb-1 block text-[11px] font-semibold text-gray-600">
-              {mode === "BRAND" ? "Brand" : mode === "TOP" ? "Department" : mode === "MID" ? "Sub-department" : "Category"} *
+              {mode === "COMPANY" ? "Company" : mode === "TOP" ? "Department" : mode === "MID" ? "Sub-department" : "Category"} *
             </label>
             <select value={selId} onChange={(e) => setSelId(e.target.value)} className="h-10 w-full rounded-lg border px-2 text-xs font-semibold">
               <option value="">Select…</option>

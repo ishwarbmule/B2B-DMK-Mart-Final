@@ -74,7 +74,7 @@ export function DashboardModule({ token }: { token: string }) {
         <StatCard icon={ShoppingCart} label="Last 30 Days" value={formatINR(k.revenue30)} sub={`${k.orders30} orders · today: ${k.ordersToday}`} color="#7c3aed" />
         <StatCard icon={Boxes} label="Est. Gross Profit 30d" value={formatINR(Math.max(0, k.revenue30 - k.cogs30))} sub={`margin ${k.profitMargin}% · COGS ${formatINR(k.cogs30)}`} color="#059669" />
         <StatCard icon={BadgePercent} label="Offers & Coupons" value={`${k.offerOrders + k.couponOrders}`} sub={`${k.offerOrders} offer orders · ${k.couponOrders} coupon orders`} color="#dc2626" />
-        <StatCard icon={Boxes} label="Catalog" value={k.products} sub={`${k.brands} active brands`} color="#b45309" />
+        <StatCard icon={Boxes} label="Catalog" value={k.products} sub={`${k.brands} active companies`} color="#b45309" />
         <StatCard icon={Users} label="B2B Customers" value={k.customers} sub={`${k.pendingCustomers} pending approval`} color="#1d4ed8" />
         <StatCard icon={Truck} label="Avg Order Value" value={formatINR(k.orders ? Math.round(k.revenue / k.orders) : 0)} sub="lifetime" color="#0f766e" />
       </div>
@@ -403,10 +403,10 @@ export function CustomersModule({ token }: { token: string }) {
 /* ══════════════ PRICING (bulk editor) ══════════════ */
 export function PricingModule({ token }: { token: string }) {
   const call = api(token);
-  const [brands, setBrands] = useState<{ id: string; name: string }[]>([]);
+  const [companies, setCompanies] = useState<string[]>([]);
   const [tops, setTops] = useState<{ id: string; name: string }[]>([]);
-  const [target, setTarget] = useState<"brand" | "category">("brand");
-  const [brandIds, setBrandIds] = useState<string[]>([]);
+  const [target, setTarget] = useState<"company" | "category">("company");
+  const [companySel, setCompanySel] = useState<string[]>([]);
   const [topId, setTopId] = useState("");
   const [basis, setBasis] = useState<"current" | "purchaseCost">("purchaseCost");
   const [ops, setOps] = useState<{ field: string; mode: "percent" | "amount" | "set"; value: string }[]>([
@@ -418,15 +418,15 @@ export function PricingModule({ token }: { token: string }) {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    call("/api/admin/crud/brands").then((d) => setBrands((d.rows ?? []).map((r: Record<string, unknown>) => ({ id: String(r.id), name: String(r.name) })))).catch(() => {});
+    call("/api/admin/products/companies").then((d) => setCompanies((d.companies ?? []).map((c: { name: string }) => c.name))).catch(() => {});
     call("/api/admin/crud/tops").then((d) => setTops((d.rows ?? []).map((r: Record<string, unknown>) => ({ id: String(r.id), name: String(r.name) })))).catch(() => {});
     call("/api/admin/pricing/bulk").then((d) => setLogs(d.logs ?? [])).catch(() => {});
-     
+
   }, [token]);
 
   const buildBody = (isPreview: boolean) => ({
     target,
-    brandIds,
+    companies: companySel,
     topId: target === "category" ? topId : undefined,
     basis,
     preview: isPreview,
@@ -472,23 +472,23 @@ export function PricingModule({ token }: { token: string }) {
           <div>
             <p className="mb-1.5 text-[11px] font-bold uppercase text-gray-500">Apply to</p>
             <div className="grid grid-cols-2 gap-1.5">
-              {(["brand", "category"] as const).map((t) => (
-                <button key={t} onClick={() => setTarget(t)} className={`rounded-lg border-2 py-2 text-xs font-bold capitalize ${target === t ? "border-yellow-400 bg-yellow-50" : "border-gray-200"}`}>{t === "brand" ? "By Brand" : "By Category"}</button>
+              {(["company", "category"] as const).map((t) => (
+                <button key={t} onClick={() => setTarget(t)} className={`rounded-lg border-2 py-2 text-xs font-bold capitalize ${target === t ? "border-yellow-400 bg-yellow-50" : "border-gray-200"}`}>{t === "company" ? "By Company" : "By Category"}</button>
               ))}
             </div>
           </div>
-          {target === "brand" ? (
+          {target === "company" ? (
             <div>
-              <p className="mb-1.5 text-[11px] font-bold uppercase text-gray-500">Brands ({brandIds.length} selected)</p>
+              <p className="mb-1.5 text-[11px] font-bold uppercase text-gray-500">Companies ({companySel.length} selected)</p>
               <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border p-2">
-                {brands.map((b) => (
-                  <label key={b.id} className="flex items-center gap-2 text-xs">
+                {companies.map((c) => (
+                  <label key={c} className="flex items-center gap-2 text-xs">
                     <input
                       type="checkbox"
-                      checked={brandIds.includes(b.id)}
-                      onChange={(e) => setBrandIds((ids) => (e.target.checked ? [...ids, b.id] : ids.filter((x) => x !== b.id)))}
+                      checked={companySel.includes(c)}
+                      onChange={(e) => setCompanySel((ids) => (e.target.checked ? [...ids, c] : ids.filter((x) => x !== c)))}
                     />
-                    {b.name}
+                    {c}
                   </label>
                 ))}
               </div>
@@ -597,38 +597,38 @@ type ProdRow = {
   stock: number; active: boolean; isTop: boolean; isFeatured: boolean; isHot: boolean; isDeal: boolean;
 };
 
-export function BrandProductsModule({ token }: { token: string }) {
+export function CompanyProductsModule({ token }: { token: string }) {
   const call = api(token);
-  const [brands, setBrands] = useState<{ id: string; name: string; productCount?: number }[]>([]);
-  const [brandId, setBrandId] = useState("");
+  const [companies, setCompanies] = useState<{ name: string; count: number }[]>([]);
+  const [company, setCompany] = useState("");
   const [rows, setRows] = useState<ProdRow[]>([]);
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    call("/api/admin/crud/brands")
-      .then((d) => setBrands(d.rows ?? []))
+    call("/api/admin/products/companies")
+      .then((d) => setCompanies(d.companies ?? []))
       .catch(() => {});
-     
+
   }, [token]);
 
-  const loadBrand = async () => {
-    if (!brandId) return;
+  const loadCompany = async () => {
+    if (!company) return;
     setLoading(true);
     try {
-      const d = await call(`/api/admin/products?brand=${brandId}&limit=100`);
+      const d = await call(`/api/admin/products?company=${encodeURIComponent(company)}&limit=100`);
       setRows(d.rows ?? []);
     } catch {
-      toast.error("Failed to load brand products");
+      toast.error("Failed to load company products");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    void loadBrand();
-     
-  }, [brandId, token]);
+    void loadCompany();
+
+  }, [company, token]);
 
   const toggleActive = async (r: ProdRow, v: boolean) => {
     await fetch("/api/admin/products", {
@@ -644,18 +644,18 @@ export function BrandProductsModule({ token }: { token: string }) {
 
   return (
     <div>
-      <ModuleHeader title="Brand Products" sub="Pick a brand to manage its full product list — visibility, prices at a glance, homepage sections">
-        <select value={brandId} onChange={(e) => setBrandId(e.target.value)} className="h-9 rounded-lg border px-2 text-xs font-semibold">
-          <option value="">Select brand…</option>
-          {brands.map((b) => (
-            <option key={b.id} value={b.id}>{b.name}{typeof b.productCount === "number" ? ` (${b.productCount})` : ""}</option>
+      <ModuleHeader title="Company Products" sub="Pick a company to manage its full product list — visibility, prices at a glance, homepage sections">
+        <select value={company} onChange={(e) => setCompany(e.target.value)} className="h-9 max-w-[240px] rounded-lg border px-2 text-xs font-semibold">
+          <option value="">Select company…</option>
+          {companies.map((c) => (
+            <option key={c.name} value={c.name}>{c.name} ({c.count})</option>
           ))}
         </select>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter products…" className="h-9 w-48 rounded-lg border px-3 text-xs outline-none focus:border-yellow-400" />
       </ModuleHeader>
 
-      {!brandId ? (
-        <p className="rounded-xl border border-dashed p-10 text-center text-sm text-gray-400">Select a brand above to view and manage its products.</p>
+      {!company ? (
+        <p className="rounded-xl border border-dashed p-10 text-center text-sm text-gray-400">Select a company above to view and manage its products.</p>
       ) : (
         <div className="overflow-x-auto rounded-xl border bg-white">
           <table className="w-full text-xs">

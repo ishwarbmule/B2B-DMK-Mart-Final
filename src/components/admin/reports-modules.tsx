@@ -161,7 +161,7 @@ export function CompanyOrdersModule({ token }: { token: string }) {
 
   return (
     <div>
-      <ModuleHeader title="Company Orders Report" sub="Revenue attribution across manufacturing brands">
+      <ModuleHeader title="Company Orders Report" sub="Revenue attribution across manufacturing companies">
         <input type="date" value={from} onChange={(e) => setRange({ from: e.target.value })} className="h-9 rounded-lg border border-gray-200 px-2 text-xs" aria-label="From date" />
         <input type="date" value={to} onChange={(e) => setRange({ to: e.target.value })} className="h-9 rounded-lg border border-gray-200 px-2 text-xs" aria-label="To date" />
         <button onClick={printReport} className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white"><Printer className="h-3.5 w-3.5" /> Print Report</button>

@@ -73,12 +73,15 @@ model EndCategory {
 model Product {
   id                String      @id @default(cuid())
   sku               String      @unique // canonical SKU (ERP SKU for synced items)
-  legacySku         String      @default("")
   erpId             String      @default("") // ERP MySQL row id
   slug              String      @unique
   name              String
-  brandId           String
-  brand             Brand       @relation(fields: [brandId], references: [id])
+  // Company is THE inventory grouping (Excel "Company" column) — brands were removed
+  // from the inventory. brandId stays only as an optional legacy link for old
+  // storefront brand pages; new/imported/synced products have no brand at all.
+  company           String      @default("") @db.VarChar(191)
+  brandId           String?
+  brand             Brand?      @relation(fields: [brandId], references: [id])
   topId             String
   top               TopCategory @relation(fields: [topId], references: [id])
   midId             String
@@ -101,8 +104,8 @@ model Product {
   tier3             Float       @default(0)
   tier4             Float       @default(0)
   tier5             Float       @default(0)
-  packPrice         Float       @default(0)
-  packDiscountPct   Float       @default(0)
+  deliveryRate      Float       @default(0) // Excel "Delivery Rate" column
+  packPrice         Float       @default(0) // pickup pack rate (storefront pricing, not part of the inventory sheet)
   dealPrice         Float       @default(0) // hot deal / deal-of-day price
 
   // stock
@@ -146,6 +149,7 @@ model Product {
   warehouseStocks   WarehouseStock[]
 
   @@index([name])
+  @@index([company])
   @@index([brandId])
   @@index([isFeatured])
   @@index([isDeal])
