@@ -580,7 +580,8 @@ async function erpRowsPass(rows: SheetRow[], renamePairs: [string, string][]) {
     if (c.Field === cols.sku) continue;
     const isAuto = String(c.Extra || "").includes("auto_increment");
     const hasDefault = c.Default !== null && c.Default !== undefined;
-    const notNull = String(c.Null || "").toUpperCase() === "NOT NULL";
+    // DESCRIBE reports Null as "NO"/"YES" (information_schema style) — treat both spellings
+    const notNull = ["NO", "NOT NULL"].includes(String(c.Null || "").toUpperCase());
     if (isAuto || !notNull || hasDefault) continue;
     const v = sample[c.Field];
     const t = String(c.Type || "").toLowerCase();
