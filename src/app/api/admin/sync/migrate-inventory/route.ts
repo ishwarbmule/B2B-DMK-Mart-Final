@@ -28,6 +28,7 @@
  * Auth: cron secret or admin Bearer token.
  */
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-auth";
 import { erpPool, getSetting, setSetting, erpProductsTable } from "@/lib/erp";
@@ -77,10 +78,14 @@ export async function POST(req: NextRequest) {
   if (!(await authorize(req))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const body = (await req.json()) as {
-      rows?: SheetRow[]; mode?: "universal" | "erp"; start?: number; renames?: [string, string][]; force?: boolean;
+      rows?: SheetRow[]; mode?: "universal" | "erp" | "apply-plan"; start?: number; renames?: [string, string][]; force?: boolean;
+      updates?: PlanUpdate[]; creates?: PlanCreate[];
     };
     const rows = Array.isArray(body.rows) ? body.rows : [];
-    const mode = body.mode === "erp" ? "erp" : "universal";
+    const mode = body.mode ?? "universal";
+
+    if (mode === "apply-plan") return await applyPlan(body.updates ?? [], body.creates ?? []);
+
     if (!rows.length) return NextResponse.json({ ok: false, error: "No rows provided" }, { status: 400 });
 
     if (mode === "universal") {
@@ -91,6 +96,163 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message.slice(0, 400) : "migration failed" }, { status: 500 });
   }
+}
+
+// ═══════════════════ APPLY-PLAN (precomputed batch update — fast path) ═══════════════════
+
+/** One planned update: `sku` = the product's CURRENT sku; `set` holds ONLY the columns
+ *  the sheet fills (blank sheet cells are simply absent → value kept). */
+export type PlanUpdate = { sku: string; set: Record<string, unknown> };
+export type PlanCreate = Record<string, unknown>;
+
+const PLAN_STR_COLS = ["sku", "name", "company", "unit", "hsn", "barcode", "image"] as const;
+const PLAN_NUM_COLS = ["gst", "deliveryRate", "purchaseCost", "packQty", "tier1", "tier2", "tier3", "tier4", "tier5", "dealerPrice", "basePrice", "mrp", "stock", "damagedStock", "reservedQty", "lowStockThreshold", "weightGrams", "piecesPerBox"] as const;
+const PLAN_ID_COLS = ["topId", "midId", "endId"] as const;
+
+async function applyPlan(updates: PlanUpdate[], creates: PlanCreate[]) {
+  const t0 = Date.now();
+  if (!updates.length && !creates.length) return NextResponse.json({ ok: false, error: "Empty plan" }, { status: 400 });
+
+  // category text → ids (resolved server-side; unknown names reported, never invented)
+  const [tops, mids, ends] = await Promise.all([
+    db.topCategory.findMany({ select: { id: true, name: true } }),
+    db.midCategory.findMany({ select: { id: true, name: true, topId: true } }),
+    db.endCategory.findMany({ select: { id: true, name: true, midId: true } }),
+  ]);
+  const midById = new Map(mids.map((m) => [m.id, m]));
+  const unmatchedCategories = new Set<string>();
+  const resolveCat = (field: "topId" | "endId", text: unknown): string | null => {
+    const t = normName(text);
+    if (!t) return null;
+    if (field === "topId") {
+      const top = tops.find((x) => normName(x.name) === t);
+      if (top) return top.id;
+    } else {
+      const end = ends.find((x) => normName(x.name) === t);
+      if (end) return end.id;
+    }
+    unmatchedCategories.add(String(text));
+    return null;
+  };
+  const endToMid = (endId: string | null): string | null => (endId ? midById.get(endId)?.id ?? null : null);
+  const midToTop = (midId: string | null): string | null => (midId ? midById.get(midId)?.topId ?? null : null);
+
+  // temp plan table
+  await db.$executeRawUnsafe("DROP TEMPORARY TABLE IF EXISTS `mig_plan`");
+  const colDefs = [
+    "`sku` VARCHAR(191) NOT NULL PRIMARY KEY",
+    ...PLAN_STR_COLS.filter((c) => c !== "sku").map((c) => `\`${c}\` VARCHAR(500) NULL`),
+    ...PLAN_ID_COLS.map((c) => `\`${c}\` VARCHAR(191) NULL`),
+    ...PLAN_NUM_COLS.map((c) => `\`${c}\` DOUBLE NULL`),
+    "`active` TINYINT NULL",
+    "`activeSource` VARCHAR(20) NULL",
+    "`syncSource` VARCHAR(20) NULL",
+    "`createdAt` DATETIME NULL",
+    "`gallery` TEXT NULL",
+  ].join(", ");
+  await db.$executeRawUnsafe(`CREATE TEMPORARY TABLE \`mig_plan\` (${colDefs}) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+
+  let staged = 0;
+  const insChunk = 120;
+  for (let i = 0; i < updates.length; i += insChunk) {
+    const batch = updates.slice(i, i + insChunk);
+    const values = batch.map((u) => {
+      const s0 = u.set ?? {};
+      const endId = resolveCat("endId", s0.endCategoryText ?? null);
+      const midId = endId ? endToMid(endId) : (s0.midId ? String(s0.midId) : null);
+      const topId = s0.topId ? String(s0.topId) : (midId ? midToTop(midId) : resolveCat("topId", s0.topCategoryText ?? null));
+      const co = typeof s0.createdAt === "string" ? s0.createdAt.match(/^(\d{4})-(\d{2})-(\d{2})/) : null;
+      const img = typeof s0.image === "string" && s0.image ? s0.image : null;
+      const galleryJson = img && /^https?:\/\//.test(img) ? JSON.stringify([img]) : null;
+      const strVal = (c: string): string | null => (c === "sku" ? String(u.sku ?? "").slice(0, 190) : s0[c] !== undefined && s0[c] !== null && s0[c] !== "" ? String(s0[c]).slice(0, c === "name" || c === "image" ? 190 : 490) : null);
+      const numVal = (c: string): number | null => (typeof s0[c] === "number" ? (s0[c] as number) : s0[c] !== undefined && s0[c] !== "" ? Number(s0[c]) || null : null);
+      return [
+        strVal("sku"),
+        strVal("name"), strVal("company"), strVal("unit"), strVal("hsn"), strVal("barcode"), strVal("image"),
+        topId, midId, endId,
+        ...PLAN_NUM_COLS.map(numVal),
+        typeof s0.active === "boolean" ? (s0.active ? 1 : 0) : null,
+        typeof s0.activeSource === "string" ? s0.activeSource : null,
+        typeof s0.syncSource === "string" ? s0.syncSource : null,
+        co ? `${co[1]}-${co[2]}-${co[3]} 00:00:00` : null,
+        galleryJson,
+      ];
+    });
+    await db.$executeRaw(
+      Prisma.sql`INSERT INTO \`mig_plan\` (\`sku\`,\`name\`,\`company\`,\`unit\`,\`hsn\`,\`barcode\`,\`image\`,\`topId\`,\`midId\`,\`endId\`,${Prisma.raw(PLAN_NUM_COLS.map((c) => `\`${c}\``).join(","))},\`active\`,\`activeSource\`,\`syncSource\`,\`createdAt\`,\`gallery\`) VALUES ${
+        Prisma.join(values.map((v) => Prisma.sql`(${Prisma.join(v)})`))
+      }`
+    );
+    staged += values.length;
+  }
+
+  // single UPDATE..JOIN — COALESCE keeps current values where the plan cell is NULL
+  const setExprs = [
+    "`p`.`sku` = COALESCE(NULLIF(`m`.`sku`, ''), `p`.`sku`)",
+    ...["name", "company", "unit", "hsn", "barcode"].map((c) => `\`p\`.\`${c}\` = COALESCE(\`m\`.\`${c}\`, \`p\`.\`${c}\`)`),
+    "`p`.`image` = COALESCE(`m`.`image`, `p`.`image`)",
+    "`p`.`gallery` = COALESCE(`m`.`gallery`, `p`.`gallery`)",
+    ...PLAN_ID_COLS.map((c) => `\`p\`.\`${c}\` = COALESCE(\`m\`.\`${c}\`, \`p\`.\`${c}\`)`),
+    ...PLAN_NUM_COLS.map((c) => `\`p\`.\`${c}\` = COALESCE(\`m\`.\`${c}\`, \`p\`.\`${c}\`)`),
+    "`p`.`active` = COALESCE(`m`.`active`, `p`.`active`)",
+    "`p`.`activeSource` = COALESCE(`m`.`activeSource`, `p`.`activeSource`)",
+    "`p`.`syncSource` = COALESCE(`m`.`syncSource`, `p`.`syncSource`)",
+    "`p`.`createdAt` = COALESCE(`m`.`createdAt`, `p`.`createdAt`)",
+    "`p`.`lastSyncedAt` = NOW(3)",
+  ];
+  let updatedRows = 0;
+  if (updates.length) {
+    const res = await db.$executeRawUnsafe(
+      `UPDATE \`Product\` p JOIN \`mig_plan\` m ON \`p\`.\`sku\` = \`m\`.\`sku\` SET ${setExprs.join(", ")}`
+    );
+    updatedRows = Number(res);
+  }
+  await db.$executeRawUnsafe("DROP TEMPORARY TABLE IF EXISTS `mig_plan`");
+
+  // creates — createMany (slugs are pre-uniqued by the driver)
+  let createdRows = 0;
+  if (creates.length) {
+    const fbTop = tops.find((t) => t.name === "General") ?? tops[0];
+    const fbMid = mids.find((m) => m.name === "General") ?? mids.find((m) => m.topId === fbTop?.id) ?? mids[0];
+    const fbEnd = ends.find((e2) => e2.name === "General") ?? ends.find((e2) => e2.midId === fbMid?.id) ?? ends[0];
+    const rows = creates.map((c) => {
+      const endId = resolveCat("endId", c.endCategoryText ?? null);
+      const midId = endId ? endToMid(endId) : (c.midId ? String(c.midId) : fbMid?.id ?? "");
+      const topId = c.topId ? String(c.topId) : (midId ? midToTop(midId) : resolveCat("topId", c.topCategoryText ?? null) ?? fbTop?.id ?? "");
+      return ({
+      sku: String(c.sku ?? "").slice(0, 190),
+      slug: String(c.slug ?? `p-${Date.now()}`),
+      name: String(c.name ?? ""),
+      company: String(c.company ?? "").slice(0, 190),
+      topId, midId, endId: endId ?? fbEnd?.id ?? "",
+      unit: String(c.unit || "Pcs"), hsn: String(c.hsn ?? ""),
+      gst: Number(c.gst ?? 18), deliveryRate: Number(c.deliveryRate ?? 0),
+      purchaseCost: Number(c.purchaseCost ?? 0), packQty: Math.max(1, Math.round(Number(c.packQty ?? 1))),
+      tier1: Number(c.tier1 ?? 0), tier2: Number(c.tier2 ?? 0), tier3: Number(c.tier3 ?? 0),
+      tier4: Number(c.tier4 ?? 0), tier5: Number(c.tier5 ?? 0),
+      dealerPrice: Number(c.dealerPrice ?? 0), basePrice: Number(c.basePrice ?? 0), mrp: Number(c.mrp ?? 0),
+      stock: Number(c.stock ?? 0), damagedStock: Number(c.damagedStock ?? 0), reservedQty: Number(c.reservedQty ?? 0),
+      lowStockThreshold: Math.round(Number(c.lowStockThreshold ?? 10)),
+      barcode: String(c.barcode ?? ""), weightGrams: Number(c.weightGrams ?? 0),
+      piecesPerBox: Math.max(1, Math.round(Number(c.piecesPerBox ?? 1))),
+      image: String(c.image || "/dmk-logo.png"),
+      gallery: typeof c.gallery === "string" ? c.gallery : "[]",
+      description: String(c.description ?? ""), seoTitle: String(c.seoTitle ?? ""), seoDesc: String(c.seoDesc ?? ""), keywords: String(c.keywords ?? ""),
+      active: c.active !== false, activeSource: "ERP", syncSource: "ERP",
+      rating: 4.5, reviewCount: 10,
+      ...(c.createdAt ? { createdAt: new Date(String(c.createdAt)) } : {}),
+      lastSyncedAt: new Date(),
+    }));
+    const res = await db.product.createMany({ data: rows, skipDuplicates: true });
+    createdRows = res.count;
+  }
+
+  return NextResponse.json({
+    ok: true,
+    staged, updatedRows, createdRows,
+    unmatchedCategories: [...unmatchedCategories].slice(0, 40),
+    durationMs: Date.now() - t0,
+  });
 }
 
 // ═══════════════════ UNIVERSAL PASS (B2B catalog) ═══════════════════
