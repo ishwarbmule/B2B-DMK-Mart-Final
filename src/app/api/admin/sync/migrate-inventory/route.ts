@@ -164,7 +164,7 @@ async function applyPlan(updates: PlanUpdate[], creates: PlanCreate[]) {
       const co = typeof s0.createdAt === "string" ? s0.createdAt.match(/^(\d{4})-(\d{2})-(\d{2})/) : null;
       const img = typeof s0.image === "string" && s0.image ? s0.image : null;
       const galleryJson = img && /^https?:\/\//.test(img) ? JSON.stringify([img]) : null;
-      const strVal = (c: string): string | null => (c === "sku" ? String(u.sku ?? "").slice(0, 190) : s0[c] !== undefined && s0[c] !== null && s0[c] !== "" ? String(s0[c]).slice(0, c === "name" || c === "image" ? 190 : 490) : null);
+      const strVal = (c: string): string | null => (c === "sku" ? String(s0.sku ?? u.sku ?? "").slice(0, 190) : s0[c] !== undefined && s0[c] !== null && s0[c] !== "" ? String(s0[c]).slice(0, c === "name" || c === "image" ? 190 : 490) : null);
       const numVal = (c: string): number | null => (typeof s0[c] === "number" ? (s0[c] as number) : s0[c] !== undefined && s0[c] !== "" ? Number(s0[c]) || null : null);
       return [
         strVal("sku"),
