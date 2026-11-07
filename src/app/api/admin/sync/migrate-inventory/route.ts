@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
   if (!(await authorize(req))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const body = (await req.json()) as {
-      rows?: SheetRow[]; mode?: "universal" | "erp" | "apply-plan" | "erp-rows"; start?: number; renames?: [string, string][]; force?: boolean;
+      rows?: SheetRow[]; mode?: "universal" | "erp" | "apply-plan" | "erp-rows" | "erp-info"; start?: number; renames?: [string, string][]; force?: boolean;
       updates?: PlanUpdate[]; creates?: PlanCreate[];
     };
     const rows = Array.isArray(body.rows) ? body.rows : [];
