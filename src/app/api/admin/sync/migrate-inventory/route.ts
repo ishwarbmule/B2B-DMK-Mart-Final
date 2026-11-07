@@ -576,6 +576,7 @@ async function erpRowsPass(rows: SheetRow[], renamePairs: [string, string][]) {
   const [sampleRows] = await pool.query<mysql.RowDataPacket[]>(`SELECT * FROM \`${table}\` LIMIT 1`);
   const sample = (sampleRows as Record<string, unknown>[])[0] ?? {};
   const requiredTemplate: Record<string, unknown> = {};
+  const generatedCols: string[] = [];
   for (const c of describeRows) {
     if (c.Field === cols.sku) continue;
     const isAuto = String(c.Extra || "").includes("auto_increment");
@@ -583,6 +584,7 @@ async function erpRowsPass(rows: SheetRow[], renamePairs: [string, string][]) {
     // DESCRIBE reports Null as "NO"/"YES" (information_schema style) — treat both spellings
     const notNull = ["NO", "NOT NULL"].includes(String(c.Null || "").toUpperCase());
     if (isAuto || !notNull || hasDefault) continue;
+    if (String(c.Key || "") === "PRI") { generatedCols.push(c.Field); continue; } // cuid-style PK → generate per row
     const v = sample[c.Field];
     const t = String(c.Type || "").toLowerCase();
     requiredTemplate[c.Field] = v !== undefined && v !== null ? v : (/int|decimal|double|float|bit/.test(t) ? 0 : "");
@@ -636,8 +638,12 @@ async function erpRowsPass(rows: SheetRow[], renamePairs: [string, string][]) {
       const affected = (res as { affectedRows?: number }).affectedRows ?? 0;
       if (affected > 0) { updated++; continue; }
       // old SKU absent → genuinely new product → INSERT (with required template columns, e.g. firmId)
-      const insertKeys = [...new Set([...Object.keys(requiredTemplate), ...keys])];
-      const insertVals = insertKeys.map((k) => (k in set ? set[k] : requiredTemplate[k]));
+      const insertKeys = [...new Set([...Object.keys(requiredTemplate), ...generatedCols, ...keys])];
+      const insertVals = insertKeys.map((k) => {
+        if (k in set) return set[k];
+        if (generatedCols.includes(k)) return `mig${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}${inserted}`;
+        return requiredTemplate[k];
+      });
       await pool.query(
         `INSERT INTO \`${table}\` (${insertKeys.map((k) => `\`${k}\``).join(", ")}) VALUES (${insertKeys.map(() => "?").join(", ")})`,
         insertVals
