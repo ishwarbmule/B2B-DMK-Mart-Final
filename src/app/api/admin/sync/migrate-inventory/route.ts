@@ -36,7 +36,7 @@ import mysql from "mysql2/promise";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const CHUNK = 300;
+const CHUNK = 300; // default; overridable per request via ?chunk=
 const MIGRATION_KEY = "inventory_migration_2026_11_07";
 
 async function authorize(req: NextRequest): Promise<boolean> {
@@ -83,7 +83,10 @@ export async function POST(req: NextRequest) {
     const mode = body.mode === "erp" ? "erp" : "universal";
     if (!rows.length) return NextResponse.json({ ok: false, error: "No rows provided" }, { status: 400 });
 
-    if (mode === "universal") return await universalPass(rows, Number(body.start) || 0, body.force === true);
+    if (mode === "universal") {
+      const chunkParam = Math.max(20, Math.min(400, parseInt(req.nextUrl.searchParams.get("chunk") || "300", 10) || 300));
+      return await universalPass(rows, Number(body.start) || 0, body.force === true, chunkParam);
+    }
     return await erpPass(rows, Array.isArray(body.renames) ? body.renames : []);
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message.slice(0, 400) : "migration failed" }, { status: 500 });
@@ -92,7 +95,7 @@ export async function POST(req: NextRequest) {
 
 // ═══════════════════ UNIVERSAL PASS (B2B catalog) ═══════════════════
 
-async function universalPass(rows: SheetRow[], start: number, force: boolean) {
+async function universalPass(rows: SheetRow[], start: number, force: boolean, chunkSize = CHUNK) {
   const state = await getSetting(MIGRATION_KEY, "");
   if (state === "done" && !force && start === 0) {
     return NextResponse.json({ ok: false, error: "Migration already completed. Pass force=true to re-run.", state }, { status: 409 });
@@ -138,7 +141,7 @@ async function universalPass(rows: SheetRow[], start: number, force: boolean) {
     byName.set(k, arr);
   }
 
-  const chunk = rows.slice(start, start + CHUNK);
+  const chunk = rows.slice(start, start + chunkSize);
   let updated = 0, renamedCount = 0, created = 0, skipped = 0;
   const renames: [string, string][] = [];
   const errors: string[] = [];
