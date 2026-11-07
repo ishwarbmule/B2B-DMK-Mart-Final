@@ -217,8 +217,8 @@ async function applyPlan(updates: PlanUpdate[], creates: PlanCreate[]) {
     const fbEnd = ends.find((e2) => e2.name === "General") ?? ends.find((e2) => e2.midId === fbMid?.id) ?? ends[0];
     const rows = creates.map((c) => {
       const endId = resolveCat("endId", c.endCategoryText ?? null);
-      const midId = endId ? endToMid(endId) : (c.midId ? String(c.midId) : fbMid?.id ?? "");
-      const topId = c.topId ? String(c.topId) : (midId ? midToTop(midId) : resolveCat("topId", c.topCategoryText ?? null) ?? fbTop?.id ?? "");
+      const midId = (endId ? endToMid(endId) : (c.midId ? String(c.midId) : "")) || fbMid?.id || "";
+      const topId = (c.topId ? String(c.topId) : (midId ? midToTop(midId) : resolveCat("topId", c.topCategoryText ?? null))) || fbTop?.id || "";
       return ({
       sku: String(c.sku ?? "").slice(0, 190),
       slug: String(c.slug ?? `p-${Date.now()}`),
@@ -242,7 +242,8 @@ async function applyPlan(updates: PlanUpdate[], creates: PlanCreate[]) {
       rating: 4.5, reviewCount: 10,
       ...(c.createdAt ? { createdAt: new Date(String(c.createdAt)) } : {}),
       lastSyncedAt: new Date(),
-    }));
+      });
+    });
     const res = await db.product.createMany({ data: rows, skipDuplicates: true });
     createdRows = res.count;
   }
