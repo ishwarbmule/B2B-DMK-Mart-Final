@@ -10,7 +10,8 @@ export async function GET(req: NextRequest) {
   if (unauthorized) return unauthorized;
   const sp = req.nextUrl.searchParams;
   const q = sp.get("q")?.trim() || "";
-  const brand = sp.get("brand") || "";
+  const company = sp.get("company")?.trim() || "";
+  const brand = sp.get("brand") || ""; // legacy param — old storefront-brand links only
   const flag = sp.get("flag") || "";
   const status = sp.get("status") || "";
   const top = sp.get("top") || "";
@@ -25,8 +26,10 @@ export async function GET(req: NextRequest) {
       { name: { contains: q } },
       { sku: { contains: q } },
       { barcode: { contains: q } },
+      { company: { contains: q } },
     ];
   }
+  if (company) where.company = company;
   if (brand) where.brandId = brand;
   if (top) where.topId = top;
   if (mid) where.midId = mid;
@@ -62,8 +65,8 @@ export async function POST(req: NextRequest) {
   if (unauthorized) return unauthorized;
   try {
     const b = await req.json();
-    if (!b.name || !b.brandId || !b.topId || !b.midId || !b.endId) {
-      return jsonError("Name, Brand and Top/Mid/End Category are required");
+    if (!b.name || !b.company || !b.topId || !b.midId || !b.endId) {
+      return jsonError("Name, Company and Top/Mid/End Category are required");
     }
     if (!b.dealerPrice || Number(b.dealerPrice) <= 0) return jsonError("Selling price (tier4) is required");
     if (!b.mrp || Number(b.mrp) <= 0) return jsonError("MRP is required");
@@ -71,7 +74,7 @@ export async function POST(req: NextRequest) {
     const exists = await db.product.findUnique({ where: { sku } });
     if (exists) return jsonError(`SKU ${sku} already exists`);
     const slugify = (s: string) => s.normalize("NFKD").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase().slice(0, 70) || "item";
-    let slug = slugify(`${b.brandName || "dmk"}-${b.name}`);
+    let slug = slugify(`${b.company || "dmk"}-${b.name}`);
     if (await db.product.findUnique({ where: { slug } })) slug = `${slug}-${sku.slice(-5).toLowerCase()}`;
     const gallery = Array.isArray(b.gallery)
       ? (b.gallery as unknown[]).filter((u): u is string => typeof u === "string" && !!u.trim()).slice(0, 10)
@@ -81,7 +84,7 @@ export async function POST(req: NextRequest) {
         sku,
         slug,
         name: b.name,
-        brandId: b.brandId,
+        company: String(b.company || "").slice(0, 190),
         topId: b.topId, midId: b.midId, endId: b.endId,
         unit: b.unit || "Pcs",
         dealerPrice: Number(b.dealerPrice) || 0,
@@ -90,6 +93,7 @@ export async function POST(req: NextRequest) {
         purchaseCost: Number(b.purchaseCost) || 0,
         tier1: Number(b.tier1) || 0, tier2: Number(b.tier2) || 0, tier3: Number(b.tier3) || 0,
         tier4: Number(b.tier4) || Number(b.dealerPrice) || 0, tier5: Number(b.tier5) || Number(b.mrp) || 0,
+        deliveryRate: Number(b.deliveryRate) || 0,
         packPrice: Number(b.packPrice) || 0,
         packQty: Math.max(1, parseInt(b.packQty) || 1),
         piecesPerBox: parseInt(b.piecesPerBox) || 0,
@@ -109,9 +113,9 @@ export async function POST(req: NextRequest) {
         isHot: !!b.isHot, isTop: !!b.isTop, isFeatured: !!b.isFeatured, isDeal: !!b.isDeal,
         dealPrice: Number(b.dealPrice) || 0,
         active: b.active !== false,
+        activeSource: "ADMIN",
         syncSource: "LOCAL",
       },
-      include: { brand: { select: { name: true } } },
     });
     await db.activityLog.create({ data: { action: "CREATE", entity: "product", entityId: row.id, detail: `Product "${row.name}" (${row.sku}) created via Add Products` } });
     return NextResponse.json({ row });
@@ -127,10 +131,10 @@ export async function PATCH(req: NextRequest) {
     const { id, ...data } = await req.json();
     if (!id) return jsonError("Missing id");
     const clean: Record<string, unknown> = {};
-    const numFields = ["dealerPrice", "basePrice", "mrp", "gst", "stock", "packQty", "piecesPerBox", "purchaseCost", "tier1", "tier2", "tier3", "tier4", "tier5", "packPrice", "packDiscountPct", "dealPrice", "weightGrams", "lowStockThreshold", "damagedStock", "rating"];
+    const numFields = ["dealerPrice", "basePrice", "mrp", "gst", "stock", "packQty", "piecesPerBox", "purchaseCost", "tier1", "tier2", "tier3", "tier4", "tier5", "deliveryRate", "packPrice", "dealPrice", "weightGrams", "lowStockThreshold", "damagedStock", "rating"];
     const boolFields = ["isHot", "isTop", "isFeatured", "isDeal", "active"];
-    const strFields = ["name", "sku", "barcode", "hsn", "image", "gallery", "brandId", "topId", "midId", "endId", "description", "seoTitle", "seoDesc", "keywords", "unit"];
-    for (const k of strFields) if (k in data) clean[k] = data[k];
+    const strFields = ["name", "sku", "barcode", "hsn", "image", "gallery", "company", "topId", "midId", "endId", "description", "seoTitle", "seoDesc", "keywords", "unit"];
+    for (const k of strFields) if (k in data) clean[k] = k === "company" ? String(data[k] ?? "").slice(0, 190) : data[k];
     for (const k of numFields) if (k in data) clean[k] = Number(data[k]) || 0;
     for (const k of boolFields) if (k in data) clean[k] = !!data[k];
     // Manual admin activation/deactivation is recorded so ERP pulls never undo it (last-writer-wins).

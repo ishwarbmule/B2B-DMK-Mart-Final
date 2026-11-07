@@ -236,7 +236,7 @@ export function SyncModule({ token }: { token: string }) {
         <div className="rounded-xl border-2 border-emerald-300 bg-gradient-to-r from-emerald-50 to-white p-4">
           <p className="flex items-center gap-2 text-sm font-black"><ArrowDownToLine className="h-4 w-4 text-emerald-600" /> Pull — ERP → Website</p>
           <p className="mt-1 text-[11px] leading-relaxed text-gray-500">
-            Reads products from the ERP MySQL (strictly SELECT only) and refreshes the B2B catalog: names, categories, brands,
+            Reads products from the ERP MySQL (strictly SELECT only) and refreshes the B2B catalog: names, companies, categories,
             all 5 price tiers, stock, barcodes, HSN &amp; images. New ERP items appear on the website automatically.
           </p>
           <button onClick={pullNow} disabled={pulling || !status.connected} className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 text-xs font-black uppercase tracking-wider text-white hover:bg-emerald-700 disabled:opacity-40">

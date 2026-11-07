@@ -74,7 +74,8 @@ export async function POST(req: NextRequest) {
       const id = String(body.id || "");
       const isAdd = body.action === "bulkAdd";
       const where: Record<string, unknown> = { active: true };
-      if (mode === "BRAND") where.brandId = id;
+      if (mode === "COMPANY") where.company = id;
+      else if (mode === "BRAND") where.brandId = id;
       else if (mode === "TOP") where.topId = id;
       else if (mode === "MID") where.midId = id;
       else if (mode === "END") where.endId = id;

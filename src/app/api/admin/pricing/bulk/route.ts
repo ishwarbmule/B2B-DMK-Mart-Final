@@ -1,6 +1,6 @@
 /**
  * POST /api/admin/pricing/bulk — bulk price editing on purchase-cost basis.
- * Body: { target: "brand"|"category"|"products"|"all", ids: [], filters: {},
+ * Body: { target: "company"|"category"|"products"|"all", ids: [], filters: {},
  *         basis: "purchaseCost"|"dealerPrice"|"mrp",
  *         ops: [{field: "mrp"|"dealerPrice"|"tier1".."tier5"|"dealPrice", mode: "percent"|"amount"|"set", value: number}],
  *         preview?: boolean }
@@ -19,8 +19,8 @@ export async function POST(req: NextRequest) {
   if (unauthorized) return unauthorized;
   try {
     const body = (await req.json()) as {
-      target: "brand" | "category" | "products" | "all";
-      brandIds?: string[];
+      target: "company" | "category" | "products" | "all";
+      companies?: string[];
       topId?: string; midId?: string; endId?: string;
       ids?: string[];
       ops: { field: string; mode: "percent" | "amount" | "set"; value: number }[];
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     for (const op of body.ops) if (!FIELDS.includes(op.field as Field)) return jsonError(`Invalid field: ${op.field}`);
 
     const where: Record<string, unknown> = {};
-    if (body.target === "brand" && body.brandIds?.length) where.brandId = { in: body.brandIds };
+    if (body.target === "company" && body.companies?.length) where.company = { in: body.companies };
     if (body.target === "category") {
       if (body.endId) where.endId = body.endId;
       else if (body.midId) where.midId = body.midId;

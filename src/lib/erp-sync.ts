@@ -13,19 +13,19 @@ const slugify = (s: string) =>
 type CatCache = {
   tops: { id: string; name: string }[];
   mids: { id: string; name: string }[];
-  ends: { id: string; name: string }[];
+  ends: { id: string; name: string; midId: string }[];
   fallback: { topId: string; midId: string; endId: string };
 };
+
+const normCat = (s: string) => s.normalize("NFKD").replace(/\s+/g, " ").trim().toLowerCase();
 
 async function loadCatCache(): Promise<CatCache> {
   const [tops, mids, ends] = await Promise.all([
     db.topCategory.findMany({ select: { id: true, name: true } }),
-    db.midCategory.findMany({ select: { id: true, name: true } }),
-    db.endCategory.findMany({ select: { id: true, name: true } }),
+    db.midCategory.findMany({ select: { id: true, name: true, topId: true } }),
+    db.endCategory.findMany({ select: { id: true, name: true, midId: true } }),
   ]);
   // Fresh/empty database safety: create the full fallback chain (Top → Mid → End).
-  // Previously only the End level was auto-created, so the first pull on a brand-new
-  // DB crashed with "Cannot read properties of undefined (reading 'id')".
   let fallbackTop = tops.find((t) => t.name === "HouseHold Unbreakable") ?? tops[0];
   if (!fallbackTop) fallbackTop = await db.topCategory.create({ data: { name: "General" } });
   let fallbackMid = mids.find((m) => m.name === "General" && m.topId === fallbackTop.id)
@@ -41,18 +41,37 @@ async function loadCatCache(): Promise<CatCache> {
   return { tops, mids, ends, fallback: { topId: fallbackTop.id, midId: fallbackMid.id, endId: fallbackEnd.id } };
 }
 
-function resolveCategories(cache: CatCache, categoryText: string) {
-  const t = categoryText.trim();
-  const top = cache.tops.find((x) => x.name.toLowerCase() === t.toLowerCase());
-  const mid = cache.mids.find((x) => x.name.toLowerCase() === t.toLowerCase());
-  const end = cache.ends.find((x) => x.name.toLowerCase() === t.toLowerCase());
-  return { topId: top?.id ?? cache.fallback.topId, midId: mid?.id ?? cache.fallback.midId, endId: end?.id ?? cache.fallback.endId };
+/**
+ * Company + category resolution — brand-free.
+ * Company comes through verbatim (exact ERP/Excel text, no merging, no auto-creation of brands).
+ * Categories match by normalized name against the existing tree only (never create new nodes
+ * from sync data — unknown values are reported, not invented):
+ *   - topCategory text → TopCategory
+ *   - endCategory text → EndCategory (its mid follows); top falls back to the end's mid.top
+ *   - legacy single `category` text still matches top/mid/end as before
+ */
+function resolveCategories(cache: CatCache, topText: string, endText: string, legacyText = "") {
+  const top = topText ? cache.tops.find((x) => normCat(x.name) === normCat(topText)) : undefined;
+  const end = endText ? cache.ends.find((x) => normCat(x.name) === normCat(endText)) : undefined;
+  const legacy = legacyText
+    ? {
+        t: cache.tops.find((x) => normCat(x.name) === normCat(legacyText)),
+        m: cache.mids.find((x) => normCat(x.name) === normCat(legacyText)),
+        e: cache.ends.find((x) => normCat(x.name) === normCat(legacyText)),
+      }
+    : { t: undefined, m: undefined, e: undefined };
+
+  const endMid = end ? cache.mids.find((m) => m.id === end.midId) : undefined;
+  const topId = top?.id ?? endMid?.topId ?? legacy.t?.id ?? legacy.m?.topId ?? cache.fallback.topId;
+  const midId = endMid?.id ?? legacy.m?.id ?? legacy.e?.midId ?? cache.fallback.midId;
+  const endId = end?.id ?? legacy.e?.id ?? cache.fallback.endId;
+  return { topId, midId, endId, matchedTop: Boolean(top), matchedEnd: Boolean(end) };
 }
 
-export type ApplyResult = { seen: number; created: number; updated: number; skipped: number; newBrands: string[]; errors: string[] };
+export type ApplyResult = { seen: number; created: number; updated: number; skipped: number; unmatchedCategories: string[]; errors: string[] };
 
 export async function applyErpProducts(payload: unknown): Promise<ApplyResult> {
-  const result: ApplyResult = { seen: 0, created: 0, updated: 0, skipped: 0, newBrands: [], errors: [] };
+  const result: ApplyResult = { seen: 0, created: 0, updated: 0, skipped: 0, unmatchedCategories: [], errors: [] };
 
   // accept multiple payload shapes
   let list: Record<string, unknown>[] = [];
@@ -68,65 +87,28 @@ export async function applyErpProducts(payload: unknown): Promise<ApplyResult> {
   result.skipped = list.length - normalized.length;
   if (!normalized.length) return result;
 
-  const [brands, catCache] = await Promise.all([db.brand.findMany({ select: { id: true, name: true, erpNames: true, active: true } }), loadCatCache()]);
-  const aliasIndex = new Map<string, string>(); // lower alias -> brandId
-  for (const b of brands) {
-    aliasIndex.set(b.name.toLowerCase(), b.id);
-    try {
-      for (const a of JSON.parse(b.erpNames || "[]") as string[]) aliasIndex.set(String(a).toLowerCase(), b.id);
-    } catch { /* ignore */ }
-  }
-
-  const resolveBrand = async (company: string, brand: string): Promise<string> => {
-    for (const raw of [company, brand]) {
-      const key = (raw || "").trim().toLowerCase();
-      if (key && aliasIndex.has(key)) return aliasIndex.get(key)!;
-    }
-    // prefix fallback
-    for (const raw of [company, brand]) {
-      const key = (raw || "").trim().toLowerCase();
-      if (!key) continue;
-      for (const [alias, id] of aliasIndex.entries()) {
-        if (alias && (key.startsWith(alias) || alias.startsWith(key)) && alias.length >= 4) return id;
-      }
-    }
-    // auto-create brand for unknown company
-    const name = (company || brand || "DMK Mart").trim();
-    const existing = await db.brand.findUnique({ where: { name } });
-    if (existing) return existing.id;
-    let slug = slugify(name);
-    if (await db.brand.findUnique({ where: { slug } })) slug = `${slug}-${Math.random().toString(36).slice(2, 6)}`;
-    const createdBrand = await db.brand.create({
-      data: {
-        name, slug,
-        erpNames: JSON.stringify([company, brand].filter(Boolean)),
-        description: `${name} — newly synced from the DMK Mart ERP.`,
-        storefrontLayout: 1,
-        storefrontConfig: JSON.stringify({ heroHeadline: `Shop ${name}`, heroSub: `Explore the ${name} range at wholesale rates.`, showCategories: true, showTopProducts: true, showHotDeals: true, showAllProducts: true, bg: "#ffffff", accent: "#facc15" }),
-      },
-    });
-    aliasIndex.set(name.toLowerCase(), createdBrand.id);
-    result.newBrands.push(name);
-    return createdBrand.id;
-  };
+  const catCache = await loadCatCache();
+  const unmatched = new Set<string>();
 
   for (const item of normalized) {
     try {
-      const brandId = await resolveBrand(item.company, item.brand);
-      const cats = resolveCategories(catCache, item.category);
+      const cats = resolveCategories(catCache, item.topCategory, item.endCategory);
+      if ((item.topCategory || item.endCategory) && (!cats.matchedTop || !(item.endCategory ? cats.matchedEnd : true))) {
+        unmatched.add([item.topCategory, item.endCategory].filter(Boolean).join(" > "));
+      }
       const dealer = item.tier4 > 0 ? item.tier4 : item.tier5 > 0 ? item.tier5 : item.tier3;
       const mrp = item.tier5 > 0 ? item.tier5 : dealer;
       const base = item.tier3 > 0 ? item.tier3 : dealer;
       const data = {
         erpId: item.erpId,
         name: item.name,
-        brandId,
+        company: item.company,
         topId: cats.topId, midId: cats.midId, endId: cats.endId,
         unit: item.unit, packQty: item.packQty, piecesPerBox: item.piecesPerBox,
         purchaseCost: item.purchaseCost,
         dealerPrice: dealer, basePrice: base, mrp,
         tier1: item.tier1, tier2: item.tier2, tier3: item.tier3, tier4: item.tier4, tier5: item.tier5,
-        packPrice: item.packPrice, packDiscountPct: item.packDiscountPct,
+        deliveryRate: item.deliveryRate,
         stock: Math.round(item.stock), damagedStock: Math.round(item.damaged), reservedQty: Math.round(item.reserved),
         lowStockThreshold: item.lowStockThreshold,
         barcode: item.barcode, hsn: item.hsn, gst: item.gst, weightGrams: item.weightGrams,
@@ -151,7 +133,7 @@ export async function applyErpProducts(payload: unknown): Promise<ApplyResult> {
         await db.product.update({ where: { id: existing.id }, data: update });
         result.updated++;
       } else {
-        let slug = slugify(`${item.company || item.brand || "dmk"}-${item.name}`);
+        let slug = slugify(`${item.company || "dmk"}-${item.name}`);
         if (await db.product.findUnique({ where: { slug } })) slug = `${slug}-${item.sku.slice(-6).toLowerCase()}`;
         const img = await resolveErpImage(item.image);
         await db.product.create({
@@ -166,7 +148,7 @@ export async function applyErpProducts(payload: unknown): Promise<ApplyResult> {
             description: `${item.name} — synced from DMK Mart ERP.`,
             seoTitle: `${item.name} | DMK Mart B2B`,
             seoDesc: `Buy ${item.name} at wholesale price on DMK Mart.`,
-            keywords: `${item.name}, ${item.brand || item.company}, wholesale`,
+            keywords: `${item.name}, ${item.company}, wholesale`,
             rating: 4.5,
             reviewCount: 10,
           },
@@ -177,6 +159,7 @@ export async function applyErpProducts(payload: unknown): Promise<ApplyResult> {
       result.errors.push(`${item.sku}: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
+  result.unmatchedCategories = [...unmatched].slice(0, 40);
   return result;
 }
 

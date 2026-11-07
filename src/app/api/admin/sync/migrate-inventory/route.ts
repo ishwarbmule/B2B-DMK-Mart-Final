@@ -1,0 +1,517 @@
+/**
+ * POST /api/admin/sync/migrate-inventory?key=<cron secret>
+ *
+ * ONE-TIME inventory migration driven by the owner's Excel sheet
+ * (dmk-products-all-2026-11-07_gst_delivery.xlsx) — SKU renumbering included.
+ *
+ * mode "universal" (chunked, ?start= cursor):
+ *   For every sheet row, find the SAME product in the B2B catalog:
+ *     1. exact SKU match (normal re-upload case), else
+ *     2. unique normalized-name match, else
+ *     3. name+company match inside a duplicate-name group, else
+ *     4. order pairing by SKU numeric suffix inside the group (sheet and catalog
+ *        come from the same ERP, group order is preserved)
+ *   …then UPDATE that product: new SKU + every filled sheet column (company,
+ *   categories, unit, HSN, GST, delivery rate, cost, pack qty, tiers, stock,
+ *   damaged/reserved, threshold, status→active, barcode, weight, pieces/box,
+ *   image, created-on). Sheet rows matching NOTHING are created as new products.
+ *   Empty cells never wipe existing values. Returns per-chunk report + the
+ *   oldSku→newSku rename pairs (the client accumulates them for the ERP pass).
+ *
+ * mode "erp" (single call, all rows + renames):
+ *   Aligns the owner's ERP MySQL `products` table to the same sheet —
+ *   SAFETY: creates `products_backup_<date>` first (full copy), discovers the
+ *   ERP's real column names via DESCRIBE, adds the new columns if missing
+ *   (top_level_category / end_level_category / delivery_rate), then applies
+ *   renames + value updates in one UPDATE..JOIN and inserts genuinely new SKUs.
+ *
+ * Auth: cron secret or admin Bearer token.
+ */
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { requireAdmin } from "@/lib/admin-auth";
+import { erpPool, getSetting, setSetting, erpProductsTable } from "@/lib/erp";
+import mysql from "mysql2/promise";
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+const CHUNK = 300;
+const MIGRATION_KEY = "inventory_migration_2026_11_07";
+
+async function authorize(req: NextRequest): Promise<boolean> {
+  const secret = process.env.CRON_SECRET || "";
+  const key = req.nextUrl.searchParams.get("key") || "";
+  const auth = req.headers.get("authorization") || "";
+  if (secret && (key === secret || auth === `Bearer ${secret}`)) return true;
+  if (key || auth === "Bearer x") {
+    try {
+      const s = await db.setting.findUnique({ where: { key: "cron_secret" } });
+      const dbSecret = s?.value?.trim() || "";
+      if (dbSecret && (key === dbSecret || auth === `Bearer ${dbSecret}`)) return true;
+    } catch { /* ignore */ }
+  }
+  return requireAdmin(req) === null;
+}
+
+// ───────── helpers ─────────
+const s = (v: unknown): string => (v === null || v === undefined ? "" : String(v).trim());
+const normText = (v: unknown): string =>
+  s(v).normalize("NFKD").replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').toLowerCase();
+const normName = (v: unknown): string => normText(v).replace(/[^a-z0-9]+/g, " ").trim();
+const n = (v: unknown): number | null => {
+  const t = s(v);
+  if (!t) return null;
+  const x = Number(t.replace(/[^0-9.\-]/g, ""));
+  return Number.isFinite(x) ? x : null;
+};
+const suffixNum = (sku: string): number => {
+  const m = sku.match(/(\d+)\s*$/);
+  return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER;
+};
+const slugify = (x: string) => x.normalize("NFKD").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase().slice(0, 70) || "item";
+
+type SheetRow = Record<string, unknown>;
+
+export async function POST(req: NextRequest) {
+  if (!(await authorize(req))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const body = (await req.json()) as {
+      rows?: SheetRow[]; mode?: "universal" | "erp"; start?: number; renames?: [string, string][]; force?: boolean;
+    };
+    const rows = Array.isArray(body.rows) ? body.rows : [];
+    const mode = body.mode === "erp" ? "erp" : "universal";
+    if (!rows.length) return NextResponse.json({ ok: false, error: "No rows provided" }, { status: 400 });
+
+    if (mode === "universal") return await universalPass(rows, Number(body.start) || 0, body.force === true);
+    return await erpPass(rows, Array.isArray(body.renames) ? body.renames : []);
+  } catch (e) {
+    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message.slice(0, 400) : "migration failed" }, { status: 500 });
+  }
+}
+
+// ═══════════════════ UNIVERSAL PASS (B2B catalog) ═══════════════════
+
+async function universalPass(rows: SheetRow[], start: number, force: boolean) {
+  const state = await getSetting(MIGRATION_KEY, "");
+  if (state === "done" && !force && start === 0) {
+    return NextResponse.json({ ok: false, error: "Migration already completed. Pass force=true to re-run.", state }, { status: 409 });
+  }
+  if (start === 0) await setSetting(MIGRATION_KEY, "running");
+
+  const [tops, mids, ends] = await Promise.all([
+    db.topCategory.findMany({ select: { id: true, name: true } }),
+    db.midCategory.findMany({ select: { id: true, name: true, topId: true } }),
+    db.endCategory.findMany({ select: { id: true, name: true, midId: true } }),
+  ]);
+  const midById = new Map(mids.map((m) => [m.id, m]));
+  const unmatchedCategories = new Set<string>();
+  const resolveCats = (topText: string, endText: string): { topId?: string; midId?: string; endId?: string } => {
+    const out: { topId?: string; midId?: string; endId?: string } = {};
+    const t = normName(topText);
+    if (t) {
+      const top = tops.find((x) => normName(x.name) === t);
+      if (top) out.topId = top.id; else unmatchedCategories.add(s(topText));
+    }
+    const e = normName(endText);
+    if (e) {
+      const end = ends.find((x) => normName(x.name) === e);
+      if (end) {
+        out.endId = end.id;
+        const mid = midById.get(end.midId);
+        if (mid) { out.midId = mid.id; if (!out.topId) out.topId = mid.topId; }
+      } else unmatchedCategories.add(s(endText));
+    }
+    return out;
+  };
+
+  // local catalog + name groups
+  const locals = await db.product.findMany({
+    select: { id: true, sku: true, name: true, company: true, active: true, syncSource: true, tier4: true, tier5: true, stock: true },
+  });
+  const bySku = new Map(locals.map((p) => [p.sku, p]));
+  const byName = new Map<string, typeof locals>();
+  for (const p of locals) {
+    const k = normName(p.name);
+    const arr = byName.get(k) ?? [];
+    arr.push(p);
+    byName.set(k, arr);
+  }
+
+  const chunk = rows.slice(start, start + CHUNK);
+  let updated = 0, renamedCount = 0, created = 0, skipped = 0;
+  const renames: [string, string][] = [];
+  const errors: string[] = [];
+  const unmatchedRows: { sku: string; name: string }[] = [];
+
+  for (const row of chunk) {
+    const newSku = s(row.SKU);
+    const name = s(row["Product Name"]);
+    if (!newSku || !name) { skipped++; continue; }
+    const company = s(row.Company);
+    const status = s(row.Status).toUpperCase();
+    const active = status !== "INACTIVE";
+
+    try {
+      // ── match the same product ──
+      let target: (typeof locals)[number] | undefined = bySku.get(newSku);
+      let oldSku = target ? target.sku : "";
+      if (!target) {
+        const group = (byName.get(normName(name)) ?? []).filter((p) => !renames.some(([, ns]) => ns === p.sku && p.sku !== newSku));
+        if (group.length === 1) {
+          target = group[0];
+        } else if (group.length > 1) {
+          // prefer same company, then pair by SKU suffix order within the group
+          const compKey = normName(company);
+          const byCompany = compKey ? group.filter((p) => normName(p.company) === compKey) : [];
+          const pool = byCompany.length ? byCompany : group;
+          pool.sort((a, b) => suffixNum(a.sku) - suffixNum(b.sku));
+          target = pool.find((p) => !renames.some(([, ns]) => ns === p.sku));
+        }
+        if (target) { oldSku = target.sku; renamedCount++; renames.push([oldSku, newSku]); }
+      }
+
+      const cats = resolveCats(s(row["Top Level Category"]), s(row["End Level Category"]));
+      const dealer = n(row["Tier 4 Retailer"]);
+      const t5 = n(row["Tier 5 MRP"]);
+      const t3 = n(row["Tier 3 Semi-Wholesale"]);
+
+      if (target) {
+        const data: Record<string, unknown> = {
+          sku: newSku,
+          name,
+          company: company || target.company,
+          syncSource: "ERP",
+          lastSyncedAt: new Date(),
+        };
+        if (cats.topId) data.topId = cats.topId;
+        if (cats.midId) data.midId = cats.midId;
+        if (cats.endId) data.endId = cats.endId;
+        const unit = s(row.Unit); if (unit) data.unit = unit;
+        const hsn = s(row.HSN); if (hsn) data.hsn = hsn;
+        const gst = n(row["GST %"]); if (gst !== null) data.gst = gst;
+        const dr = n(row["Delivery Rate"]); if (dr !== null) data.deliveryRate = dr;
+        const cost = n(row["Cost Price"]); if (cost !== null) data.purchaseCost = cost;
+        const pq = n(row["Pack Qty"]); if (pq !== null && pq >= 1) data.packQty = Math.round(pq);
+        const t1 = n(row["Tier 1 Distributor"]); if (t1 !== null) data.tier1 = t1;
+        const t2 = n(row["Tier 2 Wholesale"]); if (t2 !== null) data.tier2 = t2;
+        if (t3 !== null) { data.tier3 = t3; data.basePrice = t3 > 0 ? t3 : (dealer ?? 0); }
+        if (dealer !== null) { data.tier4 = dealer; data.dealerPrice = dealer > 0 ? dealer : (t5 ?? 0); }
+        if (t5 !== null) { data.tier5 = t5; data.mrp = t5 > 0 ? t5 : (dealer ?? 0); }
+        const stock = n(row["Sellable Stock"]); if (stock !== null) data.stock = stock;
+        const dmg = n(row["Damaged Stock"]); if (dmg !== null) data.damagedStock = dmg;
+        const rsv = n(row.Reserved); if (rsv !== null) data.reservedQty = rsv;
+        const low = n(row["Low Stock Threshold"]); if (low !== null) data.lowStockThreshold = Math.round(low);
+        if (status === "ACTIVE" || status === "INACTIVE") { data.active = active; data.activeSource = "ERP"; }
+        const barcode = s(row.Barcode); if (barcode) data.barcode = barcode;
+        const w = n(row["Weight (g)"]); if (w !== null) data.weightGrams = w;
+        const ppb = n(row["Pieces/Box"]); if (ppb !== null && ppb >= 1) data.piecesPerBox = Math.round(ppb);
+        const img = s(row["Image URL"]);
+        if (img) { data.image = img; if (/^https?:\/\//.test(img)) data.gallery = JSON.stringify([img]); }
+        const createdOn = s(row["Created On"]);
+        const co = createdOn.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (co) data.createdAt = new Date(`${co[1]}-${co[2]}-${co[3]}T00:00:00.000Z`);
+
+        if (target.sku === newSku) {
+          delete data.sku;
+          await db.product.update({ where: { id: target.id }, data });
+        } else {
+          const clash = await db.product.findUnique({ where: { sku: newSku } });
+          if (clash && clash.id !== target.id) {
+            errors.push(`${oldSku}→${newSku}: SKU already used by another product (${clash.name})`);
+            continue;
+          }
+          await db.product.update({ where: { id: target.id }, data });
+        }
+        updated++;
+      } else {
+        // ── genuinely new product ──
+        const comp = company || "DMK Mart";
+        const topId = cats.topId ?? tops.find((t) => t.name === "General")?.id ?? tops[0]?.id;
+        const midId = cats.midId ?? mids.find((m) => m.name === "General")?.id ?? mids.find((m) => m.topId === topId)?.id ?? mids[0]?.id;
+        const endId = cats.endId ?? ends.find((e2) => e2.name === "General")?.id ?? ends.find((e2) => e2.midId === midId)?.id ?? ends[0]?.id;
+        if (!topId || !midId || !endId) { errors.push(`${newSku}: category tree empty`); continue; }
+        let slug = slugify(`${comp}-${name}`);
+        if (await db.product.findUnique({ where: { slug } })) slug = `${slug}-${newSku.slice(-6).toLowerCase()}`;
+        const img = s(row["Image URL"]);
+        const createdOn = s(row["Created On"]);
+        const co = createdOn.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        await db.product.create({
+          data: {
+            sku: newSku,
+            slug,
+            name,
+            company: comp.slice(0, 190),
+            topId, midId, endId,
+            unit: s(row.Unit) || "Pcs",
+            hsn: s(row.HSN),
+            gst: n(row["GST %"]) ?? 18,
+            deliveryRate: n(row["Delivery Rate"]) ?? 0,
+            purchaseCost: n(row["Cost Price"]) ?? 0,
+            packQty: Math.max(1, Math.round(n(row["Pack Qty"]) ?? 1)),
+            tier1: n(row["Tier 1 Distributor"]) ?? 0,
+            tier2: n(row["Tier 2 Wholesale"]) ?? 0,
+            tier3: t3 ?? 0,
+            tier4: dealer ?? 0,
+            tier5: t5 ?? 0,
+            dealerPrice: (dealer ?? 0) > 0 ? (dealer as number) : (t5 ?? 0),
+            basePrice: t3 ?? dealer ?? 0,
+            mrp: (t5 ?? 0) > 0 ? (t5 as number) : (dealer ?? 0),
+            stock: n(row["Sellable Stock"]) ?? 0,
+            damagedStock: n(row["Damaged Stock"]) ?? 0,
+            reservedQty: n(row.Reserved) ?? 0,
+            lowStockThreshold: Math.round(n(row["Low Stock Threshold"]) ?? 10),
+            active,
+            activeSource: "ERP",
+            syncSource: "ERP",
+            barcode: s(row.Barcode) || newSku,
+            weightGrams: n(row["Weight (g)"]) ?? 0,
+            piecesPerBox: Math.max(1, Math.round(n(row["Pieces/Box"]) ?? 1)),
+            image: img || "/dmk-logo.png",
+            gallery: /^https?:\/\//.test(img) ? JSON.stringify([img]) : "[]",
+            description: `${name} — ${comp}.`,
+            seoTitle: `${name} | DMK Mart B2B`,
+            seoDesc: `Buy ${name} at wholesale price on DMK Mart.`,
+            keywords: `${name}, ${comp}, wholesale`,
+            rating: 4.5,
+            reviewCount: 10,
+            ...(co ? { createdAt: new Date(`${co[1]}-${co[2]}-${co[3]}T00:00:00.000Z`) } : {}),
+          },
+        });
+        created++;
+        unmatchedRows.push({ sku: newSku, name });
+      }
+    } catch (e) {
+      errors.push(`${newSku}: ${e instanceof Error ? e.message.slice(0, 160) : "row failed"}`);
+    }
+  }
+
+  const nextStart = start + chunk.length;
+  const done = nextStart >= rows.length;
+  if (done) {
+    await setSetting(MIGRATION_KEY, "done");
+    await db.activityLog.create({
+      data: { action: "MIGRATE", entity: "product", detail: `Inventory migration (2026-11-07 sheet): ${updated} updated (${renamedCount} SKUs renumbered), ${created} created` },
+    });
+  }
+  return NextResponse.json({
+    ok: true, totalRows: rows.length, processed: chunk.length, nextStart, done,
+    updated, renamed: renamedCount, created, skipped,
+    renames, unmatchedRows: unmatchedRows.slice(0, 50),
+    unmatchedCategories: [...unmatchedCategories].slice(0, 30),
+    errors: errors.slice(0, 10),
+  });
+}
+
+// ═══════════════════ ERP PASS (owner's MySQL — aligned to the sheet) ═══════════════════
+
+// candidate ERP column names per canonical field (case-insensitive match against DESCRIBE)
+const ERP_COL_CANDIDATES: Record<string, string[]> = {
+  sku: ["sku", "sku_code", "item_code", "product_code"],
+  name: ["name", "product_name", "item_name"],
+  company: ["company", "company_name", "brand", "make"],
+  unit: ["unit", "uom", "unit_name"],
+  hsn: ["hsn", "hsn_code", "hsncode"],
+  gst: ["gst", "gst_rate", "gst_percent", "gstpercentage"],
+  deliveryRate: ["delivery_rate", "deliveryrate", "delivery_charges"],
+  cost: ["cost_price", "cost", "purchase_cost", "purchase_price", "purchasecost"],
+  packQty: ["pack_qty", "packqty", "pack_size", "packsize"],
+  tier1: ["tier1_distributor", "tier1", "tier_1"],
+  tier2: ["tier2_wholesale", "tier2", "tier_2"],
+  tier3: ["tier3_semiwholesale", "tier3_semi_wholesale", "tier3", "tier_3"],
+  tier4: ["tier4_retailer", "tier4", "tier_4"],
+  tier5: ["tier5_mrp", "tier5", "mrp", "tier_5"],
+  stock: ["stock_quantity", "sellable_stock", "stock_qty", "stock", "qty"],
+  damaged: ["damaged_stock", "damaged", "damaged_qty"],
+  reserved: ["reserved", "reserved_qty", "reserved_quantity"],
+  lowStock: ["low_stock_threshold", "low_stock", "min_stock"],
+  status: ["status", "is_active", "active"],
+  barcode: ["barcode", "bar_code", "ean"],
+  weight: ["weight_grams", "weight", "weight_g"],
+  piecesPerBox: ["pieces_per_box", "piecesbox", "pcs_per_box"],
+  topCat: ["top_level_category", "top_category", "toplevelcategory"],
+  endCat: ["end_level_category", "end_category", "endlevelcategory"],
+  createdOn: ["created_on", "created_at", "createdon", "createddate"],
+};
+
+function discoverColumns(describe: { Field: string }[]): Record<string, string> {
+  const lower = new Map(describe.map((c) => [c.Field.toLowerCase(), c.Field]));
+  const found: Record<string, string> = {};
+  for (const [field, candidates] of Object.entries(ERP_COL_CANDIDATES)) {
+    for (const c of candidates) {
+      const actual = lower.get(c.toLowerCase());
+      if (actual) { found[field] = actual; break; }
+    }
+  }
+  return found;
+}
+
+async function erpPass(rows: SheetRow[], renamePairs: [string, string][]) {
+  const pool = await erpPool();
+  const table = await erpProductsTable();
+  const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+
+  // 0) discover columns
+  const [desc] = await pool.query<mysql.RowDataPacket[]>(`DESCRIBE \`${table}\``);
+  const cols = discoverColumns(desc as { Field: string }[]);
+  if (!cols.sku) return NextResponse.json({ ok: false, error: `ERP table \`${table}\` has no recognizable SKU column` }, { status: 400 });
+
+  // 1) SAFETY BACKUP — full table copy (kept, never dropped automatically)
+  await pool.query(`CREATE TABLE IF NOT EXISTS \`${table}_backup_${stamp}\` AS SELECT * FROM \`${table}\``);
+
+  // 2) ensure the new sheet columns exist in the ERP (harmless additions)
+  for (const [field, ddl] of [
+    ["topCat", "ADD COLUMN `top_level_category` VARCHAR(191) NOT NULL DEFAULT ''"],
+    ["endCat", "ADD COLUMN `end_level_category` VARCHAR(191) NOT NULL DEFAULT ''"],
+    ["deliveryRate", "ADD COLUMN `delivery_rate` DOUBLE NOT NULL DEFAULT 0"],
+  ] as const) {
+    if (!cols[field]) {
+      try {
+        await pool.query(`ALTER TABLE \`${table}\` ${ddl}`);
+        cols[field] = ddl.match(/`(\w+)`/)?.[1] ?? "";
+      } catch { /* column may exist under another name */ }
+    }
+  }
+
+  // 3) temp table with the sheet's desired state per OLD sku
+  await pool.query("DROP TEMPORARY TABLE IF EXISTS `erp_mig`");
+  await pool.query(`CREATE TEMPORARY TABLE \`erp_mig\` (
+    \`old_sku\` VARCHAR(191) NOT NULL PRIMARY KEY,
+    \`sku\` VARCHAR(191) NOT NULL DEFAULT '',
+    \`name\` VARCHAR(191) NOT NULL DEFAULT '',
+    \`company\` VARCHAR(191) NOT NULL DEFAULT '',
+    \`unit\` VARCHAR(32) NOT NULL DEFAULT '',
+    \`hsn\` VARCHAR(32) NOT NULL DEFAULT '',
+    \`gst\` DOUBLE NOT NULL DEFAULT 0,
+    \`delivery\` DOUBLE NOT NULL DEFAULT 0,
+    \`cost\` DOUBLE NOT NULL DEFAULT 0,
+    \`pack_qty\` INT NOT NULL DEFAULT 1,
+    \`t1\` DOUBLE NOT NULL DEFAULT 0, \`t2\` DOUBLE NOT NULL DEFAULT 0, \`t3\` DOUBLE NOT NULL DEFAULT 0,
+    \`t4\` DOUBLE NOT NULL DEFAULT 0, \`t5\` DOUBLE NOT NULL DEFAULT 0,
+    \`stock\` DOUBLE NOT NULL DEFAULT 0, \`damaged\` DOUBLE NOT NULL DEFAULT 0, \`reserved\` DOUBLE NOT NULL DEFAULT 0,
+    \`low\` INT NOT NULL DEFAULT 0,
+    \`barcode\` VARCHAR(64) NOT NULL DEFAULT '',
+    \`weight\` DOUBLE NOT NULL DEFAULT 0, \`ppb\` INT NOT NULL DEFAULT 1,
+    \`top\` VARCHAR(191) NOT NULL DEFAULT '', \`end\` VARCHAR(191) NOT NULL DEFAULT '',
+    \`active\` TINYINT NOT NULL DEFAULT 1,
+    \`created_on\` VARCHAR(10) NOT NULL DEFAULT ''
+  ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+
+  const renameMap = new Map(renamePairs);
+  const insertChunkSize = 150;
+  let staged = 0;
+  for (let i = 0; i < rows.length; i += insertChunkSize) {
+    const chunk = rows.slice(i, i + insertChunkSize);
+    if (!chunk.length) break;
+    const values = chunk.map((row) => {
+      const sku = s(row.SKU);
+      const oldSku = renameMap.get(sku) ?? sku; // unchanged SKUs map to themselves
+      const status = s(row.Status).toUpperCase();
+      const co = s(row["Created On"]).slice(0, 10);
+      return [
+        oldSku.slice(0, 190), sku.slice(0, 190), s(row["Product Name"]).slice(0, 190), s(row.Company).slice(0, 190),
+        s(row.Unit).slice(0, 30), s(row.HSN).slice(0, 30),
+        n(row["GST %"]) ?? 0, n(row["Delivery Rate"]) ?? 0, n(row["Cost Price"]) ?? 0,
+        Math.round(n(row["Pack Qty"]) ?? 1),
+        n(row["Tier 1 Distributor"]) ?? 0, n(row["Tier 2 Wholesale"]) ?? 0, n(row["Tier 3 Semi-Wholesale"]) ?? 0,
+        n(row["Tier 4 Retailer"]) ?? 0, n(row["Tier 5 MRP"]) ?? 0,
+        n(row["Sellable Stock"]) ?? 0, n(row["Damaged Stock"]) ?? 0, n(row.Reserved) ?? 0,
+        Math.round(n(row["Low Stock Threshold"]) ?? 0),
+        s(row.Barcode).slice(0, 60), n(row["Weight (g)"]) ?? 0, Math.round(n(row["Pieces/Box"]) ?? 1),
+        s(row["Top Level Category"]).slice(0, 190), s(row["End Level Category"]).slice(0, 190),
+        status === "INACTIVE" ? 0 : 1, co,
+      ];
+    });
+    await pool.query(
+      `INSERT INTO \`erp_mig\` (\`old_sku\`,\`sku\`,\`name\`,\`company\`,\`unit\`,\`hsn\`,\`gst\`,\`delivery\`,\`cost\`,\`pack_qty\`,\`t1\`,\`t2\`,\`t3\`,\`t4\`,\`t5\`,\`stock\`,\`damaged\`,\`reserved\`,\`low\`,\`barcode\`,\`weight\`,\`ppb\`,\`top\`,\`end\`,\`active\`,\`created_on\`) VALUES ?`,
+      [values]
+    );
+    staged += values.length;
+  }
+
+  // 4) UPDATE..JOIN — renames + every available column
+  const sets = [
+    "`e`.`sku` = `m`.`sku`",
+    cols.name ? "`e`.`" + cols.name + "` = `m`.`name`" : "",
+    cols.company ? "`e`.`" + cols.company + "` = `m`.`company`" : "",
+    cols.unit ? "`e`.`" + cols.unit + "` = `m`.`unit`" : "",
+    cols.hsn ? "`e`.`" + cols.hsn + "` = `m`.`hsn`" : "",
+    cols.gst ? "`e`.`" + cols.gst + "` = `m`.`gst`" : "",
+    cols.deliveryRate ? "`e`.`" + cols.deliveryRate + "` = `m`.`delivery`" : "",
+    cols.cost ? "`e`.`" + cols.cost + "` = `m`.`cost`" : "",
+    cols.packQty ? "`e`.`" + cols.packQty + "` = `m`.`pack_qty`" : "",
+    cols.tier1 ? "`e`.`" + cols.tier1 + "` = `m`.`t1`" : "",
+    cols.tier2 ? "`e`.`" + cols.tier2 + "` = `m`.`t2`" : "",
+    cols.tier3 ? "`e`.`" + cols.tier3 + "` = `m`.`t3`" : "",
+    cols.tier4 ? "`e`.`" + cols.tier4 + "` = `m`.`t4`" : "",
+    cols.tier5 ? "`e`.`" + cols.tier5 + "` = `m`.`t5`" : "",
+    cols.stock ? "`e`.`" + cols.stock + "` = `m`.`stock`" : "",
+    cols.damaged ? "`e`.`" + cols.damaged + "` = `m`.`damaged`" : "",
+    cols.reserved ? "`e`.`" + cols.reserved + "` = `m`.`reserved`" : "",
+    cols.lowStock ? "`e`.`" + cols.lowStock + "` = `m`.`low`" : "",
+    cols.barcode ? "`e`.`" + cols.barcode + "` = `m`.`barcode`" : "",
+    cols.weight ? "`e`.`" + cols.weight + "` = `m`.`weight`" : "",
+    cols.piecesPerBox ? "`e`.`" + cols.piecesPerBox + "` = `m`.`ppb`" : "",
+    cols.topCat ? "`e`.`" + cols.topCat + "` = `m`.`top`" : "",
+    cols.endCat ? "`e`.`" + cols.endCat + "` = `m`.`end`" : "",
+    cols.status ? "`e`.`" + cols.status + "` = IF(`m`.`active` = 1, IF(`e`.`" + cols.status + "` IN ('0','INACTIVE','Inactive'), 'ACTIVE', `e`.`" + cols.status + "`), 'INACTIVE')" : "",
+    cols.createdOn ? "`e`.`" + cols.createdOn + "` = IF(`m`.`created_on` <> '', `m`.`created_on`, `e`.`" + cols.createdOn + "`)" : "",
+  ].filter(Boolean);
+  const [updRes] = await pool.query(
+    `UPDATE \`${table}\` e JOIN \`erp_mig\` m ON e.\`${cols.sku}\` = m.\`old_sku\` SET ${sets.join(", ")}`
+  );
+  const updatedRows = (updRes as { affectedRows?: number }).affectedRows ?? 0;
+
+  // 5) genuinely new SKUs (present in the sheet, absent in the ERP) → INSERT
+  const [missing] = await pool.query<mysql.RowDataPacket[]>(
+    `SELECT m.* FROM \`erp_mig\` m LEFT JOIN \`${table}\` e ON e.\`${cols.sku}\` = m.\`sku\`
+     WHERE e.\`${cols.sku}\` IS NULL AND m.\`old_sku\` = m.\`sku\``
+  );
+  let inserted = 0;
+  const insErrors: string[] = [];
+  for (const m of missing as Record<string, unknown>[]) {
+    try {
+      const rowData: Record<string, unknown> = {};
+      if (cols.sku) rowData[cols.sku] = m.sku;
+      if (cols.name) rowData[cols.name] = m.name;
+      if (cols.company) rowData[cols.company] = m.company;
+      if (cols.unit) rowData[cols.unit] = m.unit;
+      if (cols.hsn) rowData[cols.hsn] = m.hsn;
+      if (cols.gst) rowData[cols.gst] = m.gst;
+      if (cols.deliveryRate) rowData[cols.deliveryRate] = m.delivery;
+      if (cols.cost) rowData[cols.cost] = m.cost;
+      if (cols.packQty) rowData[cols.packQty] = m.pack_qty;
+      if (cols.tier1) rowData[cols.tier1] = m.t1;
+      if (cols.tier2) rowData[cols.tier2] = m.t2;
+      if (cols.tier3) rowData[cols.tier3] = m.t3;
+      if (cols.tier4) rowData[cols.tier4] = m.t4;
+      if (cols.tier5) rowData[cols.tier5] = m.t5;
+      if (cols.stock) rowData[cols.stock] = m.stock;
+      if (cols.damaged) rowData[cols.damaged] = m.damaged;
+      if (cols.reserved) rowData[cols.reserved] = m.reserved;
+      if (cols.lowStock) rowData[cols.lowStock] = m.low;
+      if (cols.barcode) rowData[cols.barcode] = m.barcode;
+      if (cols.weight) rowData[cols.weight] = m.weight;
+      if (cols.piecesPerBox) rowData[cols.piecesPerBox] = m.ppb;
+      if (cols.topCat) rowData[cols.topCat] = m.top;
+      if (cols.endCat) rowData[cols.endCat] = m.end;
+      if (cols.status) rowData[cols.status] = Number(m.active) === 1 ? "ACTIVE" : "INACTIVE";
+      if (cols.createdOn && m.created_on) rowData[cols.createdOn] = m.created_on;
+      const keys = Object.keys(rowData);
+      await pool.query(`INSERT INTO \`${table}\` (${keys.map((k) => `\`${k}\``).join(", ")}) VALUES (${keys.map(() => "?").join(", ")})`, keys.map((k) => rowData[k]));
+      inserted++;
+    } catch (e) {
+      insErrors.push(`${m.sku}: ${e instanceof Error ? e.message.slice(0, 140) : "insert failed"}`);
+    }
+  }
+
+  await pool.query("DROP TEMPORARY TABLE IF EXISTS `erp_mig`");
+
+  return NextResponse.json({
+    ok: true,
+    backupTable: `${table}_backup_${stamp}`,
+    erpColumns: cols,
+    staged, updatedRows, inserted,
+    errors: insErrors.slice(0, 20),
+  });
+}

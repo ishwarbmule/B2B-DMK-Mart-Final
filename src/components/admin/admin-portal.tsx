@@ -10,7 +10,7 @@ import {
   Database,
 } from "lucide-react";
 import { toast } from "sonner";
-import { DashboardModule, CustomersModule, PricingModule, BrandProductsModule } from "./business-modules-1";
+import { DashboardModule, CustomersModule, PricingModule, CompanyProductsModule } from "./business-modules-1";
 import { FinancialModule, ReportsModule, WebsiteModule, StorefrontsModule, HomeEditorModule } from "./business-modules-2";
 import { ProductsModule } from "./products-module";
 import { OrdersModule } from "./orders-module";
@@ -40,7 +40,7 @@ const NAV: { group: string; items: { id: ModuleId; label: string; icon: React.Co
     ]},
     { id: "brands", label: "Brand Management", icon: Building2, sub: [
       { id: "brands", label: "Brands" },
-      { id: "brand-products", label: "Brand Products" },
+      { id: "brand-products", label: "Company Products" },
       { id: "storefronts", label: "Brand Storefronts" },
     ]},
     { id: "pricing", label: "Products Pricing", icon: IndianRupee },
@@ -196,7 +196,7 @@ export function AdminPortal() {
       case "storefronts": return <StorefrontsModule token={token} />;
       case "sync": return <SyncModule token={token} />;
       case "settings": return <SettingsModule token={token} />;
-      case "brand-products": return <BrandProductsModule token={token} />;
+      case "brand-products": return <CompanyProductsModule token={token} />;
       default: {
         const cfg = CONFIGS[active];
         if (!cfg) return <p className="rounded-xl border border-dashed p-10 text-center text-sm text-gray-400">Module not found.</p>;

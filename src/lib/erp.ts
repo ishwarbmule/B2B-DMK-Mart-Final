@@ -182,7 +182,7 @@ export async function countErpTable(table: string): Promise<number> {
 // ───────── product pull ─────────
 
 export type ErpProduct = {
-  id: string; sku: string; name: string; category: string; brand: string; company: string;
+  id: string; sku: string; name: string; company: string;
   unit: string; hsnCode: string; gstRate: number; purchaseCost: number; packQty: number;
   packPrice: number; packDiscountPercent: number; tier1Distributor: number; tier2Wholesale: number;
   tier3SemiWholesale: number; tier4Retailer: number; tier5Mrp: number; stockQuantity: number;
@@ -231,9 +231,11 @@ export async function erpImageBase(): Promise<string> {
 
 // ───────── webhook payload normalization ─────────
 export type NormalizedErpProduct = {
-  erpId: string; sku: string; name: string; category: string; brand: string; company: string;
+  erpId: string; sku: string; name: string; company: string;
+  topCategory: string; endCategory: string; // Excel "Top Level Category" / "End Level Category"
   unit: string; hsn: string; gst: number; purchaseCost: number; packQty: number; packPrice: number;
   packDiscountPct: number; tier1: number; tier2: number; tier3: number; tier4: number; tier5: number;
+  deliveryRate: number; createdOn: string;
   stock: number; reserved: number; damaged: number; lowStockThreshold: number; weightGrams: number;
   piecesPerBox: number; barcode: string; image: string; active: boolean;
 };
@@ -319,13 +321,13 @@ export function normalizeErpProduct(raw: Record<string, unknown>): NormalizedErp
   return {
     erpId: str(raw.id ?? raw.erpId ?? raw.item_id ?? raw.itemId),
     sku, name,
-    category: str(raw.category ?? raw.categoryName ?? raw.category_name, "General"),
-    brand: str(raw.brand ?? raw.brandName ?? raw.brand_name),
     company: str(raw.company ?? raw.companyName ?? raw.company_name),
+    topCategory: str(raw.topCategory ?? raw.top_category ?? raw.topLevelCategory ?? raw.top_level_category ?? raw.topCat ?? raw.mainCategory ?? raw.main_category),
+    endCategory: str(raw.endCategory ?? raw.end_category ?? raw.endLevelCategory ?? raw.end_level_category ?? raw.subCategory ?? raw.sub_category),
     unit: str(raw.unit, "Pcs"),
     hsn: str(raw.hsnCode ?? raw.hsn ?? raw.hsn_code),
     gst: num(raw.gstRate ?? raw.gst ?? raw.gst_rate),
-    purchaseCost: num(raw.purchaseCost ?? raw.purchase_cost),
+    purchaseCost: num(raw.purchaseCost ?? raw.costPrice ?? raw.cost_price ?? raw.purchase_cost),
     packQty: Math.max(1, Math.round(num(raw.packQty ?? raw.pack_qty, 1))),
     packPrice: num(raw.packPrice ?? raw.pack_price),
     packDiscountPct: num(raw.packDiscountPercent ?? raw.packDiscountPct ?? raw.pack_discount_pct),
@@ -334,7 +336,9 @@ export function normalizeErpProduct(raw: Record<string, unknown>): NormalizedErp
     tier3: num(raw.tier3SemiWholesale ?? raw.tier3 ?? raw.tier3_semiwholesale),
     tier4: num(raw.tier4Retailer ?? raw.tier4 ?? raw.tier4_retailer),
     tier5: num(raw.tier5Mrp ?? raw.tier5 ?? raw.mrp ?? raw.tier5_mrp),
-    stock: num(raw.stockQuantity ?? raw.stock ?? raw.stock_quantity),
+    deliveryRate: num(raw.deliveryRate ?? raw.delivery_rate),
+    createdOn: str(raw.createdOn ?? raw.created_on ?? raw.createdAt ?? raw.created_at).slice(0, 10),
+    stock: num(raw.stockQuantity ?? raw.sellableStock ?? raw.sellable_stock ?? raw.stock ?? raw.stock_quantity),
     reserved: num(raw.reservedQty ?? raw.reserved ?? raw.reserved_qty),
     damaged: num(raw.damagedStock ?? raw.damaged ?? raw.damaged_stock),
     lowStockThreshold: Math.round(num(raw.lowStockThreshold ?? raw.low_stock_threshold, 10)),

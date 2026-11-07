@@ -2,22 +2,24 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
-import { ChevronLeft, ChevronRight, Download, Flame, ImagePlus, Images, Link2, Plus, Power, RefreshCcw, Search, ShoppingCart, Star, Trash2, TrendingUp, Upload, Wand2, X, Zap } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, FileUp, Flame, ImagePlus, Images, Link2, Loader2, Plus, Power, RefreshCcw, Search, ShoppingCart, Star, Trash2, TrendingUp, Upload, Wand2, X, Zap } from "lucide-react";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 import { api, ModuleHeader, Toggle } from "./ui-bits";
 import { formatINR } from "@/lib/store";
 
 type Row = Record<string, unknown> & {
   id: string; sku: string; name: string; image: string; slug: string;
+  company: string; deliveryRate: number;
   dealerPrice: number; mrp: number; purchaseCost: number; stock: number; packQty: number; packPrice: number;
   tier1: number; tier2: number; tier3: number; tier4: number;
   isTop: boolean; isFeatured: boolean; isHot: boolean; isDeal: boolean; active: boolean;
-  brand: { name: string }; syncSource: string;
+  syncSource: string;
   top: { id: string; name: string }; mid: { id: string; name: string }; end: { id: string; name: string };
   unit: string; gst: number; weightGrams: number; lowStockThreshold: number; damagedStock: number; gallery: string;
 };
 
-type Brand = { id: string; name: string };
+type CompanyOpt = { name: string; count: number };
 type Top = { id: string; name: string };
 type EndRow = { id: string; name: string; topId: string; topName: string; midId: string; midName: string };
 
@@ -32,9 +34,9 @@ const FLAGS = [
 const UNITS = ["Pcs", "Box", "Set", "Pair", "Pack", "Dozen", "Metre", "Kg", "Litre"];
 
 const EMPTY_FORM = {
-  name: "", sku: "", brandId: "", brandName: "", topId: "", midId: "", endId: "",
+  name: "", sku: "", company: "", topId: "", midId: "", endId: "",
   unit: "Pcs", packQty: "1", piecesPerBox: "",
-  dealerPrice: "", mrp: "", purchaseCost: "", tier1: "", tier2: "", tier3: "", tier4: "", tier5: "", packPrice: "", dealPrice: "",
+  dealerPrice: "", mrp: "", purchaseCost: "", tier1: "", tier2: "", tier3: "", tier4: "", tier5: "", deliveryRate: "", dealPrice: "",
   stock: "", lowStockThreshold: "10", damagedStock: "", barcode: "", hsn: "", gst: "18", weightGrams: "",
   image: "", description: "", seoTitle: "", seoDesc: "", keywords: "",
   isHot: false, isTop: false, isFeatured: false, isDeal: false, active: true,
@@ -76,19 +78,22 @@ export function ProductsModule({ token }: { token: string }) {
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [q, setQ] = useState("");
-  const [brand, setBrand] = useState("");
+  const [company, setCompany] = useState("");
   const [flag, setFlag] = useState("");
   const [status, setStatus] = useState("");
   const [catTop, setCatTop] = useState("");
   const [catEnd, setCatEnd] = useState("");
   const [loading, setLoading] = useState(true);
   const [sel, setSel] = useState<Record<string, boolean>>({});
-  const [brands, setBrands] = useState<Brand[]>([]);
+  const [companies, setCompanies] = useState<CompanyOpt[]>([]);
   const [tops, setTops] = useState<Top[]>([]);
   const [allEnds, setAllEnds] = useState<EndRow[]>([]);
   const [mids, setMids] = useState<{ id: string; name: string }[]>([]);
   const [ends, setEnds] = useState<{ id: string; name: string }[]>([]);
   const [addOpen, setAddOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importBusy, setImportBusy] = useState(false);
+  const [importRows, setImportRows] = useState<Record<string, unknown>[]>([]);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [gallery, setGallery] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -104,7 +109,7 @@ export function ProductsModule({ token }: { token: string }) {
     try {
       const params = new URLSearchParams({ page: String(page), limit: "15" });
       if (q) params.set("q", q);
-      if (brand) params.set("brand", brand);
+      if (company) params.set("company", company);
       if (flag) params.set("flag", flag);
       if (status) params.set("status", status);
       if (catTop) params.set("top", catTop);
@@ -120,11 +125,11 @@ export function ProductsModule({ token }: { token: string }) {
       setLoading(false);
     }
 
-  }, [token, page, q, brand, flag, status, catTop, catEnd]);
+  }, [token, page, q, company, flag, status, catTop, catEnd]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
-    call("/api/admin/crud/brands").then((d) => setBrands((d.rows ?? []).map((r: Record<string, unknown>) => ({ id: String(r.id), name: String(r.name) })))).catch(() => {});
+    call("/api/admin/products/companies").then((d) => setCompanies(d.companies ?? [])).catch(() => {});
     call("/api/admin/crud/tops").then((d) => setTops((d.rows ?? []).map((r: Record<string, unknown>) => ({ id: String(r.id), name: String(r.name) })))).catch(() => {});
     // all end categories (with their department) — powers the category filter in the toolbar
     call("/api/admin/crud/ends").then((d) =>
@@ -238,17 +243,13 @@ export function ProductsModule({ token }: { token: string }) {
   };
 
   const saveProduct = async () => {
-    if (!form.name || !form.brandId || !form.topId || !form.midId || !form.endId) {
-      return toast.error("Name, Brand and all three category levels are required");
+    if (!form.name || !form.company || !form.topId || !form.midId || !form.endId) {
+      return toast.error("Name, Company and all three category levels are required");
     }
     if (!form.dealerPrice || !form.mrp) return toast.error("Selling price and MRP are required");
     setSaving(true);
     try {
-      const payload = {
-        ...form,
-        brandName: brands.find((b) => b.id === form.brandId)?.name ?? "",
-        gallery,
-      };
+      const payload = { ...form, gallery };
       const res = await fetch("/api/admin/products", {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
@@ -281,9 +282,10 @@ export function ProductsModule({ token }: { token: string }) {
         headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
         body: JSON.stringify({
           id: editRow.id,
-          name: editRow.name, sku: editRow.sku, dealerPrice: editRow.dealerPrice, mrp: editRow.mrp,
+          name: editRow.name, sku: editRow.sku, company: editRow.company, dealerPrice: editRow.dealerPrice, mrp: editRow.mrp,
           purchaseCost: editRow.purchaseCost, stock: editRow.stock, packQty: editRow.packQty, packPrice: editRow.packPrice,
           tier1: editRow.tier1, tier2: editRow.tier2, tier3: editRow.tier3, tier4: editRow.tier4,
+          deliveryRate: editRow.deliveryRate,
           barcode: editRow.barcode, hsn: editRow.hsn, image: editRow.image,
           unit: editRow.unit || "Pcs", gst: editRow.gst, weightGrams: editRow.weightGrams,
           lowStockThreshold: editRow.lowStockThreshold, damagedStock: editRow.damagedStock,
@@ -304,14 +306,79 @@ export function ProductsModule({ token }: { token: string }) {
     }
   };
 
-  const exportCsv = () => {
-    const header = "SKU,Name,Brand,Category,Cost,DealerPrice,MRP,Stock,PackQty,Flags,Active";
-    const lines = rows.map((r) => [r.sku, `"${r.name.replace(/"/g, '""')}"`, r.brand?.name, `"${r.top?.name ?? ""} > ${r.mid?.name ?? ""} > ${r.end?.name ?? ""}"`, r.purchaseCost, r.dealerPrice, r.mrp, r.stock, r.packQty, [r.isTop && "TOP", r.isFeatured && "FEAT", r.isHot && "HOT", r.isDeal && "DEAL"].filter(Boolean).join("|"), r.active].join(","));
-    const blob = new Blob([[header, ...lines].join("\n")], { type: "text/csv" });
+  /* Company-based Excel export (exact inventory-sheet columns) — re-uploading it updates by SKU */
+  const exportXlsx = () => {
+    const params = new URLSearchParams();
+    if (company) params.set("company", company);
+    if (status) params.set("status", status);
+    if (q) params.set("q", q);
+    const url = `/api/admin/products/export${params.toString() ? `?${params}` : ""}`;
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `dmk-products-page${page}.csv`;
-    a.click();
+    a.href = url;
+    a.setAttribute("data-token", token);
+    // fetch with auth then download blob (export requires the admin token)
+    fetch(url, { headers: { authorization: `Bearer ${token}` } })
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Export failed");
+        const blob = await res.blob();
+        a.href = URL.createObjectURL(blob);
+        a.download = `dmk-products-${company || "all"}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+        a.click();
+        toast.success("Company-based Excel downloaded — edit and re-upload to update by SKU");
+      })
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Export failed"));
+  };
+
+  /* SKU-based inventory import: same SKU → update, new SKU → create */
+  const runImport = async (rows: Record<string, unknown>[]) => {
+    if (!rows.length) return toast.error("No rows found in the file");
+    setImportBusy(true);
+    let start = 0;
+    let updated = 0, created = 0, skipped = 0;
+    const errors: string[] = [];
+    try {
+      while (start < rows.length) {
+        const res = await fetch("/api/admin/products/import", {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+          body: JSON.stringify({ rows, start }),
+        });
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error || "Import failed");
+        updated += d.updated ?? 0;
+        created += d.created ?? 0;
+        skipped += d.skipped ?? 0;
+        if (d.errors?.length) errors.push(...d.errors);
+        toast.message(`Importing… ${Math.min(d.nextStart, rows.length)}/${rows.length} rows · ${updated} updated · ${created} new`);
+        start = d.nextStart;
+        if (d.done) {
+          toast.success(`Import complete — ${updated} products updated, ${created} added, ${skipped} skipped`);
+          if (d.unmatchedCategories?.length) toast.warning(`Categories not matched (kept as-is): ${d.unmatchedCategories.slice(0, 4).join(", ")}`);
+          if (errors.length) toast.error(errors.slice(0, 3).join(" | "));
+          break;
+        }
+      }
+      setImportOpen(false);
+      setImportRows([]);
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Import failed");
+    } finally {
+      setImportBusy(false);
+    }
+  };
+
+  const onImportFile = async (file: File) => {
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const sheet = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[wb.SheetNames[0]], { defval: "", raw: false });
+      if (!sheet.length) return toast.error("The file has no data rows");
+      setImportRows(sheet);
+      toast.success(`${sheet.length} rows read from ${file.name} — press Start Import to apply`);
+    } catch {
+      toast.error("Could not read the file — use the company-based Excel or a CSV");
+    }
   };
 
   const filterEnds = catTop ? allEnds.filter((e) => e.topId === catTop) : allEnds;
@@ -322,8 +389,11 @@ export function ProductsModule({ token }: { token: string }) {
         <button onClick={() => { setForm({ ...EMPTY_FORM }); setGallery([]); setMids([]); setEnds([]); setAddOpen(true); }} className="flex h-9 items-center gap-1.5 rounded-lg bg-black px-3.5 text-xs font-bold text-yellow-400 hover:bg-gray-800">
           <Plus className="h-4 w-4" /> Add Products
         </button>
-        <button onClick={exportCsv} className="flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold hover:bg-gray-50">
-          <Download className="h-3.5 w-3.5" /> CSV
+        <button onClick={() => setImportOpen(true)} className="flex h-9 items-center gap-1.5 rounded-lg border border-yellow-400 bg-yellow-50 px-3 text-xs font-bold text-gray-800 hover:bg-yellow-100">
+          <FileUp className="h-4 w-4 text-yellow-600" /> Import Excel (by SKU)
+        </button>
+        <button onClick={exportXlsx} className="flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold hover:bg-gray-50">
+          <Download className="h-3.5 w-3.5" /> Excel{company ? ` · ${company.split(" ")[0]}` : ""}
         </button>
         <button onClick={load} className="flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold hover:bg-gray-50">
           <RefreshCcw className="h-3.5 w-3.5" />
@@ -336,9 +406,9 @@ export function ProductsModule({ token }: { token: string }) {
           <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
           <input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder="Search name / SKU / barcode…" className="h-9 w-60 rounded-lg border pl-8 text-xs outline-none focus:border-yellow-400" />
         </div>
-        <select value={brand} onChange={(e) => { setBrand(e.target.value); setPage(1); }} className="h-9 rounded-lg border text-xs">
-          <option value="">All Brands</option>
-          {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+        <select value={company} onChange={(e) => { setCompany(e.target.value); setPage(1); }} className="h-9 max-w-[220px] rounded-lg border text-xs">
+          <option value="">All Companies</option>
+          {companies.map((c) => <option key={c.name} value={c.name}>{c.name} ({c.count})</option>)}
         </select>
         <select value={catTop} onChange={(e) => { setCatTop(e.target.value); setCatEnd(""); setPage(1); }} className="h-9 rounded-lg border text-xs">
           <option value="">All Departments</option>
@@ -386,7 +456,7 @@ export function ProductsModule({ token }: { token: string }) {
             <tr>
               <th className="px-2 py-2.5"><input type="checkbox" checked={rows.length > 0 && selIds.length === rows.length} onChange={(e) => setSel(Object.fromEntries(rows.map((r) => [r.id, e.target.checked])))} /></th>
               <th className="px-2 py-2.5">Product</th>
-              <th className="px-2 py-2.5">Brand</th>
+              <th className="px-2 py-2.5">Company</th>
               <th className="px-2 py-2.5">Category</th>
               <th className="px-2 py-2.5 text-right">Cost</th>
               <th className="px-2 py-2.5 text-right">Price</th>
@@ -411,7 +481,7 @@ export function ProductsModule({ token }: { token: string }) {
                     </div>
                   </div>
                 </td>
-                <td className="px-2 py-2">{r.brand?.name}</td>
+                <td className="px-2 py-2">{r.company || "—"}</td>
                 <td className="px-2 py-2">
                   <span className="block max-w-[150px] truncate text-[11px] text-gray-600" title={`${r.top?.name ?? ""} › ${r.mid?.name ?? ""} › ${r.end?.name ?? ""}`}>
                     {r.end?.name ? <span className="font-semibold text-gray-800">{r.end.name}</span> : "—"}
@@ -500,11 +570,11 @@ export function ProductsModule({ token }: { token: string }) {
                     </select>
                   </Field>
                 </div>
-                <Field label="Brand *">
-                  <select value={form.brandId} onChange={(e) => setForm((f) => ({ ...f, brandId: e.target.value }))} className={inputCls}>
-                    <option value="">Select brand…</option>
-                    {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                  </select>
+                <Field label="Company *">
+                  <input value={form.company} onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))} list="company-options" placeholder="e.g. Steel King Cleaning" className={inputCls} />
+                  <datalist id="company-options">
+                    {companies.map((c) => <option key={c.name} value={c.name} />)}
+                  </datalist>
                 </Field>
               </Section>
 
@@ -585,9 +655,6 @@ export function ProductsModule({ token }: { token: string }) {
                   <Field label="MRP *">
                     <input value={form.mrp} onChange={(e) => setForm((f) => ({ ...f, mrp: e.target.value }))} inputMode="decimal" className={inputCls} />
                   </Field>
-                  <Field label="Pack price ₹/pack" hint="pickup pack rate">
-                    <input value={form.packPrice} onChange={(e) => setForm((f) => ({ ...f, packPrice: e.target.value }))} inputMode="decimal" className={inputCls} />
-                  </Field>
                   <Field label="Deal price" hint="deal of the day">
                     <input value={form.dealPrice} onChange={(e) => setForm((f) => ({ ...f, dealPrice: e.target.value }))} inputMode="decimal" className={inputCls} />
                   </Field>
@@ -613,6 +680,9 @@ export function ProductsModule({ token }: { token: string }) {
                   </Field>
                   <Field label="Tier 5 — MRP ₹">
                     <input value={form.tier5} onChange={(e) => setForm((f) => ({ ...f, tier5: e.target.value }))} inputMode="decimal" className={inputCls} />
+                  </Field>
+                  <Field label="Delivery Rate ₹" hint="delivery charge column">
+                    <input value={form.deliveryRate} onChange={(e) => setForm((f) => ({ ...f, deliveryRate: e.target.value }))} inputMode="decimal" className={inputCls} />
                   </Field>
                 </div>
               </Section>
@@ -710,11 +780,12 @@ export function ProductsModule({ token }: { token: string }) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               {([
-                ["name", "Name", "text"], ["sku", "SKU", "text"],
+                ["name", "Name", "text"], ["sku", "SKU", "text"], ["company", "Company", "text"],
                 ["purchaseCost", "Purchase Cost (hidden)", "number"], ["dealerPrice", "Selling Price (tier4)", "number"],
                 ["mrp", "MRP", "number"], ["packPrice", "Pack Price ₹/pack", "number"],
                 ["tier1", "Tier 1 — Distributor ₹", "number"], ["tier2", "Tier 2 — Wholesale ₹", "number"],
                 ["tier3", "Tier 3 — Semi-Wholesale ₹", "number"], ["tier4", "Tier 4 — Retailer ₹", "number"],
+                ["deliveryRate", "Delivery Rate ₹", "number"],
                 ["stock", "Stock", "number"],
                 ["packQty", "Pack Qty", "number"],
                 ["barcode", "Barcode", "text"], ["hsn", "HSN", "text"], ["image", "Image URL", "text"],
@@ -802,6 +873,43 @@ export function ProductsModule({ token }: { token: string }) {
             <div className="mt-3 flex justify-end gap-2">
               <button onClick={() => setEditRow(null)} className="rounded-lg border px-4 py-2 text-xs font-bold">Cancel</button>
               <button onClick={saveEdit} disabled={saving} className="rounded-lg bg-black px-4 py-2 text-xs font-bold text-yellow-400 disabled:opacity-50">{saving ? "Saving…" : "Save Changes"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ───────────── IMPORT EXCEL — SKU-based upsert ───────────── */}
+      {importOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { if (!importBusy) setImportOpen(false); }}>
+          <div className="w-full max-w-lg rounded-2xl bg-white p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <p className="text-base font-black">Import Excel — update by SKU</p>
+                <p className="text-[11px] text-gray-500">Same SKU → product details updated · new SKU → added as new product</p>
+              </div>
+              <button onClick={() => { if (!importBusy) setImportOpen(false); }}><X className="h-5 w-5" /></button>
+            </div>
+            <ul className="mb-3 space-y-1 rounded-xl bg-gray-50 p-3 text-[11px] text-gray-600">
+              <li>1. Download the company-based Excel (button above) — it has the exact right columns.</li>
+              <li>2. Edit details in the sheet — <b>never change the SKU column</b>.</li>
+              <li>3. Upload here: rows whose SKU exists are updated; new SKUs are added as new products.</li>
+              <li>Empty cells never clear existing values, so partial sheets are safe.</li>
+            </ul>
+            <label className={`flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed px-3 text-xs font-bold text-gray-700 hover:bg-gray-50 ${importBusy ? "pointer-events-none opacity-50" : ""}`}>
+              <FileUp className="h-4 w-4 text-yellow-600" />
+              {importRows.length ? `File loaded — ${importRows.length} rows (click to change)` : "Choose .xlsx / .csv file"}
+              <input type="file" accept=".xlsx,.xls,.csv" className="hidden" disabled={importBusy} onChange={(e) => { const f = e.target.files?.[0]; if (f) onImportFile(f); e.target.value = ""; }} />
+            </label>
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button onClick={() => setImportOpen(false)} disabled={importBusy} className="rounded-lg border px-4 py-2 text-xs font-bold disabled:opacity-50">Close</button>
+              <button
+                onClick={() => runImport(importRows)}
+                disabled={importBusy || !importRows.length}
+                className="flex items-center gap-2 rounded-lg bg-black px-4 py-2 text-xs font-bold text-yellow-400 disabled:opacity-50"
+              >
+                {importBusy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                {importBusy ? "Importing…" : `Start Import${importRows.length ? ` (${importRows.length} rows)` : ""}`}
+              </button>
             </div>
           </div>
         </div>

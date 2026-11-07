@@ -41,9 +41,9 @@ export async function GET(req: NextRequest) {
   if (type === "inventory") {
     const products = await db.product.findMany({
       orderBy: { stock: "asc" },
-      select: { sku: true, name: true, stock: true, damagedStock: true, reservedQty: true, lowStockThreshold: true, purchaseCost: true, dealerPrice: true, brand: { select: { name: true } }, active: true },
+      select: { sku: true, name: true, stock: true, damagedStock: true, reservedQty: true, lowStockThreshold: true, purchaseCost: true, dealerPrice: true, company: true, brand: { select: { name: true } }, active: true },
     });
-    return NextResponse.json({ range, type, columns: ["SKU", "Product", "Brand", "Stock", "Damaged", "Reserved", "LowThreshold", "PurchaseCost", "DealerPrice", "Value", "Active"], rows: products.map((p) => [p.sku, p.name, p.brand.name, p.stock, p.damagedStock, p.reservedQty, p.lowStockThreshold, p.purchaseCost, p.dealerPrice, Math.round(p.stock * p.purchaseCost), p.active]) });
+    return NextResponse.json({ range, type, columns: ["SKU", "Product", "Company", "Stock", "Damaged", "Reserved", "LowThreshold", "PurchaseCost", "DealerPrice", "Value", "Active"], rows: products.map((p) => [p.sku, p.name, p.company || p.brand?.name || "", p.stock, p.damagedStock, p.reservedQty, p.lowStockThreshold, p.purchaseCost, p.dealerPrice, Math.round(p.stock * p.purchaseCost), p.active]) });
   }
 
   if (type === "customers") {
