@@ -475,41 +475,46 @@ async function universalPass(rows: SheetRow[], start: number, force: boolean, ch
 
 // ═══════════════════ ERP PASS (owner's MySQL — aligned to the sheet) ═══════════════════
 
-// candidate ERP column names per canonical field (case-insensitive match against DESCRIBE)
+// candidate ERP column names per canonical field — matched ALPHANUMERIC-CASELESS
+// (so "tier1Distributor", "tier1_distributor" and "TIER1_DISTRIBUTOR" all hit)
 const ERP_COL_CANDIDATES: Record<string, string[]> = {
-  sku: ["sku", "sku_code", "item_code", "product_code"],
-  name: ["name", "product_name", "item_name"],
-  company: ["company", "company_name", "brand", "make"],
-  unit: ["unit", "uom", "unit_name"],
-  hsn: ["hsn", "hsn_code", "hsncode"],
-  gst: ["gst", "gst_rate", "gst_percent", "gstpercentage"],
-  deliveryRate: ["delivery_rate", "deliveryrate", "delivery_charges"],
-  cost: ["cost_price", "cost", "purchase_cost", "purchase_price", "purchasecost"],
-  packQty: ["pack_qty", "packqty", "pack_size", "packsize"],
-  tier1: ["tier1_distributor", "tier1", "tier_1"],
-  tier2: ["tier2_wholesale", "tier2", "tier_2"],
-  tier3: ["tier3_semiwholesale", "tier3_semi_wholesale", "tier3", "tier_3"],
-  tier4: ["tier4_retailer", "tier4", "tier_4"],
-  tier5: ["tier5_mrp", "tier5", "mrp", "tier_5"],
-  stock: ["stock_quantity", "sellable_stock", "stock_qty", "stock", "qty"],
-  damaged: ["damaged_stock", "damaged", "damaged_qty"],
-  reserved: ["reserved", "reserved_qty", "reserved_quantity"],
-  lowStock: ["low_stock_threshold", "low_stock", "min_stock"],
-  status: ["status", "is_active", "active"],
-  barcode: ["barcode", "bar_code", "ean"],
-  weight: ["weight_grams", "weight", "weight_g"],
-  piecesPerBox: ["pieces_per_box", "piecesbox", "pcs_per_box"],
-  topCat: ["top_level_category", "top_category", "toplevelcategory"],
-  endCat: ["end_level_category", "end_category", "endlevelcategory"],
-  createdOn: ["created_on", "created_at", "createdon", "createddate"],
+  sku: ["sku", "skucode", "itemcode", "productcode"],
+  name: ["name", "productname", "itemname"],
+  company: ["company", "companyname", "brand", "make"],
+  unit: ["unit", "uom", "unitname"],
+  hsn: ["hsn", "hsncode"],
+  gst: ["gst", "gstrate", "gstpercent", "gstpercentage"],
+  deliveryRate: ["deliveryrate", "deliverycharges"],
+  cost: ["costprice", "cost", "purchasecost", "purchaseprice"],
+  packQty: ["packqty", "packsize"],
+  tier1: ["tier1distributor", "tier1"],
+  tier2: ["tier2wholesale", "tier2"],
+  tier3: ["tier3semiwholesale", "tier3semiwholesale", "tier3"],
+  tier4: ["tier4retailer", "tier4"],
+  tier5: ["tier5mrp", "tier5", "mrp"],
+  stock: ["stockquantity", "sellablestock", "stockqty", "stock", "qty"],
+  damaged: ["damagedstock", "damaged", "damagedqty"],
+  reserved: ["reservedqty", "reserved", "reservedquantity"],
+  lowStock: ["lowstockthreshold", "lowstock", "minstock"],
+  status: ["isactive", "status", "active"],
+  barcode: ["barcode", "barcodeno", "barcode", "ean"],
+  weight: ["weightgrams", "weight", "weightg"],
+  piecesPerBox: ["piecesperbox", "piecesbox", "pcsperbox"],
+  topCat: ["toplevelcategory", "topcategory"],
+  endCat: ["endlevelcategory", "endcategory"],
+  endCatAlt: ["endcategory"],
+  deliveryRateAlt: ["deliveryrate"],
+  createdOn: ["createdat", "createdon", "createddate"],
+  photoUrl: ["photourl", "imageurl", "image"],
 };
 
 function discoverColumns(describe: { Field: string }[]): Record<string, string> {
-  const lower = new Map(describe.map((c) => [c.Field.toLowerCase(), c.Field]));
+  const canon = (x: string) => x.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const lower = new Map(describe.map((c) => [canon(c.Field), c.Field]));
   const found: Record<string, string> = {};
   for (const [field, candidates] of Object.entries(ERP_COL_CANDIDATES)) {
     for (const c of candidates) {
-      const actual = lower.get(c.toLowerCase());
+      const actual = lower.get(canon(c));
       if (actual) { found[field] = actual; break; }
     }
   }
@@ -560,6 +565,12 @@ async function erpRowsPass(rows: SheetRow[], renamePairs: [string, string][]) {
   // status column may be numeric (is_active) or text (ACTIVE/INACTIVE)
   const statusIsNumeric = statusCol ? /int|tinyint|bit/i.test(describeRows.find((c) => c.Field === statusCol)?.Type ?? "") : false;
 
+  // the ERP may carry BOTH naming variants of the new sheet columns (end_level_category +
+  // endCategory, delivery_rate + deliveryRate) — update every variant that exists
+  const allFields = describeRows.map((c) => c.Field);
+  const endCatCols = allFields.filter((f) => /^end_?level_?category$|^endcategory$/i.test(f.replace(/\s/g, "")));
+  const delivCols = allFields.filter((f) => /^delivery_?rate$/i.test(f));
+
   // INSERT template: the ERP is a Prisma-style table — required FK columns (e.g. firmId)
   // and NOT-NULL-no-default columns must be cloned from an existing row.
   const [sampleRows] = await pool.query<mysql.RowDataPacket[]>(`SELECT * FROM \`${table}\` LIMIT 1`);
@@ -609,7 +620,9 @@ async function erpRowsPass(rows: SheetRow[], renamePairs: [string, string][]) {
     if (cols.weight) set[cols.weight] = n(row["Weight (g)"]) ?? 0;
     if (cols.piecesPerBox) set[cols.piecesPerBox] = Math.round(n(row["Pieces/Box"]) ?? 1);
     if (cols.topCat) set[cols.topCat] = s(row["Top Level Category"]).slice(0, 190);
-    if (cols.endCat) set[cols.endCat] = s(row["End Level Category"]).slice(0, 190);
+    for (const ec of endCatCols) set[ec] = s(row["End Level Category"]).slice(0, 190);
+    for (const dc of delivCols) set[dc] = n(row["Delivery Rate"]) ?? 0;
+    if (cols.photoUrl) set[cols.photoUrl] = s(row["Image URL"]).slice(0, 250);
     if (statusCol) set[statusCol] = statusVal;
     if (cols.createdOn && s(row["Created On"])) set[cols.createdOn] = s(row["Created On"]).slice(0, 10);
 
