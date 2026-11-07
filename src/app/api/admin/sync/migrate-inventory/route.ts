@@ -533,7 +533,7 @@ async function erpRowsPass(rows: SheetRow[], renamePairs: [string, string][]) {
   const stamp = "20261107";
 
   const [desc] = await pool.query<mysql.RowDataPacket[]>(`DESCRIBE \`${table}\``);
-  const describeRows = desc as unknown as { Field: string; Null: string; Default: unknown; Extra: string; Type: string }[];
+  const describeRows = desc as unknown as { Field: string; Null: string; Default: unknown; Extra: string; Type: string; Key: string }[];
   const cols = discoverColumns(describeRows);
   if (!cols.sku) return NextResponse.json({ ok: false, error: `ERP table \`${table}\` has no recognizable SKU column` }, { status: 400 });
 
@@ -593,6 +593,21 @@ async function erpRowsPass(rows: SheetRow[], renamePairs: [string, string][]) {
   let updated = 0, inserted = 0, unchanged = 0;
   const errors: string[] = [];
 
+  // existence pre-check for this chunk (one query) — affectedRows alone cannot tell
+  // "matched, nothing changed" from "not found", which would duplicate rows on re-runs
+  const skuProbe = [...new Set(rows.flatMap((row) => {
+    const newSku = s(row.SKU);
+    return newSku ? [newSku, renameMap.get(newSku) ?? newSku] : [];
+  }))].slice(0, 400);
+  const existing = new Set<string>();
+  if (skuProbe.length) {
+    const [exRows] = await pool.query(
+      `SELECT \`${cols.sku}\` AS sk FROM \`${table}\` WHERE \`${cols.sku}\` IN (${skuProbe.map(() => "?").join(", ")})`,
+      skuProbe
+    );
+    for (const r of exRows as { sk: string }[]) existing.add(String(r.sk));
+  }
+
   for (const row of rows) {
     const newSku = s(row.SKU);
     const oldSku = renameMap.get(newSku) ?? newSku;
@@ -631,12 +646,15 @@ async function erpRowsPass(rows: SheetRow[], renamePairs: [string, string][]) {
 
     const keys = Object.keys(set);
     try {
-      const [res] = await pool.query(
-        `UPDATE \`${table}\` SET ${keys.map((k) => `\`${k}\` = ?`).join(", ")} WHERE \`${cols.sku}\` = ? LIMIT 1`,
-        [...keys.map((k) => set[k]), oldSku]
-      );
-      const affected = (res as { affectedRows?: number }).affectedRows ?? 0;
-      if (affected > 0) { updated++; continue; }
+      if (existing.has(oldSku)) {
+        await pool.query(
+          `UPDATE \`${table}\` SET ${keys.map((k) => `\`${k}\` = ?`).join(", ")} WHERE \`${cols.sku}\` = ? LIMIT 1`,
+          [...keys.map((k) => set[k]), oldSku]
+        );
+        updated++;
+        continue;
+      }
+      if (existing.has(newSku)) { unchanged++; continue; } // already migrated by an earlier run
       // old SKU absent → genuinely new product → INSERT (with required template columns, e.g. firmId)
       const insertKeys = [...new Set([...Object.keys(requiredTemplate), ...generatedCols, ...keys])];
       const insertVals = insertKeys.map((k) => {
