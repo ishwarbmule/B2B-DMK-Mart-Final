@@ -175,16 +175,24 @@ json.dump({"renames": renames, "created": [c["sku"] for c in creates]},
 # (apply-plan creates path maps topCategoryText/endCategoryText server-side.)
 
 # ── 3) push in chunks ──
+def post_json(payload):
+    import tempfile, os
+    fd, path = tempfile.mkstemp(suffix=".json")
+    with os.fdopen(fd, "w") as f:
+        json.dump(payload, f)
+    out = subprocess.run(["curl", "-s", "--max-time", "180", "-X", "POST",
+        f"{BASE}/api/admin/sync/migrate-inventory?key={SECRET}",
+        "-H", "content-type: application/json", "--data-binary", f"@{path}"],
+        capture_output=True, text=True).stdout
+    os.unlink(path)
+    return out
+
 CHUNK = 400
 tot_u = tot_c = 0
 unmatched = set()
 for i in range(0, max(len(updates), 1), CHUNK):
     u_chunk = updates[i:i + CHUNK]
-    body = {"mode": "apply-plan", "updates": u_chunk, "creates": []}
-    out = subprocess.run(["curl", "-s", "--max-time", "180", "-X", "POST",
-        f"{BASE}/api/admin/sync/migrate-inventory?key={SECRET}",
-        "-H", "content-type: application/json", "-d", json.dumps(body)], capture_output=True, text=True).stdout
-    d = json.loads(out)
+    d = json.loads(post_json({"mode": "apply-plan", "updates": u_chunk, "creates": []}))
     if not d.get("ok"):
         print("UPDATE CHUNK FAILED:", json.dumps(d)[:400]); sys.exit(1)
     tot_u += d.get("updatedRows", 0)
@@ -193,11 +201,7 @@ for i in range(0, max(len(updates), 1), CHUNK):
 
 for i in range(0, len(creates), CHUNK):
     c_chunk = creates[i:i + CHUNK]
-    body = {"mode": "apply-plan", "updates": [], "creates": c_chunk}
-    out = subprocess.run(["curl", "-s", "--max-time", "180", "-X", "POST",
-        f"{BASE}/api/admin/sync/migrate-inventory?key={SECRET}",
-        "-H", "content-type: application/json", "-d", json.dumps(body)], capture_output=True, text=True).stdout
-    d = json.loads(out)
+    d = json.loads(post_json({"mode": "apply-plan", "updates": [], "creates": c_chunk}))
     if not d.get("ok"):
         print("CREATE CHUNK FAILED:", json.dumps(d)[:400]); sys.exit(1)
     tot_c += d.get("createdRows", 0)
