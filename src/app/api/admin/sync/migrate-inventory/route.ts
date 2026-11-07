@@ -554,10 +554,26 @@ async function erpRowsPass(rows: SheetRow[], renamePairs: [string, string][]) {
     }
   }
 
-  const renameMap = new Map(renamePairs);
+  const renameMap = new Map<string, string>(renamePairs.map(([oldSku, newSku]) => [newSku, oldSku]));
   const statusCol = cols.status;
   // status column may be numeric (is_active) or text (ACTIVE/INACTIVE)
   const statusIsNumeric = statusCol ? /int|tinyint|bit/i.test(describeRows.find((c) => c.Field === statusCol)?.Type ?? "") : false;
+
+  // INSERT template: the ERP is a Prisma-style table — required FK columns (e.g. firmId)
+  // and NOT-NULL-no-default columns must be cloned from an existing row.
+  const [sampleRows] = await pool.query<mysql.RowDataPacket[]>(`SELECT * FROM \`${table}\` LIMIT 1`);
+  const sample = (sampleRows as Record<string, unknown>[])[0] ?? {};
+  const requiredTemplate: Record<string, unknown> = {};
+  for (const c of describeRows) {
+    if (c.Field === cols.sku) continue;
+    const isAuto = String(c.Extra || "").includes("auto_increment");
+    const hasDefault = c.Default !== null && c.Default !== undefined;
+    const notNull = String(c.Null || "").toUpperCase() === "NOT NULL";
+    if (isAuto || !notNull || hasDefault) continue;
+    const v = sample[c.Field];
+    const t = String(c.Type || "").toLowerCase();
+    requiredTemplate[c.Field] = v !== undefined && v !== null ? v : (/int|decimal|double|float|bit/.test(t) ? 0 : "");
+  }
 
   let updated = 0, inserted = 0, unchanged = 0;
   const errors: string[] = [];
@@ -604,10 +620,12 @@ async function erpRowsPass(rows: SheetRow[], renamePairs: [string, string][]) {
       );
       const affected = (res as { affectedRows?: number }).affectedRows ?? 0;
       if (affected > 0) { updated++; continue; }
-      // old SKU absent → genuinely new product → INSERT
+      // old SKU absent → genuinely new product → INSERT (with required template columns, e.g. firmId)
+      const insertKeys = [...new Set([...Object.keys(requiredTemplate), ...keys])];
+      const insertVals = insertKeys.map((k) => (k in set ? set[k] : requiredTemplate[k]));
       await pool.query(
-        `INSERT INTO \`${table}\` (${keys.map((k) => `\`${k}\``).join(", ")}) VALUES (${keys.map(() => "?").join(", ")})`,
-        keys.map((k) => set[k])
+        `INSERT INTO \`${table}\` (${insertKeys.map((k) => `\`${k}\``).join(", ")}) VALUES (${insertKeys.map(() => "?").join(", ")})`,
+        insertVals
       );
       inserted++;
     } catch (e) {
