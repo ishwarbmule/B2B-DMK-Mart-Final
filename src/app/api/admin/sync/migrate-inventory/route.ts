@@ -137,10 +137,11 @@ async function applyPlan(updates: PlanUpdate[], creates: PlanCreate[]) {
   const endToMid = (endId: string | null): string | null => (endId ? midById.get(endId)?.id ?? null : null);
   const midToTop = (midId: string | null): string | null => (midId ? midById.get(midId)?.topId ?? null : null);
 
-  // temp plan table
+  // temp plan table — `old_sku` = JOIN key (product's current sku), `sku` = new sku (rename)
   await db.$executeRawUnsafe("DROP TEMPORARY TABLE IF EXISTS `mig_plan`");
   const colDefs = [
-    "`sku` VARCHAR(191) NOT NULL PRIMARY KEY",
+    "`old_sku` VARCHAR(191) NOT NULL PRIMARY KEY",
+    "`sku` VARCHAR(191) NULL",
     ...PLAN_STR_COLS.filter((c) => c !== "sku").map((c) => `\`${c}\` VARCHAR(500) NULL`),
     ...PLAN_ID_COLS.map((c) => `\`${c}\` VARCHAR(191) NULL`),
     ...PLAN_NUM_COLS.map((c) => `\`${c}\` DOUBLE NULL`),
@@ -167,6 +168,7 @@ async function applyPlan(updates: PlanUpdate[], creates: PlanCreate[]) {
       const strVal = (c: string): string | null => (c === "sku" ? String(s0.sku ?? u.sku ?? "").slice(0, 190) : s0[c] !== undefined && s0[c] !== null && s0[c] !== "" ? String(s0[c]).slice(0, c === "name" || c === "image" ? 190 : 490) : null);
       const numVal = (c: string): number | null => (typeof s0[c] === "number" ? (s0[c] as number) : s0[c] !== undefined && s0[c] !== "" ? Number(s0[c]) || null : null);
       return [
+        String(u.sku ?? "").slice(0, 190), // old_sku — join key
         strVal("sku"),
         strVal("name"), strVal("company"), strVal("unit"), strVal("hsn"), strVal("barcode"), strVal("image"),
         topId, midId, endId,
@@ -179,7 +181,7 @@ async function applyPlan(updates: PlanUpdate[], creates: PlanCreate[]) {
       ];
     });
     await db.$executeRaw(
-      Prisma.sql`INSERT INTO \`mig_plan\` (\`sku\`,\`name\`,\`company\`,\`unit\`,\`hsn\`,\`barcode\`,\`image\`,\`topId\`,\`midId\`,\`endId\`,${Prisma.raw(PLAN_NUM_COLS.map((c) => `\`${c}\``).join(","))},\`active\`,\`activeSource\`,\`syncSource\`,\`createdAt\`,\`gallery\`) VALUES ${
+      Prisma.sql`INSERT INTO \`mig_plan\` (\`old_sku\`,\`sku\`,\`name\`,\`company\`,\`unit\`,\`hsn\`,\`barcode\`,\`image\`,\`topId\`,\`midId\`,\`endId\`,${Prisma.raw(PLAN_NUM_COLS.map((c) => `\`${c}\``).join(","))},\`active\`,\`activeSource\`,\`syncSource\`,\`createdAt\`,\`gallery\`) VALUES ${
         Prisma.join(values.map((v) => Prisma.sql`(${Prisma.join(v)})`))
       }`
     );
@@ -203,7 +205,7 @@ async function applyPlan(updates: PlanUpdate[], creates: PlanCreate[]) {
   let updatedRows = 0;
   if (updates.length) {
     const res = await db.$executeRawUnsafe(
-      `UPDATE \`Product\` p JOIN \`mig_plan\` m ON \`p\`.\`sku\` = \`m\`.\`sku\` SET ${setExprs.join(", ")}`
+      `UPDATE \`Product\` p JOIN \`mig_plan\` m ON \`p\`.\`sku\` = \`m\`.\`old_sku\` SET ${setExprs.join(", ")}`
     );
     updatedRows = Number(res);
   }
