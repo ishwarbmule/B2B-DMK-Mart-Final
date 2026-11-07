@@ -40,6 +40,7 @@ for i in range(0, len(xl), CHUNK):
     backup = d.get("backupTable") or backup
     cols = d.get("columns") or cols
     print(f"  erp {i}+{len(chunk)}: updated={d.get('updated')} inserted={d.get('inserted')}")
+    time.sleep(2)
 
 print("\n════ ERP ALIGNMENT DONE ════")
 print(f"updated: {tot_u} | inserted: {tot_i} | backup: {backup}")
