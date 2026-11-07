@@ -78,13 +78,14 @@ export async function POST(req: NextRequest) {
   if (!(await authorize(req))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const body = (await req.json()) as {
-      rows?: SheetRow[]; mode?: "universal" | "erp" | "apply-plan"; start?: number; renames?: [string, string][]; force?: boolean;
+      rows?: SheetRow[]; mode?: "universal" | "erp" | "apply-plan" | "erp-rows"; start?: number; renames?: [string, string][]; force?: boolean;
       updates?: PlanUpdate[]; creates?: PlanCreate[];
     };
     const rows = Array.isArray(body.rows) ? body.rows : [];
     const mode = body.mode ?? "universal";
 
     if (mode === "apply-plan") return await applyPlan(body.updates ?? [], body.creates ?? []);
+    if (mode === "erp-rows") return await erpRowsPass(rows, Array.isArray(body.renames) ? body.renames : []);
 
     if (!rows.length) return NextResponse.json({ ok: false, error: "No rows provided" }, { status: 400 });
 
@@ -512,6 +513,109 @@ function discoverColumns(describe: { Field: string }[]): Record<string, string> 
     }
   }
   return found;
+}
+
+/**
+ * Chunked ERP alignment: ≤80 sheet rows per call. Each row is one UPDATE by its
+ * CURRENT (old) SKU — renaming the SKU and setting every discovered column — and
+ * falls back to INSERT when the old SKU is absent (genuinely new products).
+ * The full-table backup is created once, guarded by the `erp_backup_20261107` Setting.
+ */
+async function erpRowsPass(rows: SheetRow[], renamePairs: [string, string][]) {
+  const pool = await erpPool();
+  const table = await erpProductsTable();
+  const stamp = "20261107";
+
+  const [desc] = await pool.query<mysql.RowDataPacket[]>(`DESCRIBE \`${table}\``);
+  const describeRows = desc as unknown as { Field: string; Null: string; Default: unknown; Extra: string; Type: string }[];
+  const cols = discoverColumns(describeRows);
+  if (!cols.sku) return NextResponse.json({ ok: false, error: `ERP table \`${table}\` has no recognizable SKU column` }, { status: 400 });
+
+  // one-time safety backup
+  const bk = await getSetting("erp_backup_20261107", "");
+  let backupTable = "";
+  if (bk !== "done") {
+    await pool.query(`CREATE TABLE IF NOT EXISTS \`${table}_backup_${stamp}\` AS SELECT * FROM \`${table}\``);
+    await setSetting("erp_backup_20261107", "done");
+    backupTable = `${table}_backup_${stamp}`;
+  }
+
+  // ensure the new sheet columns exist in the ERP (harmless additions, once)
+  for (const [field, ddl] of [
+    ["topCat", "ADD COLUMN `top_level_category` VARCHAR(191) NOT NULL DEFAULT ''"],
+    ["endCat", "ADD COLUMN `end_level_category` VARCHAR(191) NOT NULL DEFAULT ''"],
+    ["deliveryRate", "ADD COLUMN `delivery_rate` DOUBLE NOT NULL DEFAULT 0"],
+  ] as const) {
+    if (!cols[field]) {
+      try {
+        await pool.query(`ALTER TABLE \`${table}\` ${ddl}`);
+        cols[field] = ddl.match(/`(\w+)`/)?.[1] ?? "";
+      } catch { /* column may exist under another name */ }
+    }
+  }
+
+  const renameMap = new Map(renamePairs);
+  const statusCol = cols.status;
+  // status column may be numeric (is_active) or text (ACTIVE/INACTIVE)
+  const statusIsNumeric = statusCol ? /int|tinyint|bit/i.test(describeRows.find((c) => c.Field === statusCol)?.Type ?? "") : false;
+
+  let updated = 0, inserted = 0, unchanged = 0;
+  const errors: string[] = [];
+
+  for (const row of rows) {
+    const newSku = s(row.SKU);
+    const oldSku = renameMap.get(newSku) ?? newSku;
+    if (!newSku) continue;
+    const status = s(row.Status).toUpperCase();
+    const statusVal = statusIsNumeric ? (status === "INACTIVE" ? 0 : 1) : status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
+
+    const set: Record<string, unknown> = {};
+    set[cols.sku] = newSku;
+    if (cols.name) set[cols.name] = s(row["Product Name"]).slice(0, 190);
+    if (cols.company) set[cols.company] = s(row.Company).slice(0, 190);
+    if (cols.unit) set[cols.unit] = s(row.Unit).slice(0, 30);
+    if (cols.hsn) set[cols.hsn] = s(row.HSN).slice(0, 30);
+    if (cols.gst) set[cols.gst] = n(row["GST %"]) ?? 0;
+    if (cols.deliveryRate) set[cols.deliveryRate] = n(row["Delivery Rate"]) ?? 0;
+    if (cols.cost) set[cols.cost] = n(row["Cost Price"]) ?? 0;
+    if (cols.packQty) set[cols.packQty] = Math.round(n(row["Pack Qty"]) ?? 1);
+    if (cols.tier1) set[cols.tier1] = n(row["Tier 1 Distributor"]) ?? 0;
+    if (cols.tier2) set[cols.tier2] = n(row["Tier 2 Wholesale"]) ?? 0;
+    if (cols.tier3) set[cols.tier3] = n(row["Tier 3 Semi-Wholesale"]) ?? 0;
+    if (cols.tier4) set[cols.tier4] = n(row["Tier 4 Retailer"]) ?? 0;
+    if (cols.tier5) set[cols.tier5] = n(row["Tier 5 MRP"]) ?? 0;
+    if (cols.stock) set[cols.stock] = n(row["Sellable Stock"]) ?? 0;
+    if (cols.damaged) set[cols.damaged] = n(row["Damaged Stock"]) ?? 0;
+    if (cols.reserved) set[cols.reserved] = n(row.Reserved) ?? 0;
+    if (cols.lowStock) set[cols.lowStock] = Math.round(n(row["Low Stock Threshold"]) ?? 0);
+    if (cols.barcode) set[cols.barcode] = s(row.Barcode).slice(0, 60);
+    if (cols.weight) set[cols.weight] = n(row["Weight (g)"]) ?? 0;
+    if (cols.piecesPerBox) set[cols.piecesPerBox] = Math.round(n(row["Pieces/Box"]) ?? 1);
+    if (cols.topCat) set[cols.topCat] = s(row["Top Level Category"]).slice(0, 190);
+    if (cols.endCat) set[cols.endCat] = s(row["End Level Category"]).slice(0, 190);
+    if (statusCol) set[statusCol] = statusVal;
+    if (cols.createdOn && s(row["Created On"])) set[cols.createdOn] = s(row["Created On"]).slice(0, 10);
+
+    const keys = Object.keys(set);
+    try {
+      const [res] = await pool.query(
+        `UPDATE \`${table}\` SET ${keys.map((k) => `\`${k}\` = ?`).join(", ")} WHERE \`${cols.sku}\` = ? LIMIT 1`,
+        [...keys.map((k) => set[k]), oldSku]
+      );
+      const affected = (res as { affectedRows?: number }).affectedRows ?? 0;
+      if (affected > 0) { updated++; continue; }
+      // old SKU absent → genuinely new product → INSERT
+      await pool.query(
+        `INSERT INTO \`${table}\` (${keys.map((k) => `\`${k}\``).join(", ")}) VALUES (${keys.map(() => "?").join(", ")})`,
+        keys.map((k) => set[k])
+      );
+      inserted++;
+    } catch (e) {
+      errors.push(`${newSku}: ${e instanceof Error ? e.message.slice(0, 140) : "row failed"}`);
+    }
+  }
+
+  return NextResponse.json({ ok: true, updated, inserted, unchanged, backupTable, columns: cols, errors: errors.slice(0, 10) });
 }
 
 async function erpPass(rows: SheetRow[], renamePairs: [string, string][]) {
