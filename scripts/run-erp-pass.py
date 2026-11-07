@@ -24,26 +24,30 @@ def post(payload):
     except Exception:
         return {"ok": False, "error": out[:200]}
 
-CHUNK = 60
-tot_u = tot_i = 0
+CHUNK = 120
+FROM = int(sys.argv[1]) if len(sys.argv) > 1 else 0
+TO = int(sys.argv[2]) if len(sys.argv) > 2 else len(xl)
+span = xl[FROM:TO]
+print(f"slicing rows {FROM}..{TO} ({len(span)} rows)", flush=True)
+tot_u = tot_i = tot_same = 0
 errors = []
 backup = ""
 cols = {}
-for i in range(0, len(xl), CHUNK):
-    chunk = xl[i:i + CHUNK]
+for i in range(0, len(span), CHUNK):
+    chunk = span[i:i + CHUNK]
     d = post({"mode": "erp-rows", "rows": chunk, "renames": renames})
     if not d.get("ok"):
         print(f"CHUNK @{i} FAILED:", json.dumps(d)[:300]); sys.exit(1)
     tot_u += d.get("updated", 0)
     tot_i += d.get("inserted", 0)
+    tot_same += d.get("unchanged", 0)
     errors += d.get("errors") or []
     backup = d.get("backupTable") or backup
     cols = d.get("columns") or cols
-    print(f"  erp {i}+{len(chunk)}: updated={d.get('updated')} inserted={d.get('inserted')}")
-    time.sleep(2)
+    print(f"  erp {FROM+i}+{len(chunk)}: updated={d.get('updated')} inserted={d.get('inserted')} unchanged={d.get('unchanged')}", flush=True)
 
 print("\n════ ERP ALIGNMENT DONE ════")
-print(f"updated: {tot_u} | inserted: {tot_i} | backup: {backup}")
+print(f"updated: {tot_u} | inserted: {tot_i} | unchanged: {tot_same} | backup: {backup}", flush=True)
 print("columns:", json.dumps(cols, indent=0)[:600])
 if errors:
     print(f"errors ({len(errors)}):", errors[:8])
