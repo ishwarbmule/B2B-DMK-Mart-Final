@@ -86,6 +86,7 @@ export async function POST(req: NextRequest) {
 
     if (mode === "apply-plan") return await applyPlan(body.updates ?? [], body.creates ?? []);
     if (mode === "erp-rows") return await erpRowsPass(rows, Array.isArray(body.renames) ? body.renames : []);
+    if (mode === "erp-info") return await erpInfo();
 
     if (!rows.length) return NextResponse.json({ ok: false, error: "No rows provided" }, { status: 400 });
 
@@ -634,6 +635,42 @@ async function erpRowsPass(rows: SheetRow[], renamePairs: [string, string][]) {
   }
 
   return NextResponse.json({ ok: true, updated, inserted, unchanged, backupTable, columns: cols, errors: errors.slice(0, 10) });
+}
+
+/** Diagnostic: ERP table structure + a full-error test UPDATE (no data changed on failure). */
+async function erpInfo() {
+  const pool = await erpPool();
+  const table = await erpProductsTable();
+  const [desc] = await pool.query<mysql.RowDataPacket[]>(`DESCRIBE \`${table}\``);
+  const [cnt] = await pool.query<mysql.RowDataPacket[]>(`SELECT COUNT(*) AS n FROM \`${table}\``);
+  const [sample] = await pool.query<mysql.RowDataPacket[]>(`SELECT * FROM \`${table}\` LIMIT 1`);
+  let updateTest = "";
+  try {
+    const [res] = await pool.query(`UPDATE \`${table}\` SET \`name\` = \`name\` WHERE \`sku\` = ? LIMIT 1`, [s((sample as Record<string, unknown>[])[0]?.sku)]);
+    updateTest = `self-update ok (${(res as { affectedRows?: number }).affectedRows})`;
+  } catch (e) {
+    updateTest = e instanceof Error ? e.message.slice(0, 500) : String(e);
+  }
+  let renameTest = "";
+  try {
+    const [res] = await pool.query(`UPDATE \`${table}\` SET \`sku\` = \`sku\` WHERE \`sku\` = ? LIMIT 1`, [s((sample as Record<string, unknown>[])[0]?.sku)]);
+    renameTest = `sku-self-update ok (${(res as { affectedRows?: number }).affectedRows})`;
+  } catch (e) {
+    renameTest = e instanceof Error ? e.message.slice(0, 500) : String(e);
+  }
+  const [fk] = await pool.query<mysql.RowDataPacket[]>(
+    `SELECT constraint_name, column_name, referenced_table_name, referenced_column_name FROM information_schema.key_column_usage WHERE table_schema = DATABASE() AND table_name = ? AND referenced_column_name IS NOT NULL`,
+    [table]
+  );
+  return NextResponse.json({
+    ok: true,
+    table,
+    count: Number((cnt as { n: number }[])[0]?.n ?? 0),
+    columns: desc,
+    sampleKeys: Object.keys((sample as Record<string, unknown>[])[0] ?? {}),
+    updateTest, renameTest,
+    foreignKeys: fk,
+  });
 }
 
 async function erpPass(rows: SheetRow[], renamePairs: [string, string][]) {
