@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Globe, Package, Building2, ShoppingCart,
   Users, LogOut, Menu, X, Eye, Settings2, ChevronRight, Megaphone,
   Barcode as BarcodeIcon, BadgePercent, IndianRupee, Wallet, FileSpreadsheet,
-  Database,
+  Database, MapPin, BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardModule, CustomersModule, PricingModule, CompanyProductsModule } from "./business-modules-1";
@@ -22,6 +22,8 @@ import { BarcodeStudio } from "./barcode-studio";
 import { CrudModule } from "./ui-bits";
 import { CONFIGS } from "./crud-configs";
 import { SalesTeamModule, WarehouseManagersModule } from "./staff-modules";
+import { StoreMapModule } from "./store-map-module";
+import { BrochureModule } from "./brochure-module";
 
 type ModuleId = string;
 
@@ -30,6 +32,7 @@ const NAV: { group: string; items: { id: ModuleId; label: string; icon: React.Co
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "financial", label: "Financial Section", icon: Wallet },
     { id: "reports", label: "Reports & Exports", icon: FileSpreadsheet },
+    { id: "brochure", label: "Download Brochure", icon: BookOpen },
   ]},
   { group: "Catalog & Pricing", items: [
     { id: "products", label: "Product Management", icon: Package, sub: [
@@ -63,6 +66,7 @@ const NAV: { group: string; items: { id: ModuleId; label: string; icon: React.Co
   { group: "People", items: [
     { id: "salesTeam", label: "Salesperson Management", icon: Users },
     { id: "warehouseManagers", label: "Warehouse Managers", icon: Users },
+    { id: "storeMap", label: "Store Map", icon: MapPin },
     { id: "approvals", label: "Buyer Approvals", icon: Users },
     { id: "customers", label: "Customer Management", icon: Users },
   ]},
@@ -186,6 +190,8 @@ export function AdminPortal() {
       case "warehouseStock": return <WarehouseStockModule token={token} />;
       case "barcodes": return <BarcodeStudio token={token} />;
       case "customers": return <CustomersModule token={token} />;
+      case "storeMap": return <StoreMapModule token={token} />;
+      case "brochure": return <BrochureModule token={token} />;
       case "salesTeam": return <SalesTeamModule token={token} />;
       case "warehouseManagers": return <WarehouseManagersModule token={token} />;
       case "pricing": return <PricingModule token={token} />;

@@ -179,6 +179,12 @@ model Customer {
   source       String   @default("WEB") // WEB | ERP
   erpId        String   @default("")
   createdBy    String   @default("") // "WEB" | "ADMIN" | salesperson name (salesteam portal)
+  // Store map — pin dropped by the buyer at signup (MAP/GPS) or placed by admin (ADMIN).
+  // Nullable: pre-map customers have no pin until signup-with-map or an admin drops one.
+  lat          Float?
+  lng          Float?
+  geoSource    String   @default("") // MAP | GPS | ADMIN
+  geoUpdatedAt DateTime?
   orders       Int      @default(0)
   totalSpent   Float    @default(0)
   createdAt    DateTime @default(now())
