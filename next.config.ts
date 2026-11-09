@@ -2,7 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  /* config options here */
+  // pdfmake (brochure PDF engine) is a large CJS package — keep it external so
+  // the server bundle never re-bundles its font/vfs assets.
+  serverExternalPackages: ["pdfmake"],
   typescript: {
     ignoreBuildErrors: true,
   },

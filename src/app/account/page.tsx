@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { StoreChrome } from "@/components/dmk/store-chrome";
+import StoreLocationPicker, { type PickedLocation } from "@/components/store-map/store-location-picker";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { formatINR } from "@/lib/store";
 import { clearCustomerToken, getCustomerToken, setCustomerToken } from "@/lib/customer-session";
@@ -49,6 +50,8 @@ const LINK = "font-semibold text-yellow-700 underline-offset-2 hover:underline";
 
 const emptyReg = { name: "", shopName: "", phone: "", email: "", password: "", confirm: "", customerType: "RETAILER", gstin: "", city: "", pincode: "" };
 const emptyProfile = { name: "", shopName: "", email: "", gstin: "", address: "", city: "", pincode: "" };
+// Store map — the pin the buyer drops at signup (sent with /api/auth/register).
+const emptyLoc: PickedLocation | null = null;
 
 export function orderStatusLabel(o: { status: string; shippingStatus?: string; confirmedAt?: string | null }): { label: string; cls: string } {
   if (o.status === "DELIVERED" || o.shippingStatus === "DELIVERED") return { label: "Delivered", cls: "bg-emerald-50 text-emerald-700" };
@@ -121,6 +124,7 @@ function AccountInner() {
 
   // registration state
   const [reg, setReg] = useState(emptyReg);
+  const [storeLoc, setStoreLoc] = useState<PickedLocation | null>(emptyLoc);
   const [regErrors, setRegErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -329,6 +333,7 @@ function AccountInner() {
     if (!/^\d{6}$/.test(reg.pincode.trim())) e.pincode = "Enter the 6-digit pincode of your location";
     if (reg.password.length < 6) e.password = "Use at least 6 characters";
     if (reg.password !== reg.confirm) e.confirm = "The two passwords do not match";
+    if (!storeLoc) e.storeLoc = "Set your store location on the map — it places your shop on the DMK Mart store map";
     setRegErrors(e);
     if (Object.keys(e).length > 0) return;
     setBusy(true); setError(null);
@@ -336,11 +341,12 @@ function AccountInner() {
       const { confirm: _c, ...payload } = reg;
       const res = await fetch("/api/auth/register", {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...payload, phone: reg.phone.trim(), email: reg.email.trim() }),
+        body: JSON.stringify({ ...payload, phone: reg.phone.trim(), email: reg.email.trim(), lat: storeLoc!.lat, lng: storeLoc!.lng, geoSource: storeLoc!.source }),
       });
       const d = await res.json();
       if (!res.ok) return setError(d.error ?? "Registration failed. Please try again.");
       setReg(emptyReg);
+      setStoreLoc(emptyLoc);
       setRegErrors({});
       setStep("registered");
     } finally {
@@ -720,7 +726,23 @@ function AccountInner() {
                     </div>
                   </div>
                   <p className="mb-2.5 text-[11px] leading-relaxed text-gray-400">Your city + pincode decide your nearest DMK Mart warehouse — after login the site shows the products stocked there for you.</p>
-                  <button onClick={doRegister} disabled={busy} className={`${BTN_PRIMARY} mt-2`}>
+
+                  {/* Store map — pin your shop so it appears on the DMK Mart store map */}
+                  <div className="mb-1 mt-3 flex items-center gap-1.5">
+                    <MapPin className="h-4 w-4 text-yellow-600" />
+                    <label className={`${LABEL} mb-0`}>Set your store location on map *</label>
+                  </div>
+                  <p className="mb-2 text-[11px] leading-relaxed text-gray-400">Tap the exact spot of your shop — it shows your store on the DMK Mart map for faster deliveries and visits.</p>
+                  <StoreLocationPicker
+                    lat={storeLoc?.lat ?? null}
+                    lng={storeLoc?.lng ?? null}
+                    onChange={(loc) => setStoreLoc(loc)}
+                    autoQuery={`${reg.pincode} ${reg.city}`.trim()}
+                    fitKey={step === "create" ? 1 : 0}
+                  />
+                  {regErrors.storeLoc && <p className="mt-0.5 text-[11px] text-red-500">{regErrors.storeLoc}</p>}
+
+                  <button onClick={doRegister} disabled={busy} className={`${BTN_PRIMARY} mt-3`}>
                     {busy ? "Creating…" : "Create account"}
                   </button>
                   <p className="mt-3 text-center text-[11px] text-gray-400">Every B2B account is verified by the DMK Mart team before it opens. No pricing is shown at signup — your price tier is assigned privately at approval.</p>

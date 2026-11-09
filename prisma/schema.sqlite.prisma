@@ -73,6 +73,8 @@ model Product {
   erpId             String      @default("") // Neon Product.id
   slug              String      @unique
   name              String
+  // Company grouping (mirrors prod MySQL schema — local legacy rows default to "")
+  company           String      @default("")
   brandId           String
   brand             Brand       @relation(fields: [brandId], references: [id])
   topId             String
@@ -171,6 +173,11 @@ model Customer {
   source       String   @default("WEB") // WEB | ERP
   erpId        String   @default("")
   createdBy    String   @default("") // "WEB" | "ADMIN" | salesperson name (salesteam portal)
+  // Store map — pin dropped by the buyer at signup (MAP/GPS) or placed by admin (ADMIN).
+  lat          Float?
+  lng          Float?
+  geoSource    String   @default("") // MAP | GPS | ADMIN
+  geoUpdatedAt DateTime?
   orders       Int      @default(0)
   totalSpent   Float    @default(0)
   createdAt    DateTime @default(now())

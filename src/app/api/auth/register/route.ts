@@ -19,6 +19,11 @@ const schema = z.object({
   city: z.string().min(2, "Enter your city (delivery location)"),
   pincode: z.string().regex(/^\d{6}$/, "Enter the 6-digit pincode of your location"), // buyer location → nearest warehouse
   address: z.string().optional().or(z.literal("")),
+  // Store map — pin dropped on the signup map. Required so the admin Store Map
+  // section shows every customer store (lat/lng validated range; source = MAP|GPS).
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  geoSource: z.enum(["MAP", "GPS"]).default("MAP"),
 });
 
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
@@ -44,6 +49,10 @@ export async function POST(req: NextRequest) {
       city: d.city || "",
       pincode: d.pincode || "",
       address: d.address || "",
+      lat: d.lat,
+      lng: d.lng,
+      geoSource: d.geoSource,
+      geoUpdatedAt: new Date(),
       status: "PENDING",
       source: "WEB",
       creditLimit: 0, // assigned by admin at approval
