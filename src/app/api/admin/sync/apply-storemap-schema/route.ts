@@ -20,8 +20,23 @@ async function colExists(table: string, column: string): Promise<boolean> {
 }
 
 export async function POST(req: NextRequest) {
+  // Auth: admin Bearer token OR cron secret (?key= / Bearer) — same policy as
+  // the other one-shot sync migrations (migrate-inventory etc.), so ops can
+  // trigger it without interactive admin credentials.
+  const key = req.nextUrl.searchParams.get("key") || "";
+  const auth = (req.headers.get("authorization") || "").trim();
+  const cronSecret = process.env.CRON_SECRET || "";
+  let authed = false;
+  if (cronSecret && (key === cronSecret || auth === `Bearer ${cronSecret}`)) {
+    authed = true;
+  } else {
+    try {
+      const s = await db.setting.findUnique({ where: { key: "cron_secret" } });
+      if (s?.value && (key === s.value || auth === `Bearer ${s.value}`)) authed = true;
+    } catch { /* db not reachable yet — fall through */ }
+  }
   const unauthorized = requireAdmin(req);
-  if (unauthorized) return unauthorized;
+  if (!authed && unauthorized) return unauthorized;
   const applied: string[] = [];
   const skipped: string[] = [];
 
