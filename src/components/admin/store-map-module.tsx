@@ -61,6 +61,7 @@ export function StoreMapModule({ token }: { token: string }) {
   const [editing, setEditing] = useState<MarkerRow | null>(null);
   const [pendingLoc, setPendingLoc] = useState<PickedLocation | null>(null);
   const [saving, setSaving] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
 
   const holder = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LType.Map | null>(null);
@@ -69,6 +70,12 @@ export function StoreMapModule({ token }: { token: string }) {
   const markerById = useRef<Map<string, LType.Marker>>(new Map());
   const rowsRef = useRef<MarkerRow[]>([]);
   rowsRef.current = rows;
+  // poll-safe view: remember what the admin is looking at so the 20s realtime
+  // refresh never yanks the map (no re-fit, no marker churn, popup stays open)
+  const selectedIdRef = useRef<string | null>(null);
+  const fittedRef = useRef(false);
+  const filterKeyRef = useRef<string>("\u0000init\u0000");
+  const sigRef = useRef<string>("");
 
   const load = useCallback(async (initial = false) => {
     if (initial) setLoading(true);
@@ -109,11 +116,13 @@ export function StoreMapModule({ token }: { token: string }) {
       }).addTo(map);
       layerRef.current = L.layerGroup().addTo(map);
       mapRef.current = map;
+      setMapReady(true);
       // popup action buttons (rendered as raw HTML inside leaflet popups)
-      map.on("popupopen", (e: LType.LeafletPopupEvent) => {
+      map.on("popupopen", (e: LType.PopupEvent) => {
         const root = e.popup.getElement();
         const custId = root?.querySelector<HTMLElement>("[data-cust-id]")?.dataset.custId;
         if (!custId) return;
+        selectedIdRef.current = custId;
         root?.querySelector<HTMLElement>("[data-act='edit']")?.addEventListener("click", () => {
           const row = rowsRef.current.find((r) => r.id === custId);
           if (row) openEdit(row);
@@ -138,42 +147,66 @@ export function StoreMapModule({ token }: { token: string }) {
   }, [rows, statusFilter, query]);
 
   const popupHtml = (r: MarkerRow) => `
-    <div data-cust-id="${r.id}" style="font-family:inherit;min-width:210px">
-      <div style="font-weight:900;font-size:13px;margin-bottom:2px">${escapeHtml(r.shopName || r.name)}</div>
-      <div style="font-size:11px;color:#555;margin-bottom:6px">${escapeHtml(r.name)} · ${escapeHtml(r.phone)}</div>
-      <div style="font-size:11px;color:#555;margin-bottom:6px">${escapeHtml([r.city, r.pincode].filter(Boolean).join(" - ") || "—")} · ${TYPE_SHORT[r.customerType] || r.customerType}</div>
-      <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
+    <div data-cust-id="${r.id}" style="font-family:inherit;min-width:230px">
+      <div style="font-weight:900;font-size:13.5px;margin-bottom:2px">${escapeHtml(r.shopName || r.name)}</div>
+      <div style="font-size:11px;color:#555;margin-bottom:4px">${escapeHtml(r.name)} · <a href="tel:+91${escapeHtml(r.phone)}" style="color:#111;font-weight:800;text-decoration:none">${escapeHtml(r.phone)}</a></div>
+      <div style="font-size:11px;color:#555;margin-bottom:6px">${escapeHtml([r.city, r.pincode].filter(Boolean).join(" - ") || "—")} · ${TYPE_SHORT[r.customerType] || r.customerType} · ${escapeHtml((r.tier || "tier4").toUpperCase())}</div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
         <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;background:${STATUS_COLOR[r.status] || "#888"}22;color:${STATUS_COLOR[r.status] || "#555"}">${r.status}</span>
-        <span style="font-size:10px;color:#777">${r.orders} ord · ${formatINR(r.totalSpent)}</span>
+        <span style="font-size:10px;color:#777">${r.orders} ord · ${formatINR(r.totalSpent)} spend</span>
       </div>
+      <div style="font-size:9.5px;color:#999;margin-bottom:8px">Pin: ${escapeHtml(r.geoSource || "—")} · customer since ${new Date(r.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</div>
       <div style="display:flex;gap:6px">
         <button data-act="edit" style="flex:1;font-size:11px;font-weight:800;padding:5px 8px;border-radius:8px;background:#111;color:#facc15;border:0;cursor:pointer">📍 Move pin</button>
+        <a href="tel:+91${escapeHtml(r.phone)}" style="flex:1;text-align:center;font-size:11px;font-weight:800;padding:5px 8px;border-radius:8px;background:#2563eb;color:#fff;text-decoration:none">Call</a>
         <button data-act="wa" style="flex:1;font-size:11px;font-weight:800;padding:5px 8px;border-radius:8px;background:#16a34a;color:#fff;border:0;cursor:pointer">WhatsApp</button>
       </div>
     </div>`;
 
-  // repaint markers whenever rows change
+  // hover tooltip — quick-glance identity before committing to a full popup
+  const tooltipHtml = (r: MarkerRow) => `
+    <div style="font-family:inherit;white-space:nowrap">
+      <span style="font-weight:800;font-size:11px">${escapeHtml(r.shopName || r.name)}</span>
+      <span style="font-size:10px;color:#666"> · ${escapeHtml(r.city || TYPE_SHORT[r.customerType] || r.customerType)}</span>
+    </div>`;
+
+  // paint markers — poll-safe: repaint ONLY when pin data/filters actually
+  // changed, keep the admin's zoom/pan between realtime refreshes, re-open the
+  // popup they had open. First paint (or an explicit filter change) fits all
+  // pins so the full network of stores is visible right at the start.
   useEffect(() => {
     const L = LRef.current;
     const map = mapRef.current;
     const layer = layerRef.current;
-    if (!L || !map || !layer) return;
+    if (!L || !map || !layer || !mapReady) return;
+    const filtered = filteredRows();
+    const pts = filtered.filter((r) => r.lat != null && r.lng != null);
+    const sig =
+      pts.map((r) => `${r.id}:${r.lat!.toFixed(5)},${r.lng!.toFixed(5)}:${r.status}:${r.orders}`).join("|") +
+      `#${filtered.length}#${statusFilter}#${query}`;
+    if (sig === sigRef.current) return; // identical realtime poll — leave the view alone
+    const filterChanged = `${statusFilter}|${query}` !== filterKeyRef.current;
+    filterKeyRef.current = `${statusFilter}|${query}`;
+    sigRef.current = sig;
+    const prevSelected = selectedIdRef.current;
     layer.clearLayers();
     markerById.current.clear();
-    const filtered = filteredRows();
     for (const r of filtered) {
       if (r.lat == null || r.lng == null) continue;
       const color = STATUS_COLOR[r.status] || "#2563eb";
       const m = L.marker([r.lat, r.lng], { icon: pinIcon(L, color) }).addTo(layer);
-      m.bindPopup(popupHtml(r), { maxWidth: 260 });
+      m.bindTooltip(tooltipHtml(r), { direction: "top", offset: [0, -42], opacity: 0.95 });
+      m.bindPopup(popupHtml(r), { maxWidth: 280 });
       markerById.current.set(r.id, m);
     }
-    if (filtered.some((r) => r.lat != null)) {
-      const pts = filtered.filter((r) => r.lat != null && r.lng != null).map((r) => [r.lat!, r.lng!] as [number, number]);
-      if (pts.length) map.fitBounds(L.latLngBounds(pts).pad(0.18), { maxZoom: 13 });
+    const coords = pts.map((r) => [r.lat!, r.lng!] as [number, number]);
+    if (coords.length && (!fittedRef.current || filterChanged)) {
+      fittedRef.current = true;
+      map.fitBounds(L.latLngBounds(coords).pad(0.18), { maxZoom: 13 });
     }
+    if (prevSelected) markerById.current.get(prevSelected)?.openPopup();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, statusFilter, query]);
+  }, [rows, statusFilter, query, mapReady]);
 
 
   const focusCustomer = (r: MarkerRow) => {
@@ -281,16 +314,21 @@ export function StoreMapModule({ token }: { token: string }) {
       {/* map + list */}
       <div className="grid gap-3 lg:grid-cols-[1fr_320px]">
         <div className="overflow-hidden rounded-xl border bg-white">
-          {loading ? (
-            <div className="flex h-[480px] items-center justify-center text-gray-400"><Loader2 className="h-6 w-6 animate-spin" /></div>
-          ) : (
+          {/* map is always mounted — tiles render the instant the section opens;
+              pins paint as soon as the first realtime fetch lands */}
+          <div className="relative">
             <div ref={holder} id="storemap-map" style={{ height: 480 }} className="w-full" role="application" aria-label="Customer store map" />
-          )}
+            {loading && (
+              <div className="absolute inset-0 z-[900] flex items-center justify-center gap-2 bg-white/75 text-xs font-bold text-gray-500">
+                <Loader2 className="h-5 w-5 animate-spin" /> Loading store pins…
+              </div>
+            )}
+          </div>
           <div className="flex items-center justify-between border-t bg-gray-50 px-3 py-2">
             <p className="text-[10.5px] font-semibold text-gray-500">
               🟢 Approved · 🟠 Pending · 🔴 Suspended — {pinnedList.length} stores on map
             </p>
-            <p className="text-[10px] text-gray-400">Tap a marker for store details</p>
+            <p className="text-[10px] text-gray-400">Hover a pin for a quick look — click for full store details</p>
           </div>
         </div>
 
