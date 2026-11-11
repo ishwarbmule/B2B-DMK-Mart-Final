@@ -9,15 +9,11 @@
 import { readFile } from "fs/promises";
 import path from "path";
 import { createHash } from "crypto";
-import pdfmake from "pdfmake";
 import QRCode from "qrcode";
 import sharp from "sharp";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { buildDocDefinition, type BrochureCard } from "@/lib/brochure-doc";
-
-pdfmake.setUrlAccessPolicy(() => true); // only Cloudinary fetches, from the API route
-pdfmake.setLocalAccessPolicy(() => true);
+import { buildDocDefinition, renderPdf, type BrochureCard } from "@/lib/brochure-doc";
 
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://b2b-dmk-mart.vercel.app";
 
@@ -223,7 +219,7 @@ export async function generateBrochure(f: BrochureFilters): Promise<{ buffer: Bu
     siteDisplay: SITE_URL.replace(/^https?:\/\//, ""),
   });
 
-  const buffer: Buffer = await pdfmake.createPdf(docDefinition as never).getBuffer();
+  const buffer: Buffer = await renderPdf(docDefinition);
   const meta: BrochureMeta = {
     id,
     filename: `DMK-Catalog-${(companiesUsed[0] || "All").replace(/[^a-z0-9]+/gi, "-")}-${id}.pdf`,

@@ -7,10 +7,9 @@
 import { readFile } from "fs/promises";
 import path from "path";
 import { mkdir } from "fs/promises";
-import pdfmake from "pdfmake";
 import QRCode from "qrcode";
 import sharp from "sharp";
-import { buildDocDefinition, type BrochureCard } from "../src/lib/brochure-doc";
+import { buildDocDefinition, renderPdf, type BrochureCard } from "../src/lib/brochure-doc";
 
 const SITE = "https://b2b-dmk-mart.vercel.app";
 
@@ -87,7 +86,7 @@ async function main() {
     monthName, tierLabel: "DEALER",
     siteDisplay: "b2b-dmk-mart.vercel.app",
   });
-  const buffer: Buffer = await pdfmake.createPdf(doc as never).getBuffer();
+  const buffer: Buffer = await renderPdf(doc);
   await mkdir("download", { recursive: true });
   const out = path.join(process.cwd(), "download", "DMK-Catalog-preview.pdf");
   const { writeFile } = await import("fs/promises");
