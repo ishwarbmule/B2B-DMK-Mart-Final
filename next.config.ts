@@ -5,6 +5,12 @@ const nextConfig: NextConfig = {
   // pdfmake (brochure PDF engine) is a large CJS package — keep it external so
   // the server bundle never re-bundles its font/vfs assets.
   serverExternalPackages: ["pdfmake"],
+  // pdfmake reads its Roboto TTFs from node_modules/pdfmake/fonts via fs at
+  // runtime — fs reads inside the package are invisible to file tracing, so
+  // ship the fonts explicitly for the brochure PDF route.
+  outputFileTracingIncludes: {
+    "/api/admin/brochure/generate": ["./node_modules/pdfmake/fonts/**/*"],
+  },
   typescript: {
     ignoreBuildErrors: true,
   },

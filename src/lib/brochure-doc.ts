@@ -11,7 +11,7 @@
  * Consumed by src/lib/brochure.ts (data loading) and by the local design
  * preview script (scripts/brochure-preview.ts).
  */
-import pdfmake from "pdfmake";
+import pdfmake from "pdfmake"; // Node engine — fonts ship via outputFileTracingIncludes (see next.config.ts)
 import Roboto from "pdfmake/fonts/Roboto";
 
 try { pdfmake.addFonts(Roboto); } catch { /* already registered */ }
@@ -226,6 +226,11 @@ function tocContent(sections: SectionInfo[], o: DocOpts): unknown[] {
 }
 
 /* ── assemble ── */
+
+/** Render a doc definition to a PDF buffer with the vfs-backed engine. */
+export async function renderPdf(docDefinition: Record<string, unknown>): Promise<Buffer> {
+  return (await pdfmake.createPdf(docDefinition as never).getBuffer()) as Buffer;
+}
 
 export function buildDocDefinition(cards: BrochureCard[], sections: SectionInfo[], o: DocOpts): Record<string, unknown> {
   const content: unknown[] = [];
