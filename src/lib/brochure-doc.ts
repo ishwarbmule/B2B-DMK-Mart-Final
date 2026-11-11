@@ -151,7 +151,8 @@ function coverContent(cards: BrochureCard[], sections: SectionInfo[], o: DocOpts
   c.push({ absolutePosition: { x: 41, y: 194 }, text: o.titleScope.toUpperCase().slice(0, 62), fontSize: 11.5, bold: true, color: "#ffffff", characterSpacing: 1.1 });
   c.push({ absolutePosition: { x: 41, y: 214 }, text: `${o.monthName} Edition  ·  ${cards.length} Products Live`, fontSize: 9.5, color: SOFT });
 
-  // full-bleed product collage — 3 × 2 tiles
+  // full-bleed product collage — 3 × 2 tiles (cycle available images so the
+  // cover always looks full; gray brand tiles only when a catalog has NO images)
   const tileW = A4_W / 3;
   const tileH = 178;
   const y0 = 242;
@@ -159,7 +160,7 @@ function coverContent(cards: BrochureCard[], sections: SectionInfo[], o: DocOpts
   for (let i = 0; i < 6; i++) {
     const col = i % 3, row = Math.floor(i / 3);
     const x = col * tileW, y = y0 + row * tileH;
-    const img = withImg[i]?.image;
+    const img = withImg.length ? withImg[i % withImg.length].image : "";
     if (img) {
       c.push({ absolutePosition: { x: Math.round(x * 10) / 10, y }, image: img, width: Math.round(tileW * 10) / 10, height: tileH });
     } else {
@@ -235,11 +236,26 @@ export async function renderPdf(docDefinition: Record<string, unknown>): Promise
 export function buildDocDefinition(cards: BrochureCard[], sections: SectionInfo[], o: DocOpts): Record<string, unknown> {
   const content: unknown[] = [];
 
+  // derive sections from the cards themselves, keyed by sectionKey — duplicate
+  // end-category names under different parents stay distinct and counts match
+  const secs: SectionInfo[] = [];
+  const keyMap = new Map<string, SectionInfo>();
+  for (const p of cards) {
+    const cur = keyMap.get(p.sectionKey);
+    if (cur) cur.count += 1;
+    else {
+      const s = { name: p.section, count: 1 };
+      keyMap.set(p.sectionKey, s);
+      secs.push(s);
+    }
+  }
+  void sections; // kept for API compatibility; key-derived list is authoritative
+
   /* 1 — cover */
-  content.push(...coverContent(cards, sections, o));
+  content.push(...coverContent(cards, secs, o));
 
   /* 2 — table of contents (fresh page) */
-  content.push(...tocContent(sections, o));
+  content.push(...tocContent(secs, o));
 
   /* 3+ — product sections, each on a fresh page */
   let lastKey = "";
@@ -250,7 +266,7 @@ export function buildDocDefinition(cards: BrochureCard[], sections: SectionInfo[
       lastKey = cards[i].sectionKey;
       sectionIndex += 1;
       rowOnPage = 0;
-      const s = sections.find((x) => x.name === cards[i].section) || { name: cards[i].section, count: 1 };
+      const s = keyMap.get(cards[i].sectionKey) || { name: cards[i].section, count: 1 };
       content.push(...sectionHeader(sectionIndex, s, sectionIndex === 0));
     }
     const pair = [productCell(cards[i], o.logo), cards[i + 1] ? productCell(cards[i + 1], o.logo) : { text: "" }];
