@@ -24,6 +24,7 @@ import { CONFIGS } from "./crud-configs";
 import { SalesTeamModule, WarehouseManagersModule } from "./staff-modules";
 import { StoreMapModule } from "./store-map-module";
 import { BrochureModule } from "./brochure-module";
+import { LiveEditorModule } from "./live-editor-module";
 
 type ModuleId = string;
 
@@ -72,6 +73,7 @@ const NAV: { group: string; items: { id: ModuleId; label: string; icon: React.Co
   ]},
   { group: "Website & System", items: [
     { id: "website", label: "Website Management", icon: Globe, sub: [
+      { id: "liveEditor", label: "Live Visual Editor" },
       { id: "website", label: "Pages / SEO / Robots" },
       { id: "sliders", label: "Hero Section (Sliders)" },
       { id: "homeEditor", label: "Homepage Editor (v2)" },
@@ -198,6 +200,7 @@ export function AdminPortal() {
       case "financial": return <FinancialModule token={token} />;
       case "reports": return <ReportsModule token={token} />;
       case "website": return <WebsiteModule token={token} />;
+      case "liveEditor": return <LiveEditorModule token={token} />;
       case "homeEditor": return <HomeEditorModule token={token} />;
       case "storefronts": return <StorefrontsModule token={token} />;
       case "sync": return <SyncModule token={token} />;

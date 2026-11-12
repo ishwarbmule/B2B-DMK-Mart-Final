@@ -105,9 +105,10 @@ export function ModuleHeader({ title, sub, children }: { title: string; sub?: st
   );
 }
 
-export function StatCard({ icon: Icon, label, value, sub, color = "#111" }: {
+export function StatCard({ icon: Icon, label, value, sub, color = "#111", extra }: {
   icon: React.ComponentType<{ className?: string }> | null | undefined;
   label: string; value: string | number; sub?: string; color?: string;
+  extra?: React.ReactNode;
 }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border bg-white p-4">
@@ -120,6 +121,7 @@ export function StatCard({ icon: Icon, label, value, sub, color = "#111" }: {
         <p className="text-lg font-black leading-tight text-gray-900">{value}</p>
         {sub && <p className="truncate text-[10px] text-gray-400">{sub}</p>}
       </div>
+      {extra != null && <div className="shrink-0 self-start">{extra}</div>}
     </div>
   );
 }

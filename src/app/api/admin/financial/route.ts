@@ -1,7 +1,10 @@
-/** GET /api/admin/financial?from&to — monetary summary: sales, COGS, profit, GST, payment split, daily table. */
+/** GET /api/admin/financial — monetary summary: sales, COGS, profit, GST, payment split, daily table.
+ *  Date windows: preset=7|30|90|month|lastMonth|all or custom from&to.
+ *  Smart default (no params): last 90 days; if no orders in that window the range
+ *  auto-extends to all time, so the section never looks "broken" just because the
+ *  latest orders are older than the window. */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireAdmin } from "@/lib/admin-auth";
 import { requireStaff } from "@/lib/staff-auth";
 
 export const dynamic = "force-dynamic";
@@ -10,8 +13,43 @@ export async function GET(req: NextRequest) {
   const unauthorized = await requireStaff(req, "financial");
   if (unauthorized) return unauthorized;
   const sp = req.nextUrl.searchParams;
-  const to = sp.get("to") ? new Date(sp.get("to") + "T23:59:59") : new Date();
-  const from = sp.get("from") ? new Date(sp.get("from")) : new Date(to.getTime() - 29 * 86400000);
+
+  const preset = sp.get("preset") || (sp.get("from") || sp.get("to") ? "custom" : "smart");
+  const now = new Date();
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const earliest = await db.order.findFirst({ orderBy: { createdAt: "asc" }, select: { createdAt: true } });
+  const allFrom = earliest ? startOfDay(earliest.createdAt) : now;
+
+  let from: Date;
+  let to: Date = now;
+  let used = preset;
+
+  switch (preset) {
+    case "7": from = new Date(now.getTime() - 6 * 86400000); break;
+    case "30": from = new Date(now.getTime() - 29 * 86400000); break;
+    case "90": from = new Date(now.getTime() - 89 * 86400000); break;
+    case "month": from = new Date(now.getFullYear(), now.getMonth(), 1); break;
+    case "lastMonth":
+      from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      to = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+      break;
+    case "all": from = allFrom; break;
+    case "custom": {
+      const toRaw = sp.get("to");
+      const fromRaw = sp.get("from");
+      to = toRaw ? new Date(`${toRaw}T23:59:59`) : now;
+      from = fromRaw ? new Date(`${fromRaw}T00:00:00`) : new Date(to.getTime() - 29 * 86400000);
+      used = "custom";
+      break;
+    }
+    default: {
+      // smart: prefer last 90 days; fall back to all time when the window is empty
+      from = new Date(now.getTime() - 89 * 86400000);
+      const count90 = await db.order.count({ where: { createdAt: { gte: from } } });
+      if (count90 === 0) { from = allFrom; used = "all"; }
+      else used = "90";
+    }
+  }
 
   const orders = await db.order.findMany({
     where: { createdAt: { gte: from, lte: to } },
@@ -51,8 +89,11 @@ export async function GET(req: NextRequest) {
   }
 
   const grossR = Math.round(gross), cogsR = Math.round(cogs);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
   return NextResponse.json({
-    range: { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) },
+    range: { from: fmt(from), to: fmt(to) },
+    presetUsed: used,
+    smartExtended: preset === "smart" && used === "all",
     summary: {
       orders: orders.length,
       gross: grossR,
