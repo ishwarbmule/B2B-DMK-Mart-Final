@@ -586,3 +586,16 @@ model OtpCode {
 
   @@index([identifier, purpose])
 }
+
+// ───────────────────────── LIVE CONTENT (Website Management → Live Visual Editor) ─────────────────────────
+// Text overrides written by the admin click-to-edit overlay on the live storefront.
+// `key` matches a registry entry in src/lib/live-content.ts (which holds the defaults).
+
+model SiteContent {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  page      String   @default("home")
+  label     String   @default("")
+  value     String
+  updatedAt DateTime @updatedAt
+}

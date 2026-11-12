@@ -6,6 +6,8 @@ import { SiteFooter } from "./site-footer";
 import { CartDrawer } from "./cart-drawer";
 import { CheckoutDialog } from "./checkout-dialog";
 import { WhatsAppFloat } from "./whatsapp-float";
+import { LiveContentProvider } from "./live-content-context";
+import { LiveEditOverlay } from "./live-edit-overlay";
 import { useCustomerSession } from "@/lib/customer-client";
 
 /** Shared storefront chrome: header + footer + cart/checkout overlays on every route. */
@@ -29,6 +31,7 @@ export function StoreChrome({ children }: { children: ReactNode }) {
   }, []);
 
   return (
+    <LiveContentProvider>
     <div className="flex min-h-screen flex-col bg-gray-50">
       <SiteHeaderV2 />
       <main className="flex-1">{children}</main>
@@ -44,6 +47,8 @@ export function StoreChrome({ children }: { children: ReactNode }) {
         }}
       />
       <CheckoutDialog open={checkout} onOpenChange={setCheckout} couponCode={couponCode} couponDisc={couponDisc} />
+      <LiveEditOverlay />
     </div>
+    </LiveContentProvider>
   );
 }

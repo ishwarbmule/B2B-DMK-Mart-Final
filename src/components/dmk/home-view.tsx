@@ -6,6 +6,7 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, BadgePercent, Building2, Check, Copy, LayoutGrid, ListFilter, Megaphone, PackageCheck, PhoneCall, Star, Ticket, Truck, ChevronRight, Sparkles } from "lucide-react";
 import { useCatalog } from "./site-header-v2";
+import { LiveText } from "./live-content-context";
 import { HeroBanner } from "./hero-banner";
 import { HeroSlider } from "./hero-slider";
 import { ProductCard, ProductCardMini } from "./product-card";
@@ -139,7 +140,7 @@ function OfferPromo({ offer }: { offer: OfferNode }) {
               className="text-[10px] font-extrabold uppercase tracking-[0.22em] sm:text-xs"
               style={{ color: offer.kickerColor || offer.textColor, ...offerFontSize(offer.kickerSize, offer.kickerSizeM) }}
             >
-              <Sparkles className="mr-1.5 inline h-3.5 w-3.5" /> Limited Period Campaign
+              <Sparkles className="mr-1.5 inline h-3.5 w-3.5" /> <LiveText k="home.offer.kicker" />
             </motion.p>
             <motion.h2
               variants={{ hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 120, damping: 16 } } }}
@@ -717,30 +718,30 @@ function DeptCards({ cfg, title }: { cfg?: HomeSectionCfg; title?: string }) {
 /* ─────────────── How it works ─────────────── */
 function HowItWorks({ cfg, title }: { cfg?: HomeSectionCfg; title?: string }) {
   const steps = [
-    { icon: Building2, title: "Create B2B Account", text: "Register as retailer, wholesaler or distributor — get your price tier after approval." },
-    { icon: PackageCheck, title: "Order Pieces or Full Packs", text: "Every product supports single pieces and sealed full packs with transparent pricing — pack rates when you pick up." },
-    { icon: Truck, title: "OTP-verified Delivery", text: "A 4-digit OTP is printed on your invoice — share it only when your order arrives." },
+    { icon: Building2, titleKey: "home.hiw.step1.title", textKey: "home.hiw.step1.text" },
+    { icon: PackageCheck, titleKey: "home.hiw.step2.title", textKey: "home.hiw.step2.text" },
+    { icon: Truck, titleKey: "home.hiw.step3.title", textKey: "home.hiw.step3.text" },
   ];
   return (
     <section className="rounded-2xl bg-black p-6 md:p-10">
-      <h2 className={`text-center text-xl font-black text-white md:text-2xl`} style={{ color: secColor(cfg?.color) }}>{title || "Built for Serious B2B Buyers"}</h2>
+      <h2 className={`text-center text-xl font-black text-white md:text-2xl`} style={{ color: secColor(cfg?.color) }}>{title || <LiveText k="home.hiw.title" />}</h2>
       <div className="mt-8 grid gap-6 md:grid-cols-3">
         {steps.map((s, i) => (
           <div key={i} className="relative rounded-2xl border border-gray-800 bg-gray-950 p-5">
             <span className="absolute -top-3 left-5 rounded-full bg-yellow-400 px-2.5 py-0.5 text-[11px] font-black text-black">STEP {i + 1}</span>
             <s.icon className="h-7 w-7 text-yellow-400" />
-            <p className="mt-3 text-sm font-bold text-white">{s.title}</p>
-            <p className="mt-1 text-xs leading-relaxed text-gray-400">{s.text}</p>
+            <p className="mt-3 text-sm font-bold text-white"><LiveText k={s.titleKey} /></p>
+            <p className="mt-1 text-xs leading-relaxed text-gray-400"><LiveText k={s.textKey} /></p>
           </div>
         ))}
       </div>
       <div className="mt-8 flex flex-col items-center justify-between gap-4 rounded-2xl bg-yellow-400 p-5 md:flex-row">
         <div>
-          <p className="text-lg font-black text-black">Need a custom quote for container loads?</p>
-          <p className="text-xs text-black/70">Talk to our wholesale desk — slab pricing up to 16% off.</p>
+          <p className="text-lg font-black text-black"><LiveText k="home.hiw.cta.title" /></p>
+          <p className="text-xs text-black/70"><LiveText k="home.hiw.cta.text" /></p>
         </div>
         <a href="tel:+919822012345" className="flex items-center gap-2 rounded-xl bg-black px-6 py-3 text-sm font-bold text-yellow-400 hover:bg-gray-900">
-          <PhoneCall className="h-4 w-4" /> +91 98220 12345
+          <PhoneCall className="h-4 w-4" /> <LiveText k="home.hiw.cta.phone" />
         </a>
       </div>
     </section>
@@ -750,10 +751,10 @@ function HowItWorks({ cfg, title }: { cfg?: HomeSectionCfg; title?: string }) {
 /* ─────────────── Ratings strip ─────────────── */
 function TrustStrip() {
   const items = [
-    { icon: Star, title: "4.8/5 B2B rating", text: "from 480+ retail partners" },
-    { icon: Truck, title: "48h dispatch", text: "from Pune warehouse" },
-    { icon: BadgePercent, title: "Tier pricing", text: "retailer → distributor rates" },
-    { icon: PackageCheck, title: "2,272 SKUs", text: "across 9 departments" },
+    { icon: Star, titleKey: "home.trust.1.title", textKey: "home.trust.1.text" },
+    { icon: Truck, titleKey: "home.trust.2.title", textKey: "home.trust.2.text" },
+    { icon: BadgePercent, titleKey: "home.trust.3.title", textKey: "home.trust.3.text" },
+    { icon: PackageCheck, titleKey: "home.trust.4.title", textKey: "home.trust.4.text" },
   ];
   return (
     <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -761,8 +762,8 @@ function TrustStrip() {
         <div key={i} className="flex items-center gap-3 rounded-2xl border bg-white p-4">
           <it.icon className="h-8 w-8 shrink-0 text-yellow-500" />
           <div>
-            <p className="text-xs font-black text-gray-900">{it.title}</p>
-            <p className="text-[11px] text-gray-500">{it.text}</p>
+            <p className="text-xs font-black text-gray-900"><LiveText k={it.titleKey} /></p>
+            <p className="text-[11px] text-gray-500"><LiveText k={it.textKey} /></p>
           </div>
         </div>
       ))}

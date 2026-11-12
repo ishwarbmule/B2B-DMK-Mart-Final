@@ -13,50 +13,86 @@ const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString()
 /* ══════════════ FINANCIAL ══════════════ */
 type FinData = {
   range: { from: string; to: string };
+  presetUsed: string;
+  smartExtended: boolean;
   summary: Record<string, number>;
   daily: { date: string; revenue: number; orders: number; profit: number }[];
   byPayment: { mode: string; amount: number; count: number }[];
   bySource: { source: string; amount: number; count: number }[];
 };
 
+const FIN_PRESETS: [string, string][] = [
+  ["7", "7 Days"], ["30", "30 Days"], ["90", "90 Days"],
+  ["month", "This Month"], ["lastMonth", "Last Month"], ["all", "All Time"], ["custom", "Custom"],
+];
+
 export function FinancialModule({ token }: { token: string }) {
   const call = api(token);
-  const [from, setFrom] = useState(daysAgo(29));
+  const [preset, setPreset] = useState("smart");
+  const [from, setFrom] = useState(daysAgo(89));
   const [to, setTo] = useState(today());
   const [data, setData] = useState<FinData | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const load = async () => {
+  const load = useCallback(async () => {
+    setLoading(true);
     try {
-      const d = await call(`/api/admin/financial?from=${from}&to=${to}`);
+      const qs = preset === "custom" ? `preset=custom&from=${from}&to=${to}` : `preset=${preset}`;
+      const d = await call(`/api/admin/financial?${qs}`);
       setData(d);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [call, preset, from, to]);
 
-  useEffect(() => {
-    let alive = true;
-    call(`/api/admin/financial?from=${from}&to=${to}`)
-      .then((d) => { if (alive) setData(d); })
-      .catch((e) => toast.error(e instanceof Error ? e.message : "Failed"));
-    return () => { alive = false; };
-  }, [token, from, to]);
+  useEffect(() => { load(); }, [load]);
 
   if (!data) return <p className="rounded-xl border bg-white p-10 text-center text-sm text-gray-400">Loading financials…</p>;
   const s = data.summary;
+  const empty = s.orders === 0;
 
   return (
     <div>
       <ModuleHeader title="Financial Section" sub={`${data.range.from} → ${data.range.to} · sales, COGS, profit & payment mix`}>
-        <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="h-9 rounded-lg border px-2 text-xs" />
-        <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="h-9 rounded-lg border px-2 text-xs" />
-        <button onClick={load} className="flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold hover:bg-gray-50"><RefreshCcw className="h-3.5 w-3.5" /></button>
+        {data.smartExtended && (
+          <span className="rounded-lg bg-orange-50 px-2.5 py-1.5 text-[10px] font-bold text-orange-600">No recent orders — showing all time</span>
+        )}
       </ModuleHeader>
 
+      {/* preset chips */}
+      <div className="mb-4 flex flex-wrap items-center gap-1.5">
+        {FIN_PRESETS.map(([id, label]) => (
+          <button
+            key={id}
+            onClick={() => { setPreset(id); if (id !== "custom") { setFrom(daysAgo(89)); setTo(today()); } }}
+            className={`rounded-lg px-3 py-1.5 text-[11px] font-bold transition ${preset === id || (preset === "smart" && data.presetUsed === id) ? "bg-black text-yellow-400" : "border text-gray-500 hover:bg-gray-50"}`}
+          >
+            {label}
+          </button>
+        ))}
+        {preset === "custom" && (
+          <>
+            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="h-8 rounded-lg border px-2 text-xs" />
+            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="h-8 rounded-lg border px-2 text-xs" />
+          </>
+        )}
+        <button onClick={load} className="flex h-8 items-center gap-1.5 rounded-lg border px-3 text-[11px] font-semibold hover:bg-gray-50"><RefreshCcw className="h-3 w-3" /> Refresh</button>
+      </div>
+
+      {empty ? (
+        <div className="rounded-xl border border-dashed bg-white p-12 text-center">
+          <p className="text-sm font-bold text-gray-700">No orders in {data.range.from} → {data.range.to}</p>
+          <p className="mx-auto mt-1 max-w-md text-xs text-gray-400">Pick a wider window above — &ldquo;All Time&rdquo; always covers every order on record.</p>
+        </div>
+      ) : (
+        <>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard icon={IndianRupee} label="Gross Sales" value={formatINR(s.gross)} sub={`${s.orders} orders`} color="#111111" />
         <StatCard icon={Wallet} label="Net Revenue" value={formatINR(s.net)} sub={`after ${formatINR(s.discounts)} discounts`} color="#1d4ed8" />
         <StatCard icon={TrendingUp} label="Gross Profit" value={formatINR(s.grossProfit)} sub={`margin ${s.profitMargin}% (COGS ${formatINR(s.cogs)})`} color="#059669" />
+        <StatCard icon={FileSpreadsheet} label="GST Collected" value={formatINR(s.gst)} sub={`delivery ${formatINR(s.delivery)}`} color="#b45309" />
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -127,6 +163,8 @@ export function FinancialModule({ token }: { token: string }) {
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

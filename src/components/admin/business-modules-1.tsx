@@ -12,7 +12,11 @@ import { formatINR } from "@/lib/store";
 
 /* ══════════════ DASHBOARD ══════════════ */
 type DashData = {
+  window: { requested: number; used: number; smartExtended: boolean; label: string };
   kpis: Record<string, number>;
+  statusCounts: Record<string, number>;
+  paymentMix: { mode: string; amount: number }[];
+  recentOrders: { id: string; invoiceNo: string; customerName: string; grandTotal: number; status: string; createdAt: string; source: string; paymentMethod: string }[];
   trend: { date: string; revenue: number; orders: number }[];
   topProducts: { id: string; sku: string; name: string; image: string; brand: string; pieces: number; revenue: number; orders: number }[];
   lowStock: { id: string; sku: string; name: string; stock: number; image: string; brand: { name: string } }[];
@@ -21,18 +25,38 @@ type DashData = {
   lastSync: { direction: string; status: string; message: string; createdAt: string } | null;
 };
 
+const PIPELINE: [string, string, string][] = [
+  ["PENDING", "Pending", "#e11d48"],
+  ["CONFIRMED", "Confirmed", "#f59e0b"],
+  ["PACKED", "Packed", "#2563eb"],
+  ["DISPATCHED", "Dispatched", "#0891b2"],
+  ["DELIVERED", "Delivered", "#16a34a"],
+  ["CANCELLED", "Cancelled", "#9ca3af"],
+];
+
+function DeltaBadge({ value }: { value: number }) {
+  if (!value) return null;
+  const up = value > 0;
+  return (
+    <span className={`rounded-md px-1.5 py-0.5 text-[9px] font-black ${up ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}`}>
+      {up ? "▲" : "▼"} {Math.abs(value)}%
+    </span>
+  );
+}
+
 export function DashboardModule({ token }: { token: string }) {
   const call = api(token);
   const [data, setData] = useState<DashData | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [win, setWin] = useState(90);
 
   useEffect(() => {
     let alive = true;
-    call("/api/admin/dashboard")
+    call(`/api/admin/dashboard?window=${win}`)
       .then((d) => { if (alive) setData(d); })
       .catch((e) => toast.error(e instanceof Error ? e.message : "Failed"));
     return () => { alive = false; };
-  }, [token]);
+  }, [token, win, call]);
 
   const syncNow = async () => {
     setSyncing(true);
@@ -51,10 +75,18 @@ export function DashboardModule({ token }: { token: string }) {
 
   if (!data) return <p className="rounded-xl border bg-white p-10 text-center text-sm text-gray-400">Loading dashboard…</p>;
   const k = data.kpis;
+  const totalPipeline = Object.values(data.statusCounts).reduce((a, b) => a + b, 0) || 1;
 
   return (
     <div className="space-y-4">
-      <ModuleHeader title="Dashboard" sub="Sales, profit, offers activity, coupon usage & ERP sync — everything at a glance">
+      <ModuleHeader title="Dashboard" sub={`${data.window.label} · sales, pipeline, payments & ERP sync — everything at a glance`}>
+        <div className="flex overflow-hidden rounded-lg border">
+          {[7, 30, 90].map((d) => (
+            <button key={d} onClick={() => setWin(d)} className={`px-3 py-1.5 text-[10px] font-black uppercase ${win === d ? "bg-black text-yellow-400" : "bg-white text-gray-500 hover:bg-gray-50"}`}>
+              {d}d
+            </button>
+          ))}
+        </div>
         <button onClick={syncNow} disabled={syncing} className="flex h-9 items-center gap-1.5 rounded-lg bg-black px-3.5 text-xs font-bold text-yellow-400 hover:bg-gray-800 disabled:opacity-50">
           <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} /> {syncing ? "Pulling…" : "Pull ERP Catalog"}
         </button>
@@ -68,21 +100,18 @@ export function DashboardModule({ token }: { token: string }) {
         <Link href="/admin" className="ml-auto text-[11px] font-bold text-gray-500 underline">ERP pushes arrive at /api/inventory/webhook automatically every 30 min</Link>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs — window aware with deltas */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard icon={IndianRupee} label="Total Revenue" value={formatINR(k.revenue)} sub={`${k.orders} orders lifetime`} color="#111111" />
-        <StatCard icon={ShoppingCart} label="Last 30 Days" value={formatINR(k.revenue30)} sub={`${k.orders30} orders · today: ${k.ordersToday}`} color="#7c3aed" />
-        <StatCard icon={Boxes} label="Est. Gross Profit 30d" value={formatINR(Math.max(0, k.revenue30 - k.cogs30))} sub={`margin ${k.profitMargin}% · COGS ${formatINR(k.cogs30)}`} color="#059669" />
-        <StatCard icon={BadgePercent} label="Offers & Coupons" value={`${k.offerOrders + k.couponOrders}`} sub={`${k.offerOrders} offer orders · ${k.couponOrders} coupon orders`} color="#dc2626" />
-        <StatCard icon={Boxes} label="Catalog" value={k.products} sub={`${k.brands} active companies`} color="#b45309" />
-        <StatCard icon={Users} label="B2B Customers" value={k.customers} sub={`${k.pendingCustomers} pending approval`} color="#1d4ed8" />
-        <StatCard icon={Truck} label="Avg Order Value" value={formatINR(k.orders ? Math.round(k.revenue / k.orders) : 0)} sub="lifetime" color="#0f766e" />
+        <StatCard icon={IndianRupee} label={`Revenue — ${data.window.label}`} value={formatINR(k.winRevenue)} sub={`${k.winOrders} orders · today ${k.ordersToday}`} color="#111111" extra={<DeltaBadge value={k.revenueDelta} />} />
+        <StatCard icon={ShoppingCart} label="Orders — window" value={k.winOrders} sub={`avg ${formatINR(k.winOrders ? Math.round(k.winRevenue / k.winOrders) : 0)} per order`} color="#7c3aed" extra={<DeltaBadge value={k.ordersDelta} />} />
+        <StatCard icon={Boxes} label="Est. Gross Profit" value={formatINR(Math.max(0, k.winRevenue - k.winCogs))} sub={`margin ${k.profitMargin}% · COGS ${formatINR(k.winCogs)}`} color="#059669" />
+        <StatCard icon={BadgePercent} label="GST Collected — window" value={formatINR(k.winGst)} sub={`discounts given ${formatINR(k.winDiscounts)}`} color="#b45309" />
       </div>
 
-      {/* trend */}
+      {/* trend + payment mix */}
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border bg-white p-4">
-          <p className="mb-2 text-xs font-bold text-gray-700">Revenue — last 30 days</p>
+          <p className="mb-2 text-xs font-bold text-gray-700">Revenue — {data.window.label}</p>
           <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={data.trend}>
               <defs>
@@ -100,16 +129,59 @@ export function DashboardModule({ token }: { token: string }) {
           </ResponsiveContainer>
         </div>
         <div className="rounded-xl border bg-white p-4">
-          <p className="mb-2 text-xs font-bold text-gray-700">Coupon usage (applications)</p>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={data.coupons.map((c) => ({ code: c.code, used: c.usedCount }))}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="code" tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 9 }} allowDecimals={false} />
-              <Tooltip contentStyle={{ fontSize: 11, borderRadius: 10 }} />
-              <Bar dataKey="used" fill="#111827" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <p className="mb-2 text-xs font-bold text-gray-700">Payment mix — {data.window.label}</p>
+          {data.paymentMix.length ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={data.paymentMix}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="mode" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: number) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))} />
+                <Tooltip formatter={(v) => formatINR(Number(v))} contentStyle={{ fontSize: 11, borderRadius: 10 }} />
+                <Bar dataKey="amount" fill="#111827" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="py-16 text-center text-xs text-gray-400">No payments in this window.</p>
+          )}
+        </div>
+      </div>
+
+      {/* pipeline + recent orders */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-xl border bg-white p-4">
+          <p className="mb-3 flex items-center gap-1.5 text-xs font-bold text-gray-700"><Truck className="h-4 w-4 text-blue-500" /> Order Pipeline (all time)</p>
+          <div className="mb-3 flex h-3 w-full overflow-hidden rounded-full bg-gray-100">
+            {PIPELINE.map(([id, , color]) => (
+              <div key={id} style={{ width: `${((data.statusCounts[id] ?? 0) / totalPipeline) * 100}%`, background: color }} title={`${id}: ${data.statusCounts[id] ?? 0}`} />
+            ))}
+          </div>
+          <div className="grid grid-cols-3 gap-1.5 md:grid-cols-6">
+            {PIPELINE.map(([id, label, color]) => (
+              <div key={id} className="rounded-lg border p-2 text-center">
+                <p className="text-sm font-black" style={{ color }}>{data.statusCounts[id] ?? 0}</p>
+                <p className="text-[9px] font-semibold uppercase text-gray-400">{label}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-[10px] text-gray-400">{k.pendingCustomers} buyer approvals waiting → People / Buyer Approvals</p>
+        </div>
+        <div className="rounded-xl border bg-white p-4">
+          <p className="mb-3 flex items-center gap-1.5 text-xs font-bold text-gray-700"><ShoppingCart className="h-4 w-4 text-purple-500" /> Recent Orders</p>
+          <div className="space-y-1.5">
+            {data.recentOrders.map((o) => (
+              <div key={o.id} className="flex items-center justify-between rounded-lg border p-2 text-xs">
+                <div className="min-w-0">
+                  <p className="truncate font-bold">{o.customerName}</p>
+                  <p className="text-[10px] text-gray-400">{o.invoiceNo || "—"} · {new Date(o.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} · {o.source === "WEB" ? "Website" : o.source === "SALESTEAM" ? "Sales team" : o.source}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-black ${o.status === "DELIVERED" ? "bg-emerald-50 text-emerald-600" : o.status === "CANCELLED" ? "bg-gray-100 text-gray-500" : o.status === "PENDING" ? "bg-red-50 text-red-600" : "bg-blue-50 text-blue-600"}`}>{o.status}</span>
+                  <span className="font-black">{formatINR(o.grandTotal)}</span>
+                </div>
+              </div>
+            ))}
+            {!data.recentOrders.length && <p className="py-6 text-center text-xs text-gray-400">No orders yet.</p>}
+          </div>
         </div>
       </div>
 
@@ -163,6 +235,15 @@ export function DashboardModule({ token }: { token: string }) {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* lifetime band */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        <StatCard icon={IndianRupee} label="Lifetime Revenue" value={formatINR(k.revenue)} sub={`${k.orders} orders on record`} color="#111111" />
+        <StatCard icon={IndianRupee} label="Lifetime GST" value={formatINR(k.gstCollected)} sub="all orders" color="#b45309" />
+        <StatCard icon={IndianRupee} label="Lifetime Discounts" value={formatINR(k.discounts)} sub="given so far" color="#dc2626" />
+        <StatCard icon={Users} label="B2B Customers" value={k.customers} sub={`${k.pendingCustomers} pending approval`} color="#1d4ed8" />
+        <StatCard icon={Boxes} label="Catalog" value={k.products} sub={`${k.brands} active companies`} color="#7c3aed" />
       </div>
     </div>
   );
