@@ -7,9 +7,14 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["pdfmake"],
   // pdfmake reads its Roboto TTFs from node_modules/pdfmake/fonts via fs at
   // runtime — fs reads inside the package are invisible to file tracing, so
-  // ship the fonts explicitly for the brochure PDF route.
+  // ship the fonts explicitly for the brochure PDF route (same for the cover
+  // hero artwork + brand logo the builder reads from public/).
   outputFileTracingIncludes: {
-    "/api/admin/brochure/generate": ["./node_modules/pdfmake/fonts/**/*"],
+    "/api/admin/brochure/generate": [
+      "./node_modules/pdfmake/fonts/**/*",
+      "./public/images/hero-banner.jpg",
+      "./public/dmk-logo.png",
+    ],
   },
   typescript: {
     ignoreBuildErrors: true,
