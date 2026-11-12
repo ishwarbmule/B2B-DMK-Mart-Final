@@ -64,18 +64,23 @@ function cloudinaryThumb(url: string): string | null {
   return url.replace("/upload/", `/upload/c_fill,g_center,h_${IMG_PLACEHOLDER_W},q_auto:good,w_${IMG_PLACEHOLDER_W}/`);
 }
 
-async function fetchImage(url: string): Promise<string | null> {
-  const cached = IMG_CACHE.get(url);
+async function fetchImage(url: string, fit: "cover" | "inside" = "cover"): Promise<string | null> {
+  const cacheKey = `${fit}:${url}`;
+  const cached = IMG_CACHE.get(cacheKey);
   if (cached) return cached;
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(8000), cache: "no-store" });
     if (!res.ok) return null;
     const buf = Buffer.from(await res.arrayBuffer());
     if (!buf.length) return null;
-    const jpg = await sharp(buf).rotate().resize(IMG_PLACEHOLDER_W, IMG_PLACEHOLDER_W, { fit: "cover" }).jpeg({ quality: 74 }).toBuffer();
+    // "inside" keeps brand logos uncropped on white; "cover" squares product shots
+    const jpg = await sharp(buf).rotate()
+      .flatten({ background: "#ffffff" })
+      .resize(IMG_PLACEHOLDER_W, IMG_PLACEHOLDER_W, { fit })
+      .jpeg({ quality: 74 }).toBuffer();
     const dataUrl = `data:image/jpeg;base64,${jpg.toString("base64")}`;
     if (IMG_CACHE.size > 600) IMG_CACHE.clear();
-    IMG_CACHE.set(url, dataUrl);
+    IMG_CACHE.set(cacheKey, dataUrl);
     return dataUrl;
   } catch {
     return null;
@@ -102,10 +107,33 @@ async function getLogo(): Promise<string> {
   return logoDataUrl;
 }
 
+/** Homepage hero artwork (cover band) — crop the product-arrangement side of
+ *  public/images/hero-banner.jpg (left ~38% is the baked-in headline copy),
+ *  vertically centered to the exact aspect of the 595×318pt cover band. */
+let heroDataUrl: string | null = null;
+async function getHeroImage(): Promise<string> {
+  if (heroDataUrl !== null) return heroDataUrl;
+  try {
+    const raw = await readFile(path.join(process.cwd(), "public", "images", "hero-banner.jpg"));
+    const meta = await sharp(raw).metadata();
+    const w = meta.width || 1920;
+    const h = meta.height || 702;
+    const left = Math.round(w * 0.38);
+    const cw = w - left;
+    const ch = Math.min(h, Math.round((cw * 318) / 595.28));
+    const top = Math.max(0, Math.round((h - ch) / 2));
+    const jpg = await sharp(raw).extract({ left, top, width: cw, height: ch }).resize(1190).jpeg({ quality: 80 }).toBuffer();
+    heroDataUrl = `data:image/jpeg;base64,${jpg.toString("base64")}`;
+  } catch {
+    heroDataUrl = "";
+  }
+  return heroDataUrl;
+}
+
 /* ── data ── */
 
 interface BrochureProduct {
-  id: string; sku: string; name: string; company: string;
+  id: string; sku: string; name: string; company: string; dept: string;
   packLabel: string; image: string;
   price: number | null; mrp: number; stock: number; low: number;
   isTop: boolean; isHot: boolean;
@@ -138,6 +166,7 @@ export async function loadBrochureProducts(f: BrochureFilters) {
       const pack = p.packQty > 1 ? `Pack of ${p.packQty} ${p.unit || "Pcs"}` : p.piecesPerBox > 0 ? `Box of ${p.piecesPerBox} ${p.unit || "Pcs"}` : `1 ${p.unit || "Pcs"}`;
       return {
         id: p.id, sku: p.sku, name: p.name, company: p.company || "DMK Mart",
+        dept: p.top?.name || "",
         packLabel: pack,
         image: p.image,
         price: f.showPrices ? price : null,
@@ -164,6 +193,35 @@ export async function loadBrochureProducts(f: BrochureFilters) {
   return { rows, sections, companiesUsed, max };
 }
 
+/* ── brands (brand page: logo + clickable storefront name) ── */
+
+export interface BrochureBrandRow {
+  name: string; url: string; logo: string; skus: number; tagline: string; isFeatured: boolean;
+}
+
+async function loadBrochureBrands(): Promise<BrochureBrandRow[]> {
+  const raw = await db.brand.findMany({
+    where: { active: true },
+    orderBy: [{ isFeatured: "desc" }, { sortOrder: "asc" }, { name: "asc" }],
+    select: { name: true, slug: true, logo: true, tagline: true, isFeatured: true, _count: { select: { products: { where: { active: true } } } } },
+  }).catch(() => [] as { name: string; slug: string; logo: string; tagline: string; isFeatured: boolean; _count: { products: number } }[]);
+
+  const rows: BrochureBrandRow[] = raw.slice(0, 60).map((b) => ({
+    name: b.name,
+    url: `${SITE_URL}/brand/${b.slug}`,
+    logo: b.logo,
+    skus: b._count?.products ?? 0,
+    tagline: b.tagline || "",
+    isFeatured: b.isFeatured,
+  }));
+
+  // logos → white-background contain thumbs (uncropped, like the /brands page)
+  await runPool(rows, 6, async (b) => {
+    b.logo = b.logo ? (await fetchImage(b.logo, "inside")) || "" : "";
+  });
+  return rows;
+}
+
 /* ── generation ── */
 
 export async function generateBrochure(f: BrochureFilters): Promise<{ buffer: Buffer; meta: BrochureMeta }> {
@@ -179,6 +237,8 @@ export async function generateBrochure(f: BrochureFilters): Promise<{ buffer: Bu
   const firmPhone = S.firm_phone || "";
 
   const logo = await getLogo();
+  const heroImage = await getHeroImage();
+  const brands = await loadBrochureBrands();
   const id = makeId();
   const nowP = istParts();
   const generatedAtIST = `${nowP.day}-${nowP.month}-${nowP.year}, ${nowP.hour}:${nowP.minute} IST`;
@@ -207,6 +267,7 @@ export async function generateBrochure(f: BrochureFilters): Promise<{ buffer: Bu
 
   const cards: BrochureCard[] = rows.map((r) => ({
     id: r.id, sku: r.sku, name: r.name, company: r.company,
+    dept: r.dept,
     packLabel: r.packLabel, image: r.image,
     price: r.price, mrp: r.mrp, stock: r.stock, low: r.low,
     isTop: r.isTop, isHot: r.isHot,
@@ -214,9 +275,11 @@ export async function generateBrochure(f: BrochureFilters): Promise<{ buffer: Bu
   }));
 
   const docDefinition = buildDocDefinition(cards, sections, {
-    firmName, firmPhone, logo, qr, id, generatedAtIST, validTillIST,
+    firmName, firmPhone, logo, qr, heroImage, brands,
+    id, generatedAtIST, validTillIST,
     titleScope, monthName, tierLabel,
     siteDisplay: SITE_URL.replace(/^https?:\/\//, ""),
+    siteUrl: SITE_URL,
   });
 
   const buffer: Buffer = await renderPdf(docDefinition);
