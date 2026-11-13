@@ -47,7 +47,9 @@ export function useLiveContent() {
   return useContext(LiveCtx);
 }
 
-/** Render a registry-editable text. The overlay hooks onto [data-live-key]. */
+/** Render a registry-editable text. The overlay hooks onto [data-live-key];
+ *  data-live-default tells the overlay which value "unchanged" means for this element
+ *  (registry default + override — or the DB value for slider:* keys set in hero-slider). */
 export function LiveText({
   k,
   as: Tag = "span",
@@ -61,7 +63,7 @@ export function LiveText({
 }) {
   const { t } = useLiveContent();
   return (
-    <Tag data-live-key={k} data-live-label={k} className={className} style={style}>
+    <Tag data-live-key={k} data-live-label={k} data-live-default={t(k)} className={className} style={style}>
       {t(k)}
     </Tag>
   );

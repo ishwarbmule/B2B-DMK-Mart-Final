@@ -280,7 +280,7 @@ function BrandStrip({ cfg, title }: { cfg?: HomeSectionCfg; title?: string }) {
     <section>
       <div className={`mb-3 flex items-center justify-between`}>
         <h2 className={`flex items-center gap-2 ${secSize(cfg?.size)} font-black`} style={{ color: secColor(cfg?.color) }}>
-          <Building2 className="h-5 w-5 text-yellow-500" /> {title || "Shop by Brand"}
+          <Building2 className="h-5 w-5 text-yellow-500" /> {title || <LiveText k="home.sec.brandStrip.title" />}
         </h2>
         <Link href="/brands" className="text-xs font-bold text-yellow-600 hover:underline">View all brands →</Link>
       </div>
@@ -314,9 +314,9 @@ function CategoryGrid({ cfg, title, sub }: { cfg?: HomeSectionCfg; title?: strin
       <div className={`mb-3 flex items-end justify-between`}>
         <div className="flex flex-col gap-0.5">
           <h2 className={`flex items-center gap-2 ${secSize(cfg?.size)} font-black`} style={{ color: secColor(cfg?.color) }}>
-            <LayoutGrid className="h-5 w-5 text-yellow-500" /> {title || "Shop by Category"}
+            <LayoutGrid className="h-5 w-5 text-yellow-500" /> {title || <LiveText k="home.sec.categoryGrid.title" />}
           </h2>
-          <p className="text-[11px] text-gray-500" style={{ color: secColor(cfg?.color) }}>{sub || "All wholesale departments in one row — tap to browse"}</p>
+          <p className="text-[11px] text-gray-500" style={{ color: secColor(cfg?.color) }}>{sub || <LiveText k="home.sec.categoryGrid.sub" />}</p>
         </div>
         <Link href="/catalog" className="text-xs font-bold text-yellow-600 hover:underline">Browse all products →</Link>
       </div>
@@ -374,8 +374,8 @@ function DealsRail({ cfg, deals, title, sub }: { cfg?: HomeSectionCfg; deals: DP
         <div className="flex items-center gap-3">
           <span className="rounded-lg bg-white px-3 py-1.5 text-lg font-black text-red-600">DEALS</span>
           <div>
-            <p className={`${secSize(cfg?.size)} font-black text-white`} style={{ color: secColor(cfg?.color) }}>{title || "Deals of the Day"}</p>
-            <p className="text-[11px] text-red-100">{sub || "Extra margin on today's picks — while stocks last"}</p>
+            <p className={`${secSize(cfg?.size)} font-black text-white`} style={{ color: secColor(cfg?.color) }}>{title || <LiveText k="home.sec.deals.title" />}</p>
+            <p className="text-[11px] text-red-100">{sub || <LiveText k="home.sec.deals.sub" />}</p>
           </div>
         </div>
         <Link href="/catalog?flag=deal" className="flex items-center gap-1 rounded-lg bg-black/30 px-3 py-2 text-xs font-bold text-white hover:bg-black/50">
@@ -642,7 +642,7 @@ function AdsStrip({ cfg, title }: { cfg?: HomeSectionCfg; title?: string }) {
   return (
     <section>
       <h2 className={`mb-3 flex items-center gap-2 ${secSize(cfg?.size)} font-black`} style={{ color: secColor(cfg?.color) }}>
-        <Megaphone className="h-5 w-5 text-yellow-500" /> {title || "Sponsored Promotions"}
+        <Megaphone className="h-5 w-5 text-yellow-500" /> {title || <LiveText k="home.sec.ads.title" />}
       </h2>
       <div
         className="relative overflow-hidden rounded-xl pb-1"
@@ -671,9 +671,9 @@ function AllProductsSection({ cfg, title, sub }: { cfg?: HomeSectionCfg; title?:
     <section>
       <div className={`mb-3 flex flex-col gap-0.5 ${secAlign(cfg?.align)}`}>
         <h2 className={`flex items-center gap-2 ${secSize(cfg?.size)} font-black`} style={{ color: secColor(cfg?.color) }}>
-          <ListFilter className="h-5 w-5 text-yellow-500" /> {title || "All Products"}
+          <ListFilter className="h-5 w-5 text-yellow-500" /> {title || <LiveText k="home.sec.allProducts.title" />}
         </h2>
-        <p className="text-[11px] text-gray-500">{sub || "Complete wholesale range — filter by department, category, brand, price and sort"}</p>
+        <p className="text-[11px] text-gray-500">{sub || <LiveText k="home.sec.allProducts.sub" />}</p>
       </div>
       <CatalogView
         title=""
@@ -691,7 +691,7 @@ function DeptCards({ cfg, title }: { cfg?: HomeSectionCfg; title?: string }) {
   return (
     <section>
       <h2 className={`mb-3 flex items-center gap-2 ${secSize(cfg?.size)} font-black`} style={{ color: secColor(cfg?.color) }}>
-        <PackageCheck className="h-5 w-5 text-yellow-500" /> {title || "Wholesale Departments"}
+        <PackageCheck className="h-5 w-5 text-yellow-500" /> {title || <LiveText k="home.sec.dept.title" />}
       </h2>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {tops.map((t, i) => (

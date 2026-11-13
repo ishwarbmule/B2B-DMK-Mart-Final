@@ -1,7 +1,13 @@
 /**
  * /api/admin/site-content — Live Visual Editor persistence.
- *  GET            → all rows joined with the registry (for the admin table)
+ *  GET            → all SiteContent rows joined with the registry + hero slider rows
  *  POST { changes } → batch upsert; value "" deletes the row (back to default)
+ *
+ *  Key namespaces:
+ *  - "home.*"          → SiteContent table (registry-backed overrides)
+ *  - "slider:<id>:<field>" → Slider table direct write (hero slide copy:
+ *    kicker | heading | content | buttonText | tagline). Plain text only —
+ *    the multicolour *star* heading syntax stays a Hero Section (Sliders) admin feature.
  *
  * Self-healing: if the SiteContent table is missing on a fresh MySQL deploy
  * (schema pushed only on next `prisma db push`), the first admin request creates
@@ -15,6 +21,17 @@ import { LIVE_TEXTS } from "@/lib/live-content";
 export const dynamic = "force-dynamic";
 
 let ensured = false;
+
+const SLIDER_FIELDS = ["kicker", "heading", "content", "buttonText", "tagline"] as const;
+type SliderField = (typeof SLIDER_FIELDS)[number];
+
+function parseSliderKey(key: string): { id: string; field: SliderField } | null {
+  const m = /^slider:([A-Za-z0-9]+):(\w+)$/.exec(key);
+  if (!m) return null;
+  const [, id, field] = m;
+  if (!SLIDER_FIELDS.includes(field as SliderField)) return null;
+  return { id, field: field as SliderField };
+}
 
 /** SQLite twin locally, MySQL in production — detect by asking for a SQLite-only function. */
 async function isSqliteRuntime(): Promise<boolean> {
@@ -65,19 +82,36 @@ export async function GET(req: NextRequest) {
     await ensureTable();
     const rows = await db.siteContent.findMany({ orderBy: { key: "asc" } });
     const byKey = new Map(rows.map((r) => [r.key, r]));
+    const sliders = await db.slider.findMany({ orderBy: { sortOrder: "asc" } });
+    const sliderRows = sliders.flatMap((s, i) =>
+      SLIDER_FIELDS.map((field) => ({
+        key: `slider:${s.id}:${field}`,
+        page: "hero",
+        label: `Slide ${i + 1}${s.heading ? ` — ${s.heading.slice(0, 24)}` : ""} · ${field}`,
+        defaultValue: (s as unknown as Record<string, unknown>)[field] as string ?? "",
+        multiline: field === "content" || field === "tagline",
+        value: (s as unknown as Record<string, unknown>)[field] as string ?? "",
+        updatedAt: null,
+        dbRow: true,
+      })),
+    );
     return NextResponse.json({
-      rows: LIVE_TEXTS.map((def) => {
-        const row = byKey.get(def.key);
-        return {
-          key: def.key,
-          page: def.page,
-          label: def.label,
-          defaultValue: def.value,
-          multiline: !!def.multiline,
-          value: row?.value ?? "",
-          updatedAt: row?.updatedAt ?? null,
-        };
-      }),
+      rows: [
+        ...LIVE_TEXTS.map((def) => {
+          const row = byKey.get(def.key);
+          return {
+            key: def.key,
+            page: def.page,
+            label: def.label,
+            defaultValue: def.value,
+            multiline: !!def.multiline,
+            value: row?.value ?? "",
+            updatedAt: row?.updatedAt ?? null,
+            dbRow: false,
+          };
+        }),
+        ...sliderRows,
+      ],
     });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Load failed" }, { status: 500 });
@@ -95,9 +129,20 @@ export async function POST(req: NextRequest) {
     }
     let saved = 0;
     for (const c of changes) {
+      const value = String(c.value ?? "");
+      const sliderKey = parseSliderKey(c.key);
+      if (sliderKey) {
+        // hero slide copy — direct Slider write (plain text; empty value clears the field)
+        try {
+          await db.slider.update({ where: { id: sliderKey.id }, data: { [sliderKey.field]: value } });
+          saved++;
+        } catch (err) {
+          console.error("[site-content] slider update failed", c.key, err instanceof Error ? err.message : err);
+        }
+        continue;
+      }
       const def = LIVE_TEXTS.find((t) => t.key === c.key);
       if (!def) continue; // only registry keys are writable
-      const value = String(c.value ?? "");
       if (!value.trim()) {
         await db.siteContent.deleteMany({ where: { key: def.key } }); // reset to default
       } else {

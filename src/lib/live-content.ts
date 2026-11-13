@@ -42,6 +42,19 @@ export const LIVE_TEXTS: LiveTextDef[] = [
   { key: "home.trust.3.text", page: "home", label: "Trust badge 3 — subtext", value: "retailer → distributor rates" },
   { key: "home.trust.4.title", page: "home", label: "Trust badge 4 — title", value: "2,272 SKUs" },
   { key: "home.trust.4.text", page: "home", label: "Trust badge 4 — subtext", value: "across 9 departments" },
+
+  /* Homepage — section headings & sublines. These are FALLBACKS: a title set in the
+     Homepage Editor (v2) always wins; the live overlay edits these defaults when no
+     admin title is configured. */
+  { key: "home.sec.brandStrip.title", page: "home", label: "Section — Shop by Brand (title)", value: "Shop by Brand" },
+  { key: "home.sec.categoryGrid.title", page: "home", label: "Section — Shop by Category (title)", value: "Shop by Category" },
+  { key: "home.sec.categoryGrid.sub", page: "home", label: "Section — Shop by Category (subtext)", value: "All wholesale departments in one row — tap to browse" },
+  { key: "home.sec.deals.title", page: "home", label: "Section — Deals of the Day (title)", value: "Deals of the Day" },
+  { key: "home.sec.deals.sub", page: "home", label: "Section — Deals of the Day (subtext)", value: "Extra margin on today's picks — while stocks last" },
+  { key: "home.sec.ads.title", page: "home", label: "Section — Sponsored Promotions (title)", value: "Sponsored Promotions" },
+  { key: "home.sec.allProducts.title", page: "home", label: "Section — All Products (title)", value: "All Products" },
+  { key: "home.sec.allProducts.sub", page: "home", label: "Section — All Products (subtext)", value: "Complete wholesale range — filter by department, category, brand, price and sort" },
+  { key: "home.sec.dept.title", page: "home", label: "Section — Wholesale Departments (title)", value: "Wholesale Departments" },
 ];
 
 export const LIVE_DEFAULTS: Record<string, string> = Object.fromEntries(LIVE_TEXTS.map((t) => [t.key, t.value]));

@@ -103,7 +103,12 @@ export function HeroSlider({ sliders, onCta }: { sliders: SliderRow[]; onCta?: (
 
   useEffect(() => {
     if (n <= 1) return;
-    const t = setInterval(() => setIdx((i) => (i + 1) % n), 6000);
+    const t = setInterval(() => {
+      // Live Visual Editor session: freeze auto-advance so the slide copy being
+      // edited stays mounted (edits would otherwise vanish mid-typing every 6s)
+      if (document.body.hasAttribute("data-live-on")) return;
+      setIdx((i) => (i + 1) % n);
+    }, 6000);
     return () => clearInterval(t);
   }, [n]);
 
@@ -172,7 +177,12 @@ export function HeroSlider({ sliders, onCta }: { sliders: SliderRow[]; onCta?: (
             exit={{ opacity: 0 }}
             transition={{ duration: 0.7, ease: "easeOut" }}
           >
-            <Image src={s.image} alt={`${s.heading} ${s.highlight ?? ""}`.trim()} fill sizes="100vw" className="object-cover object-center" priority unoptimized />
+            {s.image ? (
+              <Image src={s.image} alt={`${s.heading} ${s.highlight ?? ""}`.trim()} fill sizes="100vw" className="object-cover object-center" priority unoptimized />
+            ) : (
+              /* no artwork uploaded yet — warm gradient placeholder instead of a broken <Image src=""> */
+              <div className="h-full w-full bg-gradient-to-br from-[#FFF6E0] via-amber-100 to-amber-300" />
+            )}
           </motion.div>
           {/* phone artwork (3:4 portrait) */}
           <motion.div
@@ -183,7 +193,11 @@ export function HeroSlider({ sliders, onCta }: { sliders: SliderRow[]; onCta?: (
             exit={{ opacity: 0 }}
             transition={{ duration: 0.7, ease: "easeOut" }}
           >
-            <Image src={s.mobileImage || s.image} alt={`${s.heading} ${s.highlight ?? ""}`.trim()} fill sizes="100vw" className="object-cover object-center" priority unoptimized />
+            {s.mobileImage || s.image ? (
+              <Image src={s.mobileImage || s.image} alt={`${s.heading} ${s.highlight ?? ""}`.trim()} fill sizes="100vw" className="object-cover object-center" priority unoptimized />
+            ) : (
+              <div className="h-full w-full bg-gradient-to-br from-[#FFF6E0] via-amber-100 to-amber-300 sm:hidden" />
+            )}
           </motion.div>
         </AnimatePresence>
 
@@ -219,6 +233,8 @@ export function HeroSlider({ sliders, onCta }: { sliders: SliderRow[]; onCta?: (
                   <span
                     className={`text-[10px] font-extrabold uppercase tracking-[0.22em] sm:text-xs ${inkSoft}`}
                     style={{ ...(s.kickerColor ? { color: s.kickerColor } : {}), ...fluidSize(s.kickerSize, 12) }}
+                    data-live-key={`slider:${s.id}:kicker`}
+                    data-live-default={s.kicker}
                   >
                     {s.kicker}
                   </span>
@@ -229,17 +245,21 @@ export function HeroSlider({ sliders, onCta }: { sliders: SliderRow[]; onCta?: (
                 className={`max-w-[80%] font-black leading-[1.04] tracking-tight sm:max-w-xl ${scale} ${ink}`}
                 style={{ ...(s.headingColor ? { color: s.headingColor } : {}), ...fluidSize(s.headingSize, 32) }}
               >
-                {segs.map((seg, i) =>
-                  seg.accent ? (
-                    <span key={i} style={{ color: palette[accentIdx++ % palette.length] }}>
-                      {seg.text}
-                    </span>
-                  ) : (
-                    <span key={i} style={s.headingColor ? { color: s.headingColor } : undefined}>
-                      {seg.text}
-                    </span>
-                  ),
-                )}
+                {/* live-edit mark wraps ONLY the heading segments (highlight stays a separate DB field) —
+                    commit writes plain text back to slider:<id>:heading */}
+                <span data-live-key={`slider:${s.id}:heading`} data-live-default={s.heading}>
+                  {segs.map((seg, i) =>
+                    seg.accent ? (
+                      <span key={i} style={{ color: palette[accentIdx++ % palette.length] }}>
+                        {seg.text}
+                      </span>
+                    ) : (
+                      <span key={i} style={s.headingColor ? { color: s.headingColor } : undefined}>
+                        {seg.text}
+                      </span>
+                    ),
+                  )}
+                </span>
                 {s.highlight && <span style={{ color: s.highlightColor || AMBER }}> {s.highlight}</span>}
               </motion.h2>
               {s.content && (
@@ -247,6 +267,8 @@ export function HeroSlider({ sliders, onCta }: { sliders: SliderRow[]; onCta?: (
                   variants={rise}
                   className={`max-w-[80%] text-[11px] leading-snug sm:max-w-md sm:text-sm ${inkSoft}`}
                   style={{ ...(s.contentColor ? { color: s.contentColor } : {}), ...fluidSize(s.contentSize, 15) }}
+                  data-live-key={`slider:${s.id}:content`}
+                  data-live-default={s.content}
                 >
                   {s.content}
                 </motion.p>
@@ -269,12 +291,12 @@ export function HeroSlider({ sliders, onCta }: { sliders: SliderRow[]; onCta?: (
               <motion.div variants={rise}>
                 {href ? (
                   <Link href={href} className={ctaCls} style={ctaStyle}>
-                    {s.buttonText || "Shop Now"}
+                    <span data-live-key={`slider:${s.id}:buttonText`} data-live-default={s.buttonText || "Shop Now"}>{s.buttonText || "Shop Now"}</span>
                     <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" strokeWidth={2.6} />
                   </Link>
                 ) : (
                   <button onClick={onCta} className={ctaCls} style={ctaStyle}>
-                    {s.buttonText || "Shop Now"}
+                    <span data-live-key={`slider:${s.id}:buttonText`} data-live-default={s.buttonText || "Shop Now"}>{s.buttonText || "Shop Now"}</span>
                     <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" strokeWidth={2.6} />
                   </button>
                 )}
