@@ -1,0 +1,6 @@
+{
+  "crons": [
+    { "path": "/api/cron/erp-sync", "schedule": "*/15 * * * *" },
+    { "path": "/api/cron/erp-delta", "schedule": "30 3 * * *" }
+  ]
+}

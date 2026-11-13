@@ -447,6 +447,28 @@ model SyncEvent {
   createdAt    DateTime @default(now())
 }
 
+// Universal Inventory API mirror (dmkmarterp.in /api/universal/v1) — SKU-keyed mirror
+// of exactly what the ERP shares (webhook push + pull + delta). null column = the ERP
+// admin did not tick/share that field → the storefront hides it (never invent data).
+model ErpProductMirror {
+  id             String    @id @default(cuid())
+  sku            String    @unique
+  name           String
+  isActive       Boolean   @default(true)
+  mrp            Float? // null = not shared
+  costPrice      Float? // ERP costPrice — admin-only, NEVER exposed publicly
+  deliveryRate   Float? // null = not shared
+  availableStock Float? // what buyers can order; null = not shared
+  erpUpdatedAt   DateTime?
+  lastSource     String    @default("") // PUSH | PULL | DELTA
+  payloadJson    String    @default("{}") @db.Text // last raw universal payload (audit)
+  lastSyncedAt   DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([isActive])
+}
+
 model PriceChangeLog {
   id        String   @id @default(cuid())
   productId String
