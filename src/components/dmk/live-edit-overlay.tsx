@@ -24,6 +24,10 @@ export function LiveEditOverlay() {
   const { reload } = useLiveContent();
   const [active, setActive] = useState(false);
   const [checked, setChecked] = useState(false);
+  /** why the overlay is NOT active on a ?live=1 page — surfaced as a visible banner
+   *  so a missing admin session is never a silent no-op */
+  const [blocked, setBlocked] = useState<"no-token" | "unauthorized" | "error" | null>(null);
+  const [editableCount, setEditableCount] = useState(0);
   const [selected, setSelected] = useState<{ el: HTMLElement; label: string } | null>(null);
   const [editing, setEditing] = useState<HTMLElement | null>(null);
   const [staged, setStaged] = useState<Staged>({});
@@ -37,12 +41,28 @@ export function LiveEditOverlay() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("live") !== "1") { setChecked(true); return; }
     const token = localStorage.getItem(ADMIN_TOKEN_KEY);
-    if (!token) { setChecked(true); return; }
+    if (!token) { setBlocked("no-token"); setChecked(true); return; }
     fetch("/api/admin/site-content", { headers: { authorization: `Bearer ${token}` } })
-      .then((r) => { if (r.ok) setActive(true); })
-      .catch(() => {})
+      .then((r) => {
+        if (r.ok) setActive(true);
+        else if (r.status === 401) setBlocked("unauthorized");
+        else setBlocked("error");
+      })
+      .catch(() => setBlocked("error"))
       .finally(() => setChecked(true));
   }, []);
+
+  /* count editable texts on this page + pulse them once so coverage is obvious */
+  useEffect(() => {
+    if (!active) return;
+    const count = () => document.querySelectorAll("[data-live-key]").length;
+    setEditableCount(count());
+    document.body.setAttribute("data-live-pulse", "1");
+    const t1 = setTimeout(() => document.body.removeAttribute("data-live-pulse"), 2200);
+    const mo = new MutationObserver(() => setEditableCount(count()));
+    mo.observe(document.body, { childList: true, subtree: true });
+    return () => { clearTimeout(t1); mo.disconnect(); };
+  }, [active]);
 
   const exit = useCallback(() => {
     const url = new URL(window.location.href);
@@ -71,19 +91,26 @@ export function LiveEditOverlay() {
       body[data-live-on] [data-live-key][data-live-editing] { outline: 2.5px solid #16a34a; outline-offset: 3px; background: rgba(22,163,74,.08); cursor: text; }
       body[data-live-on] { -webkit-user-select: none; user-select: none; }
       body[data-live-on] [data-live-editing] { -webkit-user-select: text; user-select: text; }
+      /* one-time coverage pulse: every editable text flashes yellow so the admin instantly
+         sees what can be clicked — fades to the steady dashed outline */
+      @keyframes dmk-live-pulse { 0%, 100% { outline-color: rgba(250,204,21,.55); background: transparent; } 40% { outline: 2.5px dashed #f59e0b; outline-offset: 2px; background: rgba(245,158,11,.14); } }
+      body[data-live-pulse] [data-live-key] { animation: dmk-live-pulse 1.9s ease-in-out .1s 1; }
     `;
     document.head.appendChild(style);
     document.body.setAttribute("data-live-on", "1");
     return () => {
       document.getElementById("dmk-live-edit-style")?.remove();
       document.body.removeAttribute("data-live-on");
+      document.body.removeAttribute("data-live-pulse");
     };
   }, [active]);
 
   const commitEdit = useCallback((el: HTMLElement) => {
     const key = el.getAttribute("data-live-key") || "";
     const next = (el.textContent || "").replace(/\u00a0/g, " ").trim();
-    const def = LIVE_DEFAULTS[key] ?? "";
+    // "unchanged" base = the value the element rendered with (registry default + override,
+    // or the current DB text for slider:* marks) — NOT the raw registry default
+    const def = el.getAttribute("data-live-default") ?? LIVE_DEFAULTS[key] ?? "";
     el.removeAttribute("data-live-editing");
     el.contentEditable = "false";
     setEditing(null);
@@ -107,11 +134,17 @@ export function LiveEditOverlay() {
 
     const onOver = (e: MouseEvent) => {
       const el = liveEl(e.target);
-      if (el && el !== editing) el.setAttribute("data-live-hover", "1");
+      if (el && el !== editing) {
+        el.setAttribute("data-live-hover", "1");
+        el.title = "Double-click to edit";
+      }
     };
     const onOut = (e: MouseEvent) => {
       const el = liveEl(e.target);
-      if (el) el.removeAttribute("data-live-hover");
+      if (el) {
+        el.removeAttribute("data-live-hover");
+        el.removeAttribute("title");
+      }
     };
     const onClick = (e: MouseEvent) => {
       if (editing) return; // typing — don't hijack
@@ -121,7 +154,8 @@ export function LiveEditOverlay() {
       e.preventDefault();
       e.stopPropagation();
       el.setAttribute("data-live-selected", "1");
-      setSelected({ el, label: liveDef(el.getAttribute("data-live-key") || "")?.label || el.getAttribute("data-live-key") || "" });
+      const k = el.getAttribute("data-live-key") || "";
+      setSelected({ el, label: liveDef(k)?.label || k.replace(/^slider:\d+:/, "Hero slide — ") });
     };
     const onDblClick = (e: MouseEvent) => {
       const el = liveEl(e.target);
@@ -145,7 +179,7 @@ export function LiveEditOverlay() {
       if (editing && (e.key === "Enter" || e.key === "Escape")) {
         e.preventDefault();
         if (e.key === "Escape") {
-          editing.textContent = LIVE_DEFAULTS[editing.getAttribute("data-live-key") || ""] ?? "";
+          editing.textContent = editing.getAttribute("data-live-default") ?? LIVE_DEFAULTS[editing.getAttribute("data-live-key") || ""] ?? "";
           editing.removeAttribute("data-live-editing");
           editing.contentEditable = "false";
           setEditing(null);
@@ -189,8 +223,16 @@ export function LiveEditOverlay() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Save failed");
       setStaged({});
-      await reload();
-      setToast({ ok: true, msg: `${data.saved ?? changes.length} text${data.saved === 1 ? "" : "s"} saved — live on the website` });
+      const touchedHero = changes.some((c) => c.key.startsWith("slider:"));
+      if (touchedHero) {
+        // hero copy comes from the catalog API (15s edge cache) — a reload picks up the
+        // fresh slide text; the toast tells the admin what just happened
+        setToast({ ok: true, msg: `${data.saved ?? changes.length} text${data.saved === 1 ? "" : "s"} saved — refreshing…` });
+        setTimeout(() => window.location.reload(), 900);
+      } else {
+        await reload();
+        setToast({ ok: true, msg: `${data.saved ?? changes.length} text${data.saved === 1 ? "" : "s"} saved — live on the website` });
+      }
     } catch (e) {
       setToast({ ok: false, msg: e instanceof Error ? e.message : "Save failed" });
     } finally {
@@ -211,14 +253,43 @@ export function LiveEditOverlay() {
     return () => window.removeEventListener("beforeunload", guard);
   }, [active]);
 
+  /* ?live=1 without a working admin session — never silent, always explain */
+  if (checked && !active && blocked) {
+    const msg =
+      blocked === "no-token"
+        ? "Live Edit needs the admin portal sign-in in this browser."
+        : blocked === "unauthorized"
+          ? "Admin session expired — sign in again to use Live Edit."
+          : "Live Edit could not reach the admin API. Try again shortly.";
+    return (
+      <div className="fixed left-1/2 top-4 z-[99999] flex -translate-x-1/2 items-center gap-3 rounded-xl border border-yellow-300 bg-yellow-50 px-4 py-3 shadow-2xl">
+        <span className="text-sm font-black text-yellow-900">✏️ {msg}</span>
+        <a
+          href="/admin"
+          className="rounded-lg bg-black px-3 py-1.5 text-xs font-bold text-yellow-400 hover:bg-gray-800"
+        >
+          Open Admin Portal
+        </a>
+        <button
+          onClick={() => { const u = new URL(window.location.href); u.searchParams.delete("live"); window.history.replaceState({}, "", u.pathname + u.search); setBlocked(null); }}
+          className="rounded-lg border border-yellow-400 px-2.5 py-1.5 text-xs font-bold text-yellow-800 hover:bg-yellow-100"
+        >
+          Dismiss
+        </button>
+      </div>
+    );
+  }
+
   if (!checked || !active) return null;
   const pending = Object.keys(staged).length;
 
   const resetSelected = () => {
     if (!selected) return;
     const key = selected.el.getAttribute("data-live-key") || "";
-    selected.el.textContent = LIVE_DEFAULTS[key] ?? "";
-    setStaged((s) => ({ ...s, [key]: "" }));
+    const def = selected.el.getAttribute("data-live-default") ?? LIVE_DEFAULTS[key] ?? "";
+    selected.el.textContent = def;
+    if (def.trim()) setStaged((s) => ({ ...s, [key]: "" })); // empty override → back to default
+    else setStaged((s) => { const c = { ...s }; delete c[key]; return c; }); // slider field cleared
     setSelected(null);
     selected.el.removeAttribute("data-live-selected");
   };
@@ -273,7 +344,9 @@ export function LiveEditOverlay() {
         <div className="mr-1">
           <p className="text-[11px] font-black leading-none text-white">Live Edit ON</p>
           <p className="mt-0.5 text-[9px] leading-none text-gray-500">
-            {pending ? `${pending} unsaved change${pending === 1 ? "" : "s"}` : "double-click any highlighted text"}
+            {pending
+              ? `${pending} unsaved change${pending === 1 ? "" : "s"}`
+              : `${editableCount} editable text${editableCount === 1 ? "" : "s"} on this page — double-click any`}
           </p>
         </div>
         <button

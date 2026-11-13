@@ -81,7 +81,8 @@ function ImageField({ value, onChange, token, aspect }: { value: string; onChang
   );
 }
 
-export function api(token: string) {
+/** Build the admin API caller. NOT exported — use api() which caches per token. */
+function makeApi(token: string) {
   return async (path: string, init?: RequestInit) => {
     const res = await fetch(path, {
       ...init,
@@ -91,6 +92,27 @@ export function api(token: string) {
     if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
     return data;
   };
+}
+
+/** Per-token cache of api callers. Every module does `const call = api(token)` on each render —
+ *  without this cache the returned closure gets a NEW identity every render, which re-triggers
+ *  `useCallback(..., [call])` + `useEffect(..., [load])` chains into an infinite refetch loop
+ *  (React "Maximum update depth exceeded" + thousands of duplicate API calls that exhaust the
+ *  Hostinger MySQL connection cap). Stable identity per token breaks the loop everywhere. */
+const apiCache = new Map<string, ReturnType<typeof makeApi>>();
+
+export function api(token: string) {
+  let fn = apiCache.get(token);
+  if (!fn) {
+    fn = makeApi(token);
+    apiCache.set(token, fn);
+    // keep the cache tiny — login/logout token churn must not leak
+    if (apiCache.size > 8) {
+      const oldest = apiCache.keys().next().value;
+      if (oldest !== undefined) apiCache.delete(oldest);
+    }
+  }
+  return fn;
 }
 
 export function ModuleHeader({ title, sub, children }: { title: string; sub?: string; children?: React.ReactNode }) {

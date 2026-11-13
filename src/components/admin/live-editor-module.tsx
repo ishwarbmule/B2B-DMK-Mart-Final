@@ -16,7 +16,7 @@ import { api, ModuleHeader } from "./ui-bits";
 
 type Row = {
   key: string; page: string; label: string; defaultValue: string;
-  multiline: boolean; value: string; updatedAt: string | null;
+  multiline: boolean; value: string; updatedAt: string | null; dbRow?: boolean;
 };
 
 export function LiveEditorModule({ token }: { token: string }) {
@@ -67,7 +67,7 @@ export function LiveEditorModule({ token }: { token: string }) {
 
   return (
     <div>
-      <ModuleHeader title="Live Visual Editor" sub="Click-to-edit your website copy on the live storefront — hover, double-click, save. Changes go live instantly.">
+      <ModuleHeader title="Live Visual Editor" sub="Click-to-edit your website copy on the live storefront — hero slides, section titles, How-It-Works, trust strip. Hover, double-click, save — changes go live instantly.">
         <a
           href="/?live=1"
           target="_blank"
@@ -80,10 +80,10 @@ export function LiveEditorModule({ token }: { token: string }) {
 
       {/* how-to strip */}
       <div className="mb-4 grid gap-2 rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-xs text-yellow-900 md:grid-cols-4">
-        <p><b>1.</b> Open the storefront with the button above (adds <code>?live=1</code>).</p>
-        <p><b>2.</b> Editable copy gets dashed outlines — hover to see it.</p>
-        <p><b>3.</b> Double-click a text, type the new copy, press <b>Enter</b> (<b>Esc</b> cancels).</p>
-        <p><b>4.</b> Press <b>Ctrl/Cmd + S</b> or the Save button — texts persist on the live site.</p>
+        <p><b>1.</b> Open the storefront with the button above (adds <code>?live=1</code>) — editable texts flash yellow once and get dashed outlines.</p>
+        <p><b>2.</b> Double-click a text, type the new copy, press <b>Enter</b> (<b>Esc</b> cancels). Hero slide texts switch slides with the arrows/dots to edit each.</p>
+        <p><b>3.</b> Press <b>Ctrl/Cmd + S</b> or the Save button — texts persist on the live site.</p>
+        <p><b>4.</b> Hero slide copy refreshes within ~15s after save; everything else is instant. Multicolour *star* headings & artwork stay in Hero Section (Sliders).</p>
       </div>
 
       {loading ? (
@@ -99,7 +99,7 @@ export function LiveEditorModule({ token }: { token: string }) {
               <div className="divide-y">
                 {rows.filter((r) => r.page === page).map((r) => {
                   const current = dirty[r.key] ?? r.value;
-                  const isOverridden = !!r.value.trim();
+                  const isOverridden = !r.dbRow && !!r.value.trim();
                   const isDirty = dirty[r.key] !== undefined && dirty[r.key] !== r.value;
                   return (
                     <div key={r.key} className={`flex flex-col gap-2 px-4 py-3 md:flex-row md:items-center ${isDirty ? "bg-yellow-50/60" : ""}`}>
@@ -107,6 +107,7 @@ export function LiveEditorModule({ token }: { token: string }) {
                         <p className="flex items-center gap-1.5 text-xs font-bold text-gray-900">
                           {r.label}
                           {isOverridden && <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-black text-emerald-600">CUSTOM</span>}
+                          {r.dbRow && <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-black text-blue-600">HERO SLIDE</span>}
                         </p>
                         <code className="text-[9px] text-gray-400">{r.key}</code>
                         {!r.multiline && isOverridden && <p className="text-[9px] text-gray-400">default: &quot;{r.defaultValue}&quot;</p>}
@@ -128,14 +129,16 @@ export function LiveEditorModule({ token }: { token: string }) {
                         )}
                       </div>
                       <div className="flex shrink-0 items-center gap-1.5">
-                        <button
-                          onClick={() => { setValue(r.key, ""); save([r.key]); }}
-                          disabled={!isOverridden || saving}
-                          title="Reset to default text"
-                          className="flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[10px] font-bold text-gray-500 hover:bg-gray-50 disabled:opacity-30"
-                        >
-                          <RotateCcw className="h-3 w-3" /> Reset
-                        </button>
+                        {!r.dbRow && (
+                          <button
+                            onClick={() => { setValue(r.key, ""); save([r.key]); }}
+                            disabled={!isOverridden || saving}
+                            title="Reset to default text"
+                            className="flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[10px] font-bold text-gray-500 hover:bg-gray-50 disabled:opacity-30"
+                          >
+                            <RotateCcw className="h-3 w-3" /> Reset
+                          </button>
+                        )}
                         <button
                           onClick={() => save([r.key])}
                           disabled={!isDirty || saving}

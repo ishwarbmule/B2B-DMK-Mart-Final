@@ -355,7 +355,7 @@ export function WebsiteModule({ token }: { token: string }) {
 
   return (
     <div>
-      <ModuleHeader title="Website Management" sub="Page-wise visual editor, SEO manager, sitemap & robots.txt — everything auto-updates" />
+      <ModuleHeader title="Pages / SEO / Robots" sub="Power tools — page canvas blocks (JSON), SEO meta list, robots.txt & auto-sitemap. For click-to-edit text changes use Live Visual Editor instead." />
       <div className="grid gap-4 lg:grid-cols-2">
         {/* pages */}
         <div className="rounded-xl border bg-white p-4">
