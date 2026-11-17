@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, jsonError } from "@/lib/admin-auth";
 import { runUniversalSync } from "@/lib/erp-universal";
-import { logSyncEvent } from "@/lib/erp-sync";
+import { logSyncEvent } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;

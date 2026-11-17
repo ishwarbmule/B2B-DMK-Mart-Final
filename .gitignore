@@ -64,3 +64,9 @@ worklog.md
 .golive-token
 tool-results/
 /upload/
+
+# local database file (contains real data — NEVER commit)
+/db/*.db
+# generated production SQL (contains customer data — NEVER commit)
+/download/dmkmart-production-reset.sql
+/public/dmkmart-production-reset.sql

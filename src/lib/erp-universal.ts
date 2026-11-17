@@ -27,7 +27,7 @@
  */
 import { createHmac, timingSafeEqual } from "crypto";
 import { db } from "@/lib/db";
-import { getSetting, setSetting } from "@/lib/erp";
+import { getSetting, setSetting } from "@/lib/settings";
 
 // ───────── config ─────────
 

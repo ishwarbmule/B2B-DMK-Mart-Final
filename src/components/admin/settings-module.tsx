@@ -19,7 +19,7 @@ const GROUPS: { title: string; keys: [string, string][] }[] = [
     keys: [
       ["site_title", "Site title"], ["site_tagline", "Tagline"], ["meta_description", "Meta description"],
       ["support_phone", "Support phone"], ["support_email", "Support email"], ["address", "Storefront address"],
-      ["invoice_prefix", "Invoice prefix"], ["erp_sync_enabled", "ERP sync (true/false)"],
+      ["invoice_prefix", "Invoice prefix"],
     ],
   },
 ];

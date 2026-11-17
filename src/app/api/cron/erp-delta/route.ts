@@ -17,9 +17,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
-import { getSetting } from "@/lib/erp";
+import { getSetting } from "@/lib/settings";
 import { getUniversalConfig, runUniversalSync } from "@/lib/erp-universal";
-import { logSyncEvent } from "@/lib/erp-sync";
+import { logSyncEvent } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;

@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, jsonError } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
-import { getSetting, setSetting } from "@/lib/erp";
+import { getSetting, setSetting } from "@/lib/settings";
 import { getUniversalConfig, verifyUniversalHealth, ensureMirrorTable } from "@/lib/erp-universal";
 
 export const dynamic = "force-dynamic";

@@ -8,6 +8,7 @@ import { CheckoutDialog } from "./checkout-dialog";
 import { WhatsAppFloat } from "./whatsapp-float";
 import { LiveContentProvider } from "./live-content-context";
 import { LiveEditOverlay } from "./live-edit-overlay";
+import { ForcePasswordDialog } from "./force-password-dialog";
 import { useCustomerSession } from "@/lib/customer-client";
 
 /** Shared storefront chrome: header + footer + cart/checkout overlays on every route. */
@@ -47,6 +48,7 @@ export function StoreChrome({ children }: { children: ReactNode }) {
         }}
       />
       <CheckoutDialog open={checkout} onOpenChange={setCheckout} couponCode={couponCode} couponDisc={couponDisc} />
+      <ForcePasswordDialog />
       <LiveEditOverlay />
     </div>
     </LiveContentProvider>

@@ -22,6 +22,7 @@ export interface SessionCustomer {
   city: string;
   pincode: string;
   gstin?: string;
+  mustChangePassword?: boolean; // migrated accounts — force the set-new-password popup
 }
 
 export interface SessionWarehouse {

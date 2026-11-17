@@ -45,6 +45,7 @@ export async function GET(req: NextRequest) {
       email: customer.email, customerType: customer.customerType, tier: customer.tier,
       status: customer.status, city: customer.city, pincode: customer.pincode, gstin: customer.gstin,
       address: customer.address, orders: customer.orders, totalSpent: customer.totalSpent,
+      mustChangePassword: customer.mustChangePassword,
     },
     nearestWarehouse: nearest
       ? { id: nearest.id, name: nearest.name, city: nearest.city, address: nearest.address, phone: nearest.phone, isDefault: nearest.isDefault }

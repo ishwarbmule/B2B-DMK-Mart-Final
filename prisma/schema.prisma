@@ -165,6 +165,7 @@ model Customer {
   phone        String   @unique
   email        String   @default("")
   password     String   @default("")
+  mustChangePassword Boolean @default(false) // true = force the set-new-password popup on next login (migrated accounts)
   gstin        String   @default("")
   address      String   @default("") @db.Text
   city         String   @default("")

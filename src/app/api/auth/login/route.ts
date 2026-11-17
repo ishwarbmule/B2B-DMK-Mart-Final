@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
       id: customer.id, name: customer.name, shopName: customer.shopName, phone: customer.phone,
       customerType: customer.customerType, tier: customer.tier, status: customer.status,
       city: customer.city, orders: customer.orders, totalSpent: customer.totalSpent,
+      mustChangePassword: customer.mustChangePassword,
     },
   });
 }

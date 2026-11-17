@@ -14,8 +14,7 @@
  */
 import { NextRequest, NextResponse, after } from "next/server";
 import { getUniversalConfig, verifyPushSignature, ensureMirrorTable, applyUniversalProducts } from "@/lib/erp-universal";
-import { logSyncEvent } from "@/lib/erp-sync";
-import { setSetting } from "@/lib/erp";
+import { logSyncEvent, setSetting } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
