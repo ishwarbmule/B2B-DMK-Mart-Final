@@ -264,6 +264,7 @@ model Warehouse {
   id        String   @id @default(cuid())
   name      String
   code      String   @default("")
+  source    String   @default("LOCAL") // ERP = mirrored from universal API · LOCAL = admin-created
   address   String   @default("")
   city      String   @default("")
   phone     String   @default("")

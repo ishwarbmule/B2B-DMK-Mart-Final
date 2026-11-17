@@ -7,6 +7,8 @@ import { api, ModuleHeader } from "./ui-bits";
 
 type Health = { configured: boolean; up: boolean; httpStatus: number; message: string; url: string };
 type SyncEvent = { id: string; direction: string; action: string; status: string; message: string; createdAt: string };
+type WhSyncResult = { available: boolean; seen: number; created: number; updated: number; deactivated: number; notes: string[] };
+type StockSyncResult = { available: boolean; seen: number; upserted: number; skipped: number; removed: number };
 type Status = {
   config: { url: string; apiKey: string; pushSecret: string; apiKeySet: boolean; pushSecretSet: boolean };
   health: Health;
@@ -27,6 +29,8 @@ export function InventorySyncModule({ token }: { token: string }) {
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState<"" | "full" | "delta">("");
   const [copied, setCopied] = useState(false);
+  // warehouse/stock part of the most recent re-sync response (optional until the ERP side ships it)
+  const [whSync, setWhSync] = useState<{ warehouses?: WhSyncResult; stock?: StockSyncResult } | null>(null);
 
   const load = useCallback(() => {
     call("/api/admin/universal-sync/settings").then((d: Status) => {
@@ -55,6 +59,7 @@ export function InventorySyncModule({ token }: { token: string }) {
     setSyncing(mode);
     try {
       const d = await call(`/api/admin/universal-sync/resync?mode=${mode}`, { method: "POST" });
+      setWhSync({ warehouses: d.warehouses, stock: d.stock });
       toast.success(`${mode === "full" ? "Full re-sync" : "Delta pull"} done — ${d.pages} page(s) · seen ${d.seen} · created ${d.created} · updated ${d.updated}${mode === "full" ? ` · de-listed ${d.delisted}` : ""} (${(d.durationMs / 1000).toFixed(1)}s)`);
       load();
     } catch (e) {
@@ -163,6 +168,21 @@ export function InventorySyncModule({ token }: { token: string }) {
               <ArrowDownToLine className={`h-4 w-4 ${syncing === "delta" ? "animate-pulse" : ""}`} /> {syncing === "delta" ? "Pulling…" : "Pull delta"}
             </button>
           </div>
+          {/* godown mirror stats from the last re-sync — hidden until the ERP response carries warehouses */}
+          {whSync?.warehouses ? (
+            whSync.warehouses.available ? (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-yellow-400 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-black">
+                  Warehouses: {whSync.warehouses.seen} · new {whSync.warehouses.created} · stock rows {whSync.stock?.upserted ?? 0}
+                </span>
+                {whSync.warehouses.notes.map((n) => (
+                  <span key={n} className="text-[10px] leading-snug text-gray-500">{n}</span>
+                ))}
+              </div>
+            ) : (
+              whSync.warehouses.notes[0] && <p className="mt-2 text-[10px] text-gray-500">{whSync.warehouses.notes[0]}</p>
+            )
+          ) : null}
         </div>
       </div>
 

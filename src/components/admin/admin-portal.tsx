@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Globe, Package, Building2, ShoppingCart,
   Users, LogOut, Menu, X, Eye, Settings2, ChevronRight, Megaphone,
   Barcode as BarcodeIcon, BadgePercent, IndianRupee, Wallet, FileSpreadsheet,
-  MapPin, BookOpen, RefreshCw,
+  MapPin, BookOpen, RefreshCw, Warehouse as WarehouseIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardModule, CustomersModule, PricingModule, CompanyProductsModule } from "./business-modules-1";
@@ -16,6 +16,7 @@ import { ProductsModule } from "./products-module";
 import { OrdersModule } from "./orders-module";
 import { ApprovalsModule } from "./approvals-module";
 import { WarehouseStockModule } from "./warehouse-stock-module";
+import { WarehousesModule } from "./warehouses-module";
 import { SettingsModule } from "./settings-module";
 import { InventorySyncModule } from "./inventory-sync-module";
 import { BarcodeStudio } from "./barcode-studio";
@@ -54,7 +55,7 @@ const NAV: { group: string; items: { id: ModuleId; label: string; icon: React.Co
     { id: "barcodes", label: "Barcode Printing", icon: BarcodeIcon },
   ]},
   { group: "Inventory & Warehouses", items: [
-    { id: "warehouses", label: "Warehouses", icon: LayoutDashboard },
+    { id: "warehouses", label: "Warehouses", icon: WarehouseIcon },
     { id: "warehouseStock", label: "Warehouse Stock", icon: Package },
   ]},
   { group: "Growth", items: [
@@ -190,6 +191,7 @@ export function AdminPortal() {
       case "orders": return <OrdersModule token={token} />;
       case "approvals": return <ApprovalsModule token={token} />;
       case "warehouseStock": return <WarehouseStockModule token={token} />;
+      case "warehouses": return <WarehousesModule token={token} />;
       case "barcodes": return <BarcodeStudio token={token} />;
       case "customers": return <CustomersModule token={token} />;
       case "storeMap": return <StoreMapModule token={token} />;

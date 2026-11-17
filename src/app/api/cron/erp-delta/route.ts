@@ -56,7 +56,7 @@ async function handle(req: NextRequest) {
       direction: "PULL_ERP",
       action: "UNIVERSAL_DELTA",
       status: "OK",
-      message: `Daily delta pull (${result.mode.toLowerCase()}): ${result.pages} page(s) · seen ${result.seen} · created ${result.created} · updated ${result.updated}${result.mode === "FULL" ? ` · de-listed ${result.delisted}` : ""}`,
+      message: `Daily delta pull (${result.mode.toLowerCase()}): ${result.pages} page(s) · seen ${result.seen} · created ${result.created} · updated ${result.updated}${result.mode === "FULL" ? ` · de-listed ${result.delisted}` : ""}${result.warehouses.available ? ` · warehouses ${result.warehouses.created}+${result.warehouses.updated}${result.warehouses.deactivated ? ` (-${result.warehouses.deactivated})` : ""} · stock ${result.stock.upserted}` : " · warehouses: not exposed by ERP"}`,
       seen: result.seen, created: result.created, updated: result.updated, skipped: result.skipped, durationMs: result.durationMs,
     });
     return NextResponse.json({ ok: true, ...result });

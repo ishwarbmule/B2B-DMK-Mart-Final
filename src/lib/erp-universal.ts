@@ -205,17 +205,7 @@ export function parseUniversalProduct(raw: Record<string, unknown>): ParsedUnive
   const pricing = (raw.pricing ?? {}) as Record<string, unknown>;
   const stock = (raw.stock ?? {}) as Record<string, unknown>;
 
-  // active flag in any style (1/0, true/false, "Y"/"N", "Active"/"Inactive")
-  let isActive = true;
-  const activeRaw = raw.isActive ?? raw.is_active ?? raw.active ?? raw.status;
-  if (activeRaw !== undefined && activeRaw !== null && activeRaw !== "") {
-    if (typeof activeRaw === "boolean") isActive = activeRaw;
-    else if (typeof activeRaw === "number") isActive = activeRaw !== 0;
-    else {
-      const s = String(activeRaw).trim().toLowerCase();
-      isActive = !["0", "false", "n", "no", "inactive", "disabled", "off", "draft"].includes(s);
-    }
-  }
+  const isActive = parseActiveFlag(raw.isActive ?? raw.is_active ?? raw.active ?? raw.status);
 
   let erpUpdatedAt: Date | null = null;
   const updatedRaw = raw.updatedAt ?? raw.updated_at ?? raw.lastUpdated ?? raw.last_updated;
@@ -235,6 +225,59 @@ export function parseUniversalProduct(raw: Record<string, unknown>): ParsedUnive
     availableStock: sharedNumber(stock, "availableStock", "available_stock") ?? sharedNumber(raw, "availableStock", "available_stock"),
     raw,
   };
+}
+
+/** active flag in any style (1/0, true/false, "Y"/"N", "Active"/"Inactive") — absent → true */
+function parseActiveFlag(v: unknown): boolean {
+  if (v === undefined || v === null || v === "") return true;
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return v !== 0;
+  const s = String(v).trim().toLowerCase();
+  return !["0", "false", "n", "no", "inactive", "disabled", "off", "draft"].includes(s);
+}
+
+// ───────── warehouse + per-warehouse stock parsing (optional ERP endpoints) ─────────
+
+export type UniversalWarehouse = {
+  code: string;
+  name: string;
+  city: string;
+  address: string;
+  phone: string;
+  isActive: boolean;
+  raw: Record<string, unknown>;
+};
+
+export type WarehouseStockRow = {
+  warehouseCode: string;
+  sku: string;
+  qty: number;
+  raw: Record<string, unknown>;
+};
+
+/** parse one universal warehouse row — code is the only always-present contract field */
+export function parseUniversalWarehouse(raw: Record<string, unknown>): UniversalWarehouse | null {
+  const code = sharedText(raw, "code", "warehouseCode", "warehouse_code", "whCode");
+  if (!code) return null;
+  return {
+    code,
+    name: sharedText(raw, "name", "warehouseName", "title"),
+    city: sharedText(raw, "city"),
+    address: sharedText(raw, "address"),
+    phone: sharedText(raw, "phone"),
+    isActive: parseActiveFlag(raw.isActive ?? raw.is_active ?? raw.active ?? raw.status),
+    raw,
+  };
+}
+
+/** parse one per-warehouse stock row — negative qty = upstream inconsistency, row skipped */
+export function parseWarehouseStockRow(raw: Record<string, unknown>): WarehouseStockRow | null {
+  const warehouseCode = sharedText(raw, "warehouseCode", "warehouse_code", "whCode", "wh_code", "code");
+  const sku = sharedText(raw, "sku", "SKU", "itemCode", "item_code");
+  if (!warehouseCode || !sku) return null;
+  const qty = sharedNumber(raw, "qty", "quantity", "availableStock", "available_stock", "stock") ?? 0; // missing qty = zero stock
+  if (qty < 0) return null;
+  return { warehouseCode, sku, qty, raw };
 }
 
 // ───────── pull (paginated + delta) ─────────
@@ -265,6 +308,74 @@ export async function fetchUniversalProducts(opts: { limit?: number; offset?: nu
   const hasMore = hasMoreField === undefined ? products.length >= limit : Boolean(hasMoreField);
   const total = typeof data.total === "number" ? data.total : typeof data.count === "number" ? data.count : null;
   return { products, hasMore, total, httpStatus: res.httpStatus };
+}
+
+// ───────── warehouse + stock pull (optional endpoints — tolerant of absence) ─────────
+
+export type UniversalWarehousesPage = { available: boolean; warehouses: UniversalWarehouse[]; note: string; httpStatus: number };
+
+/**
+ * GET /api/universal/v1/warehouses — OPTIONAL: an ERP that has not shipped the endpoint
+ * yet answers 404. Any non-OK answer degrades to available:false (never throws); network
+ * errors propagate so the caller's try/catch can note them.
+ */
+export async function fetchUniversalWarehouses(): Promise<UniversalWarehousesPage> {
+  const cfg = await getUniversalConfig();
+  if (!cfg.configured) throw new Error("Universal API key not configured — save it in Admin → Inventory Sync");
+  const res = await universalFetch("/api/universal/v1/warehouses", cfg);
+  if (!res.ok) {
+    return { available: false, warehouses: [], note: `ERP does not expose /warehouses (HTTP ${res.httpStatus})`, httpStatus: res.httpStatus };
+  }
+  const json = extractJson(res.body);
+  if (!json || json.ok === false) {
+    return { available: false, warehouses: [], note: `Unexpected /warehouses payload: ${(json ? res.body : "non-JSON body").slice(0, 120)}`, httpStatus: res.httpStatus };
+  }
+  const data = json.data as Record<string, unknown> | unknown[] | undefined;
+  const listRaw: unknown[] =
+    data && !Array.isArray(data) && Array.isArray((data as Record<string, unknown>).warehouses)
+      ? ((data as Record<string, unknown>).warehouses as unknown[])
+      : Array.isArray(json.warehouses)
+        ? (json.warehouses as unknown[])
+        : Array.isArray(data)
+          ? (data as unknown[])
+          : [];
+  const warehouses = listRaw
+    .filter((r): r is Record<string, unknown> => Boolean(r) && typeof r === "object")
+    .map((r) => parseUniversalWarehouse(r))
+    .filter((w): w is UniversalWarehouse => Boolean(w));
+  return { available: true, warehouses, note: "", httpStatus: res.httpStatus };
+}
+
+export type UniversalStockPage = { available: boolean; rows: WarehouseStockRow[]; hasMore: boolean; total: number | null; note: string; httpStatus: number };
+
+/**
+ * GET /api/universal/v1/warehouse-stock?limit=&offset= — OPTIONAL per-warehouse stock
+ * feed with the same tolerant semantics as /warehouses (404 / non-OK → available:false).
+ */
+export async function fetchUniversalWarehouseStock(limit = 500, offset = 0): Promise<UniversalStockPage> {
+  const cfg = await getUniversalConfig();
+  if (!cfg.configured) throw new Error("Universal API key not configured — save it in Admin → Inventory Sync");
+  const lim = Math.min(Math.max(limit, 1), 1000);
+  const off = Math.max(offset, 0);
+  const qs = new URLSearchParams({ limit: String(lim), offset: String(off) });
+  const res = await universalFetch(`/api/universal/v1/warehouse-stock?${qs.toString()}`, cfg);
+  if (!res.ok) {
+    return { available: false, rows: [], hasMore: false, total: null, note: `ERP does not expose /warehouse-stock (HTTP ${res.httpStatus})`, httpStatus: res.httpStatus };
+  }
+  const json = extractJson(res.body);
+  if (!json || json.ok === false) {
+    return { available: false, rows: [], hasMore: false, total: null, note: `Unexpected /warehouse-stock payload: ${(json ? res.body : "non-JSON body").slice(0, 120)}`, httpStatus: res.httpStatus };
+  }
+  const data = (json.data ?? json) as Record<string, unknown>;
+  const listRaw: unknown[] = Array.isArray(data) ? data : ((data.rows ?? data.items ?? data.stock ?? []) as unknown[]);
+  const rows = listRaw
+    .filter((r): r is Record<string, unknown> => Boolean(r) && typeof r === "object")
+    .map((r) => parseWarehouseStockRow(r))
+    .filter((r): r is WarehouseStockRow => Boolean(r));
+  const hasMoreField = data.hasMore ?? data.has_more;
+  const hasMore = hasMoreField === undefined ? rows.length >= lim : Boolean(hasMoreField);
+  const total = typeof data.total === "number" ? data.total : typeof data.count === "number" ? data.count : null;
+  return { available: true, rows, hasMore, total, note: "", httpStatus: res.httpStatus };
 }
 
 // ───────── apply (mirror upsert + catalog projection) ─────────
@@ -453,6 +564,103 @@ export async function applyUniversalProducts(products: Record<string, unknown>[]
   return result;
 }
 
+// ───────── warehouse + stock apply ─────────
+
+export type ApplyWarehousesResult = { seen: number; created: number; updated: number; deactivated: number };
+
+/**
+ * Mirror ERP warehouses into the Warehouse table (source="ERP"). Warehouse.code is not a
+ * unique index (admin rows may carry ""), so the upsert-by-code is done manually —
+ * identical semantics. A LOCAL row sharing an ERP code is claimed by the mirror; rows
+ * the admin created without an ERP code are never touched. FULL mode deactivates ERP
+ * warehouses missing from the pull — DELTA never deactivates (deltas are partial).
+ */
+export async function applyUniversalWarehouses(warehouses: UniversalWarehouse[], mode: "FULL" | "DELTA"): Promise<ApplyWarehousesResult> {
+  const result: ApplyWarehousesResult = { seen: warehouses.length, created: 0, updated: 0, deactivated: 0 };
+  const usable = warehouses.filter((w) => Boolean(w.code)); // parse already dropped code-less rows — defensive
+  if (!usable.length) return result;
+  const codes: string[] = [];
+  for (const w of usable) {
+    codes.push(w.code);
+    const data = { name: w.name, city: w.city, address: w.address, phone: w.phone, active: w.isActive, source: "ERP" };
+    const existing = await db.warehouse.findFirst({ where: { code: w.code }, select: { id: true } });
+    if (existing) {
+      await db.warehouse.update({ where: { id: existing.id }, data });
+      result.updated++;
+    } else {
+      await db.warehouse.create({ data: { code: w.code, ...data } });
+      result.created++;
+    }
+  }
+  if (mode === "FULL") {
+    const gone = await db.warehouse.updateMany({ where: { source: "ERP", code: { notIn: codes } }, data: { active: false } });
+    result.deactivated = gone.count;
+  }
+  return result;
+}
+
+export type ApplyStockResult = { seen: number; upserted: number; skipped: number; removed: number };
+
+/**
+ * Apply per-warehouse stock rows into WarehouseStock (upsert by warehouse+product).
+ * LOCAL warehouses whose code matches an ERP row participate too (admin-created godowns
+ * can be fed by the ERP by code). On a FULL pull, every ERP warehouse present in the
+ * pull loses stock rows for SKUs the ERP no longer shares there (stale-row cleanup);
+ * LOCAL warehouses are never cleaned.
+ */
+export async function applyUniversalWarehouseStock(rows: WarehouseStockRow[], full: boolean): Promise<ApplyStockResult> {
+  const result: ApplyStockResult = { seen: rows.length, upserted: 0, skipped: 0, removed: 0 };
+  if (!rows.length) return result;
+
+  const warehouseCodes = [...new Set(rows.map((r) => r.warehouseCode))];
+  const skus = [...new Set(rows.map((r) => r.sku))];
+  const [warehouses, products] = await Promise.all([
+    db.warehouse.findMany({ where: { code: { in: warehouseCodes } }, select: { id: true, code: true, source: true } }),
+    db.product.findMany({ where: { sku: { in: skus } }, select: { id: true, sku: true } }),
+  ]);
+  const warehouseByCode = new Map(warehouses.map((w) => [w.code, w]));
+  const productBySku = new Map(products.map((p) => [p.sku, p]));
+
+  // group by warehouse — drives the upserts and is reused for the FULL stale cleanup
+  const seenByWarehouse = new Map<string, Set<string>>(); // warehouse code → SKUs seen in this pull
+  for (const row of rows) {
+    const warehouse = warehouseByCode.get(row.warehouseCode);
+    const product = productBySku.get(row.sku);
+    if (!warehouse || !product) {
+      result.skipped++; // unknown warehouse or SKU — the product pull creates products first, so rare
+      continue;
+    }
+    let seen = seenByWarehouse.get(row.warehouseCode);
+    if (!seen) {
+      seen = new Set();
+      seenByWarehouse.set(row.warehouseCode, seen);
+    }
+    seen.add(row.sku);
+    const qty = Math.round(row.qty);
+    await db.warehouseStock.upsert({
+      where: { warehouseId_productId: { warehouseId: warehouse.id, productId: product.id } },
+      create: { warehouseId: warehouse.id, productId: product.id, qty },
+      update: { qty },
+    });
+    result.upserted++;
+  }
+
+  if (full) {
+    for (const [code, seenSkus] of seenByWarehouse) {
+      const warehouse = warehouseByCode.get(code);
+      if (!warehouse || warehouse.source !== "ERP") continue; // LOCAL rows are admin territory
+      const productIds = [...seenSkus]
+        .map((sku) => productBySku.get(sku)?.id)
+        .filter((id): id is string => Boolean(id));
+      const stale = await db.warehouseStock.deleteMany({
+        where: { warehouseId: warehouse.id, productId: { notIn: productIds } },
+      });
+      result.removed += stale.count;
+    }
+  }
+  return result;
+}
+
 // ───────── watermark + sync runs ─────────
 
 async function advanceWatermark(candidate: Date): Promise<void> {
@@ -471,6 +679,8 @@ export type SyncRunResult = {
   updated: number;
   skipped: number;
   delisted: number;
+  warehouses: { available: boolean; seen: number; created: number; updated: number; deactivated: number; notes: string[] };
+  stock: { available: boolean; seen: number; upserted: number; skipped: number; removed: number };
   durationMs: number;
   watermark: string;
 };
@@ -525,6 +735,58 @@ export async function runUniversalSync(mode: "FULL" | "DELTA"): Promise<SyncRunR
     }
   }
 
+  // ── warehouses + per-warehouse stock — optional endpoints, never fail the run ──
+  const warehouses: SyncRunResult["warehouses"] = { available: false, seen: 0, created: 0, updated: 0, deactivated: 0, notes: [] };
+  const stock: SyncRunResult["stock"] = { available: false, seen: 0, upserted: 0, skipped: 0, removed: 0 };
+  try {
+    const wres = await fetchUniversalWarehouses();
+    warehouses.available = wres.available;
+    if (!wres.available) warehouses.notes.push(wres.note);
+    else if (wres.warehouses.length) {
+      const wapp = await applyUniversalWarehouses(wres.warehouses, effectiveMode);
+      warehouses.seen = wapp.seen;
+      warehouses.created = wapp.created;
+      warehouses.updated = wapp.updated;
+      warehouses.deactivated = wapp.deactivated;
+    }
+  } catch (e) {
+    warehouses.available = false;
+    warehouses.notes.push((e instanceof Error ? e.message : String(e)).slice(0, 200));
+  }
+  try {
+    const collected: WarehouseStockRow[] = [];
+    let unavailable = "";
+    let completed = false;
+    let offset = 0;
+    for (let page = 0; page < 50; page++) { // 50 × 500 = 25k stock rows hard cap per run
+      const sres = await fetchUniversalWarehouseStock(500, offset);
+      if (!sres.available) {
+        unavailable = sres.note;
+        break;
+      }
+      collected.push(...sres.rows);
+      if (!sres.hasMore) {
+        completed = true;
+        break;
+      }
+      offset += 500;
+    }
+    stock.available = !unavailable;
+    if (unavailable) warehouses.notes.push(unavailable);
+    if (stock.available && collected.length) {
+      // stale-row cleanup only after a COMPLETED pull — a partial pull must never
+      // delete stock rows for SKUs it never saw (cap reached → upsert-only)
+      const sapp = await applyUniversalWarehouseStock(collected, effectiveMode === "FULL" && completed);
+      stock.seen = sapp.seen;
+      stock.upserted = sapp.upserted;
+      stock.skipped = sapp.skipped;
+      stock.removed = sapp.removed;
+    }
+  } catch (e) {
+    stock.available = false;
+    warehouses.notes.push((e instanceof Error ? e.message : String(e)).slice(0, 200));
+  }
+
   const watermark = await getSetting("erp_universal_watermark", "");
   const durationMs = Date.now() - started;
   await setSetting(effectiveMode === "FULL" ? "erp_universal_last_full_at" : "erp_universal_last_delta_at", new Date().toISOString());
@@ -536,6 +798,8 @@ export async function runUniversalSync(mode: "FULL" | "DELTA"): Promise<SyncRunR
     updated: totals.updated,
     skipped: totals.skipped,
     delisted,
+    warehouses,
+    stock,
     durationMs,
     watermark,
   };

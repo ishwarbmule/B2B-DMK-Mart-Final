@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       direction: "PULL_ERP",
       action: mode === "FULL" ? "UNIVERSAL_FULL" : "UNIVERSAL_DELTA",
       status: "OK",
-      message: `Manual ${result.mode.toLowerCase()} re-sync: ${result.pages} page(s) · seen ${result.seen} · created ${result.created} · updated ${result.updated} · skipped ${result.skipped}${mode === "FULL" ? ` · de-listed ${result.delisted}` : ""}`,
+      message: `Manual ${result.mode.toLowerCase()} re-sync: ${result.pages} page(s) · seen ${result.seen} · created ${result.created} · updated ${result.updated} · skipped ${result.skipped}${mode === "FULL" ? ` · de-listed ${result.delisted}` : ""}${result.warehouses.available ? ` · warehouses ${result.warehouses.created}+${result.warehouses.updated}${result.warehouses.deactivated ? ` (-${result.warehouses.deactivated})` : ""} · stock ${result.stock.upserted}` : " · warehouses: not exposed by ERP"}`,
       seen: result.seen, created: result.created, updated: result.updated, skipped: result.skipped, durationMs: result.durationMs,
     });
     return NextResponse.json({ ok: true, ...result });
