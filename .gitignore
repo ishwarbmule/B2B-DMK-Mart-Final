@@ -70,3 +70,8 @@ tool-results/
 # generated production SQL (contains customer data — NEVER commit)
 /download/dmkmart-production-reset.sql
 /public/dmkmart-production-reset.sql
+
+# local dev databases + scratch artifacts — never commit
+db/custom.db
+/db/*.db
+/download/
