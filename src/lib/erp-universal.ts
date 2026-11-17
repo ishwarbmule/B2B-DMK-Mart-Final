@@ -27,7 +27,7 @@
  */
 import { createHmac, timingSafeEqual } from "crypto";
 import { db } from "@/lib/db";
-import { getSetting, setSetting } from "@/lib/settings";
+import { getSetting, setSetting, logSyncEvent } from "@/lib/settings";
 
 // ───────── config ─────────
 
@@ -285,8 +285,8 @@ export function parseWarehouseStockRow(raw: Record<string, unknown>): WarehouseS
 export type UniversalPage = { products: ParsedUniversalProduct[]; hasMore: boolean; total: number | null; httpStatus: number };
 
 /** GET /api/universal/v1/products?limit=&offset=[&since=] — response { ok, data } parsed defensively. */
-export async function fetchUniversalProducts(opts: { limit?: number; offset?: number; since?: string } = {}): Promise<UniversalPage> {
-  const cfg = await getUniversalConfig();
+export async function fetchUniversalProducts(opts: { limit?: number; offset?: number; since?: string; cfg?: UniversalConfig } = {}): Promise<UniversalPage> {
+  const cfg = opts.cfg ?? (await getUniversalConfig());
   if (!cfg.configured) throw new Error("Universal API key not configured — save it in Admin → Inventory Sync");
   const limit = Math.min(Math.max(opts.limit ?? 200, 1), 200);
   const offset = Math.max(opts.offset ?? 0, 0);
@@ -319,10 +319,10 @@ export type UniversalWarehousesPage = { available: boolean; warehouses: Universa
  * yet answers 404. Any non-OK answer degrades to available:false (never throws); network
  * errors propagate so the caller's try/catch can note them.
  */
-export async function fetchUniversalWarehouses(): Promise<UniversalWarehousesPage> {
-  const cfg = await getUniversalConfig();
-  if (!cfg.configured) throw new Error("Universal API key not configured — save it in Admin → Inventory Sync");
-  const res = await universalFetch("/api/universal/v1/warehouses", cfg);
+export async function fetchUniversalWarehouses(cfg?: UniversalConfig): Promise<UniversalWarehousesPage> {
+  const config = cfg ?? (await getUniversalConfig());
+  if (!config.configured) throw new Error("Universal API key not configured — save it in Admin → Inventory Sync");
+  const res = await universalFetch("/api/universal/v1/warehouses", config);
   if (!res.ok) {
     return { available: false, warehouses: [], note: `ERP does not expose /warehouses (HTTP ${res.httpStatus})`, httpStatus: res.httpStatus };
   }
@@ -352,13 +352,13 @@ export type UniversalStockPage = { available: boolean; rows: WarehouseStockRow[]
  * GET /api/universal/v1/warehouse-stock?limit=&offset= — OPTIONAL per-warehouse stock
  * feed with the same tolerant semantics as /warehouses (404 / non-OK → available:false).
  */
-export async function fetchUniversalWarehouseStock(limit = 500, offset = 0): Promise<UniversalStockPage> {
-  const cfg = await getUniversalConfig();
-  if (!cfg.configured) throw new Error("Universal API key not configured — save it in Admin → Inventory Sync");
+export async function fetchUniversalWarehouseStock(limit = 500, offset = 0, cfg?: UniversalConfig): Promise<UniversalStockPage> {
+  const config = cfg ?? (await getUniversalConfig());
+  if (!config.configured) throw new Error("Universal API key not configured — save it in Admin → Inventory Sync");
   const lim = Math.min(Math.max(limit, 1), 1000);
   const off = Math.max(offset, 0);
   const qs = new URLSearchParams({ limit: String(lim), offset: String(off) });
-  const res = await universalFetch(`/api/universal/v1/warehouse-stock?${qs.toString()}`, cfg);
+  const res = await universalFetch(`/api/universal/v1/warehouse-stock?${qs.toString()}`, config);
   if (!res.ok) {
     return { available: false, rows: [], hasMore: false, total: null, note: `ERP does not expose /warehouse-stock (HTTP ${res.httpStatus})`, httpStatus: res.httpStatus };
   }
@@ -466,6 +466,10 @@ export async function applyUniversalProducts(products: Record<string, unknown>[]
     });
   }
   await mapWithConcurrency(mirrorUpdates, 12, (u) => db.erpProductMirror.update({ where: { sku: u.sku }, data: u.data }));
+  // touch EVERY sku seen on this payload (changed or not) — the chunked full sync's
+  // finish step de-lists by "mirror.lastSyncedAt < run start", so unchanged rows must
+  // be stamped too or they would be falsely deactivated
+  await db.erpProductMirror.updateMany({ where: { sku: { in: skus } }, data: { lastSyncedAt: now } }).catch(() => {});
   result.mirrorUpdated = mirrorCreates.length + mirrorUpdates.length;
 
   // ── 2. catalog projection (Product, keyed by SKU) ──
@@ -579,16 +583,20 @@ export async function applyUniversalWarehouses(warehouses: UniversalWarehouse[],
   const result: ApplyWarehousesResult = { seen: warehouses.length, created: 0, updated: 0, deactivated: 0 };
   const usable = warehouses.filter((w) => Boolean(w.code)); // parse already dropped code-less rows — defensive
   if (!usable.length) return result;
-  const codes: string[] = [];
+  const codes = usable.map((w) => w.code);
+  // ONE findMany instead of a findFirst per warehouse — sequential round-trips to the
+  // remote MySQL were a large share of the 504 gateway timeout
+  const existing = await db.warehouse.findMany({ where: { code: { in: codes } }, select: { id: true, code: true } });
+  const idByCode = new Map(existing.map((w) => [w.code, w.id] as const));
   for (const w of usable) {
-    codes.push(w.code);
     const data = { name: w.name, city: w.city, address: w.address, phone: w.phone, active: w.isActive, source: "ERP" };
-    const existing = await db.warehouse.findFirst({ where: { code: w.code }, select: { id: true } });
-    if (existing) {
-      await db.warehouse.update({ where: { id: existing.id }, data });
+    const id = idByCode.get(w.code);
+    if (id) {
+      await db.warehouse.update({ where: { id }, data });
       result.updated++;
     } else {
-      await db.warehouse.create({ data: { code: w.code, ...data } });
+      const created = await db.warehouse.create({ data: { code: w.code, ...data } });
+      idByCode.set(w.code, created.id);
       result.created++;
     }
   }
@@ -621,8 +629,10 @@ export async function applyUniversalWarehouseStock(rows: WarehouseStockRow[], fu
   const warehouseByCode = new Map(warehouses.map((w) => [w.code, w]));
   const productBySku = new Map(products.map((p) => [p.sku, p]));
 
-  // group by warehouse — drives the upserts and is reused for the FULL stale cleanup
+  // group by warehouse — drives the upserts and is reused for the FULL stale cleanup.
+  // De-duplicate warehouse+sku pairs (last row wins — pagination could overlap).
   const seenByWarehouse = new Map<string, Set<string>>(); // warehouse code → SKUs seen in this pull
+  const pairByWarehouseProduct = new Map<string, { warehouseId: string; productId: string; qty: number }>();
   for (const row of rows) {
     const warehouse = warehouseByCode.get(row.warehouseCode);
     const product = productBySku.get(row.sku);
@@ -636,29 +646,116 @@ export async function applyUniversalWarehouseStock(rows: WarehouseStockRow[], fu
       seenByWarehouse.set(row.warehouseCode, seen);
     }
     seen.add(row.sku);
-    const qty = Math.round(row.qty);
-    await db.warehouseStock.upsert({
-      where: { warehouseId_productId: { warehouseId: warehouse.id, productId: product.id } },
-      create: { warehouseId: warehouse.id, productId: product.id, qty },
-      update: { qty },
-    });
-    result.upserted++;
+    pairByWarehouseProduct.set(`${warehouse.id}:${product.id}`, { warehouseId: warehouse.id, productId: product.id, qty: Math.round(row.qty) });
   }
+  const pairs = [...pairByWarehouseProduct.values()];
+  if (!pairs.length) return result;
+
+  // ── batched upsert — the 504 killer was a sequential db.warehouseStock.upsert PER ROW
+  // against the remote MySQL (hundreds of ~150ms round-trips per page). Now: one
+  // findMany to split creates/updates, one createMany for the new rows, concurrent
+  // update chunks for the rest. (@updatedAt stamps every touched row, which the
+  // chunked-FULL stale cleanup relies on: updatedAt < run start = row absent upstream.)
+  const whIds = [...new Set(pairs.map((p) => p.warehouseId))];
+  const productIds = [...new Set(pairs.map((p) => p.productId))];
+  const existingRows = await db.warehouseStock.findMany({
+    where: { warehouseId: { in: whIds }, productId: { in: productIds } },
+    select: { warehouseId: true, productId: true },
+  });
+  const existingKeys = new Set(existingRows.map((e) => `${e.warehouseId}:${e.productId}`));
+  const creates = pairs.filter((p) => !existingKeys.has(`${p.warehouseId}:${p.productId}`));
+  const updates = pairs.filter((p) => existingKeys.has(`${p.warehouseId}:${p.productId}`));
+
+  for (let i = 0; i < creates.length; i += 500) {
+    const chunk = creates.slice(i, i + 500);
+    await db.warehouseStock.createMany({ data: chunk }).catch(async () => {
+      // duplicate race (webhook push + pull step overlap) → per-row upsert fallback
+      for (const p of chunk) {
+        await db.warehouseStock.upsert({
+          where: { warehouseId_productId: { warehouseId: p.warehouseId, productId: p.productId } },
+          create: p,
+          update: { qty: p.qty },
+        }).catch(() => {});
+      }
+    });
+  }
+  for (let i = 0; i < updates.length; i += 25) {
+    await Promise.all(
+      updates.slice(i, i + 25).map((p) =>
+        db.warehouseStock.update({
+          where: { warehouseId_productId: { warehouseId: p.warehouseId, productId: p.productId } },
+          data: { qty: p.qty },
+        }).catch(() => { /* row vanished mid-run (cleanup race) — next sync fixes it */ })
+      )
+    );
+  }
+  result.upserted = creates.length + updates.length;
 
   if (full) {
     for (const [code, seenSkus] of seenByWarehouse) {
       const warehouse = warehouseByCode.get(code);
       if (!warehouse || warehouse.source !== "ERP") continue; // LOCAL rows are admin territory
-      const productIds = [...seenSkus]
+      const productIdsForWarehouse = [...seenSkus]
         .map((sku) => productBySku.get(sku)?.id)
         .filter((id): id is string => Boolean(id));
       const stale = await db.warehouseStock.deleteMany({
-        where: { warehouseId: warehouse.id, productId: { notIn: productIds } },
+        where: { warehouseId: warehouse.id, productId: { notIn: productIdsForWarehouse } },
       });
       result.removed += stale.count;
     }
   }
   return result;
+}
+
+/**
+ * Stale-row cleanup for the CHUNKED full sync — the pull spans many requests so no
+ * single request ever sees the complete SKU set. Timestamp rule instead: every row the
+ * ERP shared was upserted during the run (updatedAt >= run start); rows on ERP-source
+ * warehouses whose updatedAt predates the run start were absent from the whole pull.
+ * LOCAL warehouses are never touched. Runs once in the finish step.
+ */
+export async function cleanupStaleWarehouseStock(runStartedAt: Date): Promise<number> {
+  const erpWarehouses = await db.warehouse.findMany({ where: { source: "ERP" }, select: { id: true } });
+  if (!erpWarehouses.length) return 0;
+  const stale = await db.warehouseStock.deleteMany({
+    where: { warehouseId: { in: erpWarehouses.map((w) => w.id) }, updatedAt: { lt: runStartedAt } },
+  });
+  return stale.count;
+}
+
+/**
+ * De-listing for the CHUNKED full sync — same timestamp rule as the stock cleanup:
+ * a mirror row whose lastSyncedAt predates the run start was never seen in the whole
+ * pull, i.e. the SKU vanished upstream. applyUniversalProducts touches lastSyncedAt
+ * for EVERY seen SKU (changed or not) via a bulk updateMany, so unchanged rows are
+ * safe. Admin-pinned and admin-created products are never deactivated.
+ */
+export async function delistVanishedProducts(runStartedAt: Date): Promise<number> {
+  // 1) mirror rule: a mirror row whose lastSyncedAt predates the run start was never
+  //    seen in the whole pull, i.e. the SKU vanished upstream. applyUniversalProducts
+  //    stamps lastSyncedAt for EVERY seen SKU (changed or not), so unchanged rows are safe.
+  const staleMirror = await db.erpProductMirror.findMany({ where: { lastSyncedAt: { lt: runStartedAt } }, select: { sku: true } });
+  // 2) catalog orphans: ERP-sourced active products with NO mirror row at all (legacy
+  //    rows from the retired MySQL integration) — the mirror rule can never see them.
+  const catalogErp = await db.product.findMany({
+    where: { syncSource: "ERP", active: true, activeSource: { not: "ADMIN" } },
+    select: { sku: true },
+  });
+  const mirrorSkus = new Set((await db.erpProductMirror.findMany({ select: { sku: true } })).map((r) => r.sku));
+  const candidates = new Set<string>([
+    ...staleMirror.map((m) => m.sku),
+    ...catalogErp.filter((p) => !mirrorSkus.has(p.sku)).map((p) => p.sku),
+  ]);
+  const staleSkus = [...candidates];
+  let delisted = 0;
+  for (let i = 0; i < staleSkus.length; i += 500) {
+    const gone = await db.product.updateMany({
+      where: { sku: { in: staleSkus.slice(i, i + 500) }, syncSource: "ERP", active: true, activeSource: { not: "ADMIN" } },
+      data: { active: false, activeSource: "ERP", lastSyncedAt: new Date() },
+    });
+    delisted += gone.count;
+  }
+  return delisted;
 }
 
 // ───────── watermark + sync runs ─────────
@@ -696,6 +793,8 @@ const MAX_PAGES = 100; // 100 × 200 = 20k products hard cap per run
 export async function runUniversalSync(mode: "FULL" | "DELTA"): Promise<SyncRunResult> {
   const started = Date.now();
   await ensureMirrorTable();
+  const cfg = await getUniversalConfig();
+  if (!cfg.configured) throw new Error("Universal API key not configured — save it in Admin → Inventory Sync");
   let effectiveMode = mode;
   if (mode === "DELTA" && !(await getSetting("erp_universal_watermark", ""))) effectiveMode = "FULL";
 
@@ -705,7 +804,7 @@ export async function runUniversalSync(mode: "FULL" | "DELTA"): Promise<SyncRunR
 
   let offset = 0;
   for (let page = 0; page < MAX_PAGES; page++) {
-    const res = await fetchUniversalProducts({ limit: 200, offset, since });
+    const res = await fetchUniversalProducts({ limit: 200, offset, since, cfg });
     totals.pages++;
     totals.seen += res.products.length;
     allSkus.push(...res.products.map((p) => p.sku));
@@ -739,7 +838,7 @@ export async function runUniversalSync(mode: "FULL" | "DELTA"): Promise<SyncRunR
   const warehouses: SyncRunResult["warehouses"] = { available: false, seen: 0, created: 0, updated: 0, deactivated: 0, notes: [] };
   const stock: SyncRunResult["stock"] = { available: false, seen: 0, upserted: 0, skipped: 0, removed: 0 };
   try {
-    const wres = await fetchUniversalWarehouses();
+    const wres = await fetchUniversalWarehouses(cfg);
     warehouses.available = wres.available;
     if (!wres.available) warehouses.notes.push(wres.note);
     else if (wres.warehouses.length) {
@@ -759,7 +858,7 @@ export async function runUniversalSync(mode: "FULL" | "DELTA"): Promise<SyncRunR
     let completed = false;
     let offset = 0;
     for (let page = 0; page < 50; page++) { // 50 × 500 = 25k stock rows hard cap per run
-      const sres = await fetchUniversalWarehouseStock(500, offset);
+      const sres = await fetchUniversalWarehouseStock(500, offset, cfg);
       if (!sres.available) {
         unavailable = sres.note;
         break;
@@ -808,4 +907,232 @@ export async function runUniversalSync(mode: "FULL" | "DELTA"): Promise<SyncRunR
 /** Last successful webhook receipt time (ISO) — used to prove the push path is alive. */
 export async function getLastPushAt(): Promise<string> {
   return getSetting("erp_universal_last_push_at", "");
+}
+
+// ───────── CHUNKED full sync — the 504 fix ─────────
+// The one-shot full re-sync could not fit inside a serverless function window: pages of
+// remote ERP HTTP + per-row work against the remote MySQL ran minutes long, so Vercel
+// killed the invocation and the admin browser saw 504. The chunked protocol performs
+// ONE page of work per request and persists a cursor (Setting erp_sync_full_cursor);
+// the admin UI loops until done:true. An interrupted run resumes exactly where it
+// stopped — no duplicate work, no lost progress, no gateway timeout.
+
+const CURSOR_KEY = "erp_sync_full_cursor";
+
+export type FullSyncCursor = {
+  v: 1;
+  phase: "products" | "stock";
+  offset: number;
+  startedAt: string; // run start — timestamp anchor for de-list / stale-stock cleanup
+  total: number | null;
+  totals: { pages: number; seen: number; created: number; updated: number; skipped: number };
+  ms: number; // accumulated work time across all steps
+  warehouses: { available: boolean; seen: number; created: number; updated: number; deactivated: number } | null;
+  stock: { available: boolean; seen: number; upserted: number; skipped: number } | null;
+  notes: string[];
+};
+
+export type FullSyncStepResult = {
+  done: boolean;
+  phase: string;
+  pages: number;
+  total: number | null;
+  productsSeen: number;
+  stockSeen: number;
+  created: number;
+  updated: number;
+  summary?: {
+    pages: number;
+    seen: number;
+    created: number;
+    updated: number;
+    skipped: number;
+    delisted: number;
+    warehouses: { available: boolean; seen: number; created: number; updated: number; deactivated: number; notes: string[] } | null;
+    stock: { available: boolean; seen: number; upserted: number; skipped: number; removed: number } | null;
+    notes: string[];
+    durationMs: number;
+  };
+};
+
+async function readCursor(): Promise<FullSyncCursor | null> {
+  const raw = await getSetting(CURSOR_KEY, "");
+  if (!raw) return null;
+  try {
+    const c = JSON.parse(raw) as FullSyncCursor;
+    return c && c.v === 1 && (c.phase === "products" || c.phase === "stock") ? c : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeCursor(cursor: FullSyncCursor): Promise<void> {
+  await setSetting(CURSOR_KEY, JSON.stringify(cursor));
+}
+
+export async function clearFullSyncCursor(): Promise<void> {
+  await setSetting(CURSOR_KEY, "");
+}
+
+/** Cursor state for the admin UI ("a full sync is in progress — press to resume"). */
+export async function getFullSyncCursorState(): Promise<{ active: boolean; phase: string; productsSeen: number; stockSeen: number; total: number | null; startedAt: string } | null> {
+  const c = await readCursor();
+  if (!c) return null;
+  return { active: true, phase: c.phase, productsSeen: c.totals.seen, stockSeen: c.stock?.seen ?? 0, total: c.total, startedAt: c.startedAt };
+}
+
+const PRODUCTS_PER_STEP = 200;
+const STOCK_PER_STEP = 500;
+
+/**
+ * Advance the chunked full sync by exactly one unit of work:
+ *   products phase → one 200-product page (mirror + catalog projection)
+ *   → on the last page: warehouse mirror (one cheap request) → stock phase
+ *   stock phase → one 500-row stock page (upsert-only, batched)
+ *   → on the last page: FINISH (de-list + stale stock cleanup + timestamps + history)
+ * Throws only on hard failures (API not configured, ERP pull HTTP error) — the cursor
+ * stays put so the next press resumes the same page.
+ */
+export async function runFullSyncStep(reset = false): Promise<FullSyncStepResult> {
+  const stepStarted = Date.now();
+  await ensureMirrorTable();
+  let cursor = reset ? null : await readCursor();
+  if (!cursor) {
+    cursor = {
+      v: 1,
+      phase: "products",
+      offset: 0,
+      startedAt: new Date().toISOString(),
+      total: null,
+      totals: { pages: 0, seen: 0, created: 0, updated: 0, skipped: 0 },
+      ms: 0,
+      warehouses: null,
+      stock: null,
+      notes: [],
+    };
+  }
+  const cfg = await getUniversalConfig();
+  if (!cfg.configured) throw new Error("Universal API key not configured — save it in Admin → Inventory Sync");
+
+  if (cursor.phase === "products") {
+    const res = await fetchUniversalProducts({ limit: PRODUCTS_PER_STEP, offset: cursor.offset, cfg });
+    cursor.totals.pages++;
+    cursor.totals.seen += res.products.length;
+    if (cursor.total === null && typeof res.total === "number") cursor.total = res.total;
+    if (res.products.length) {
+      const applied = await applyUniversalProducts(res.products.map((p) => p.raw), "PULL");
+      cursor.totals.created += applied.created;
+      cursor.totals.updated += applied.updated;
+      cursor.totals.skipped += applied.skipped;
+    }
+    cursor.offset += PRODUCTS_PER_STEP;
+    if (!res.hasMore) {
+      // products complete → mirror ERP warehouses once (single cheap request) → stock
+      try {
+        const wres = await fetchUniversalWarehouses(cfg);
+        if (!wres.available) cursor.notes.push(wres.note);
+        else {
+          const wapp = await applyUniversalWarehouses(wres.warehouses, "FULL");
+          cursor.warehouses = { available: true, seen: wapp.seen, created: wapp.created, updated: wapp.updated, deactivated: wapp.deactivated };
+        }
+      } catch (e) {
+        cursor.warehouses = { available: false, seen: 0, created: 0, updated: 0, deactivated: 0 };
+        cursor.notes.push((e instanceof Error ? e.message : String(e)).slice(0, 200));
+      }
+      cursor.phase = "stock";
+      cursor.offset = 0;
+    }
+    cursor.ms += Date.now() - stepStarted;
+    await writeCursor(cursor);
+    return { done: false, phase: "products", pages: cursor.totals.pages, total: cursor.total, productsSeen: cursor.totals.seen, stockSeen: 0, created: cursor.totals.created, updated: cursor.totals.updated };
+  }
+
+  // ── stock phase ──
+  const sres = await fetchUniversalWarehouseStock(STOCK_PER_STEP, cursor.offset, cfg);
+  if (!sres.available) {
+    // ERP does not expose /warehouse-stock → note it and go straight to finish
+    cursor.stock = { available: false, seen: 0, upserted: 0, skipped: 0 };
+    cursor.notes.push(sres.note);
+    cursor.ms += Date.now() - stepStarted;
+    const summary = await finishFullSync(cursor);
+    return { done: true, phase: "done", pages: cursor.totals.pages, total: cursor.total, productsSeen: cursor.totals.seen, stockSeen: 0, created: cursor.totals.created, updated: cursor.totals.updated, summary };
+  }
+  cursor.stock = cursor.stock ?? { available: true, seen: 0, upserted: 0, skipped: 0 };
+  cursor.stock.available = true;
+  cursor.stock.seen += sres.rows.length;
+  if (sres.rows.length) {
+    // upsert-only per page — stale-row cleanup happens ONCE in the finish step
+    // (a per-page cleanup could never see the complete SKU set)
+    const sapp = await applyUniversalWarehouseStock(sres.rows, false);
+    cursor.stock.upserted += sapp.upserted;
+    cursor.stock.skipped += sapp.skipped;
+  }
+  cursor.offset += STOCK_PER_STEP;
+
+  if (!sres.hasMore) {
+    cursor.ms += Date.now() - stepStarted;
+    const summary = await finishFullSync(cursor);
+    return { done: true, phase: "done", pages: cursor.totals.pages, total: cursor.total, productsSeen: cursor.totals.seen, stockSeen: cursor.stock.seen, created: cursor.totals.created, updated: cursor.totals.updated, summary };
+  }
+  cursor.ms += Date.now() - stepStarted;
+  await writeCursor(cursor);
+  return { done: false, phase: "stock", pages: cursor.totals.pages, total: cursor.total, productsSeen: cursor.totals.seen, stockSeen: cursor.stock.seen, created: cursor.totals.created, updated: cursor.totals.updated };
+}
+
+/**
+ * Finish step of the chunked full sync — timestamp-rule cleanup (see the helper docs),
+ * last_full_at stamp, sync-history entry, cursor release. Never persists the cursor
+ * afterwards: a finished run must not resume.
+ */
+async function finishFullSync(cursor: FullSyncCursor): Promise<NonNullable<FullSyncStepResult["summary"]>> {
+  const runStartedAt = new Date(cursor.startedAt);
+  const notes = [...cursor.notes];
+
+  // 1. de-list SKUs absent from the whole pull (mirror-timestamp rule + catalog orphans)
+  let delisted = 0;
+  try {
+    delisted = await delistVanishedProducts(runStartedAt);
+  } catch (e) {
+    notes.push(`de-list check failed: ${(e instanceof Error ? e.message : String(e)).slice(0, 150)}`);
+  }
+
+  // 2. stale per-warehouse stock rows on ERP warehouses (only when the stock feed ran)
+  let removed = 0;
+  if (cursor.stock?.available) {
+    try {
+      removed = await cleanupStaleWarehouseStock(runStartedAt);
+    } catch (e) {
+      notes.push(`stale stock cleanup failed: ${(e instanceof Error ? e.message : String(e)).slice(0, 150)}`);
+    }
+  }
+
+  // 3. timestamps + history — same message shape as the one-shot full sync
+  await setSetting("erp_universal_last_full_at", new Date().toISOString());
+  await logSyncEvent({
+    direction: "PULL_ERP",
+    action: "UNIVERSAL_FULL",
+    status: "OK",
+    message: `Chunked full re-sync: ${cursor.totals.pages} page(s) · seen ${cursor.totals.seen} · created ${cursor.totals.created} · updated ${cursor.totals.updated} · skipped ${cursor.totals.skipped} · de-listed ${delisted}${cursor.warehouses?.available ? ` · warehouses ${cursor.warehouses.created}+${cursor.warehouses.updated}${cursor.warehouses.deactivated ? ` (-${cursor.warehouses.deactivated})` : ""}` : " · warehouses: not exposed by ERP"}${cursor.stock?.available ? ` · stock ${cursor.stock.upserted} (stale removed ${removed})` : " · stock: not exposed by ERP"}`,
+    seen: cursor.totals.seen,
+    created: cursor.totals.created,
+    updated: cursor.totals.updated,
+    skipped: cursor.totals.skipped,
+    durationMs: cursor.ms,
+  });
+  await clearFullSyncCursor();
+
+  return {
+    pages: cursor.totals.pages,
+    seen: cursor.totals.seen,
+    created: cursor.totals.created,
+    updated: cursor.totals.updated,
+    skipped: cursor.totals.skipped,
+    delisted,
+    // run-level notes ride on the warehouses object too — the admin UI renders
+    // warehouses.notes under both the available and unavailable branches
+    warehouses: cursor.warehouses ? { ...cursor.warehouses, notes } : null,
+    stock: cursor.stock ? { ...cursor.stock, removed } : null,
+    notes,
+    durationMs: cursor.ms,
+  };
 }

@@ -9,12 +9,24 @@ type Health = { configured: boolean; up: boolean; httpStatus: number; message: s
 type SyncEvent = { id: string; direction: string; action: string; status: string; message: string; createdAt: string };
 type WhSyncResult = { available: boolean; seen: number; created: number; updated: number; deactivated: number; notes: string[] };
 type StockSyncResult = { available: boolean; seen: number; upserted: number; skipped: number; removed: number };
+type CursorInfo = { active: boolean; phase: string; productsSeen: number; stockSeen: number; total: number | null; startedAt: string };
+type FullStep = {
+  done: boolean; phase: string; pages: number; total: number | null;
+  productsSeen: number; stockSeen: number; created: number; updated: number;
+  summary?: {
+    pages: number; seen: number; created: number; updated: number; skipped: number; delisted: number;
+    warehouses: WhSyncResult | null;
+    stock: StockSyncResult | null;
+    notes: string[]; durationMs: number;
+  };
+};
 type Status = {
   config: { url: string; apiKey: string; pushSecret: string; apiKeySet: boolean; pushSecretSet: boolean };
   health: Health;
   webhookUrl: string;
   counts: { mirror: number; mirrorActive: number; catalogErp: number; sharedFields: { mrp: number; costPrice: number; deliveryRate: number; availableStock: number } };
   schedule: { dailyEnabled: boolean; watermark: string; lastPushAt: string; lastFullAt: string; lastDeltaAt: string };
+  cursor: CursorInfo | null;
   events: SyncEvent[];
 };
 
@@ -29,6 +41,8 @@ export function InventorySyncModule({ token }: { token: string }) {
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState<"" | "full" | "delta">("");
   const [copied, setCopied] = useState(false);
+  // live progress of the chunked full re-sync (one page per request — 504-proof)
+  const [progress, setProgress] = useState<{ phase: string; productsSeen: number; total: number | null; stockSeen: number; pages: number } | null>(null);
   // warehouse/stock part of the most recent re-sync response (optional until the ERP side ships it)
   const [whSync, setWhSync] = useState<{ warehouses?: WhSyncResult; stock?: StockSyncResult } | null>(null);
 
@@ -55,15 +69,53 @@ export function InventorySyncModule({ token }: { token: string }) {
     }
   };
 
-  const resync = async (mode: "full" | "delta") => {
-    setSyncing(mode);
+  /** FULL re-sync is CHUNKED: each request does one page of work and returns progress;
+   *  the loop below drives it page by page so no single request can hit a gateway
+   *  timeout. An interrupted run resumes from the persisted cursor on the next press. */
+  const resyncFull = async () => {
+    setSyncing("full");
+    setProgress({ phase: "products", productsSeen: 0, total: null, stockSeen: 0, pages: 0 });
     try {
-      const d = await call(`/api/admin/universal-sync/resync?mode=${mode}`, { method: "POST" });
-      setWhSync({ warehouses: d.warehouses, stock: d.stock });
-      toast.success(`${mode === "full" ? "Full re-sync" : "Delta pull"} done — ${d.pages} page(s) · seen ${d.seen} · created ${d.created} · updated ${d.updated}${mode === "full" ? ` · de-listed ${d.delisted}` : ""} (${(d.durationMs / 1000).toFixed(1)}s)`);
+      let last: FullStep | null = null;
+      // step cap = generous multiple of the server's own page caps (100 product pages +
+      // 50 stock pages per run) so a server anomaly can never loop the browser forever
+      for (let i = 0; i < 400; i++) {
+        const d: FullStep = await call("/api/admin/universal-sync/resync?mode=full", { method: "POST" });
+        last = d;
+        setProgress({ phase: d.phase, productsSeen: d.productsSeen, total: d.total, stockSeen: d.stockSeen, pages: d.pages });
+        if (d.done) break;
+      }
+      if (!last?.done) throw new Error("Full sync hit the browser step cap — press Re-sync now to continue");
+      const s = last.summary;
+      const parts = [
+        `${s?.pages ?? last.pages} page(s)`,
+        `seen ${s?.seen ?? last.productsSeen}`,
+        `created ${s?.created ?? last.created}`,
+        `updated ${s?.updated ?? last.updated}`,
+      ];
+      if (s?.delisted) parts.push(`de-listed ${s.delisted}`);
+      if (s?.warehouses?.available) parts.push(`warehouses ${s.warehouses.seen}`);
+      if (s?.stock?.available) parts.push(`stock rows ${s.stock.upserted}`);
+      toast.success(`Full re-sync done — ${parts.join(" · ")} (${((s?.durationMs ?? 0) / 1000).toFixed(1)}s work time)`);
+      setWhSync({ warehouses: s?.warehouses ?? undefined, stock: s?.stock ?? undefined });
       load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Re-sync failed");
+      toast.error(e instanceof Error ? `${e.message} — press Re-sync now to resume where it stopped` : "Re-sync failed");
+    } finally {
+      setSyncing("");
+      setProgress(null);
+    }
+  };
+
+  const resyncDelta = async () => {
+    setSyncing("delta");
+    try {
+      const d = await call("/api/admin/universal-sync/resync?mode=delta", { method: "POST" });
+      setWhSync({ warehouses: d.warehouses, stock: d.stock });
+      toast.success(`Delta pull done — ${d.pages} page(s) · seen ${d.seen} · created ${d.created} · updated ${d.updated} (${((d.durationMs ?? 0) / 1000).toFixed(1)}s)`);
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Delta pull failed");
     } finally {
       setSyncing("");
     }
@@ -161,13 +213,38 @@ export function InventorySyncModule({ token }: { token: string }) {
             <code className="mx-1 rounded bg-gray-100 px-1">X-DMK-Signature: sha256=HMAC-SHA256(body, push secret)</code> — wrong signature = rejected. Replies 200 within 5s.
           </p>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <button onClick={() => resync("full")} disabled={syncing !== ""} className="flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 text-xs font-black uppercase tracking-wider text-white hover:bg-emerald-700 disabled:opacity-40">
-              <RefreshCw className={`h-4 w-4 ${syncing === "full" ? "animate-spin" : ""}`} /> {syncing === "full" ? "Re-syncing…" : "Re-sync now"}
+            <button onClick={resyncFull} disabled={syncing !== ""} className="flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 text-xs font-black uppercase tracking-wider text-white hover:bg-emerald-700 disabled:opacity-40">
+              <RefreshCw className={`h-4 w-4 ${syncing === "full" ? "animate-spin" : ""}`} /> {syncing === "full" ? "Re-syncing…" : status?.cursor?.active ? "Resume full re-sync" : "Re-sync now"}
             </button>
-            <button onClick={() => resync("delta")} disabled={syncing !== "" || !status?.schedule.watermark} className="flex h-10 items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-white text-xs font-black uppercase tracking-wider text-emerald-700 hover:bg-emerald-50 disabled:opacity-40">
+            <button onClick={resyncDelta} disabled={syncing !== "" || !status?.schedule.watermark} className="flex h-10 items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-white text-xs font-black uppercase tracking-wider text-emerald-700 hover:bg-emerald-50 disabled:opacity-40">
               <ArrowDownToLine className={`h-4 w-4 ${syncing === "delta" ? "animate-pulse" : ""}`} /> {syncing === "delta" ? "Pulling…" : "Pull delta"}
             </button>
           </div>
+          {/* live progress — chunked sync pulls one page per request, this bar tracks the loop */}
+          {progress ? (
+            <div className="mt-3">
+              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                <span>
+                  {progress.phase === "products"
+                    ? `Pulling products… ${progress.productsSeen.toLocaleString("en-IN")}${progress.total ? ` / ${progress.total.toLocaleString("en-IN")}` : ""}`
+                    : progress.phase === "stock"
+                      ? `Pulling warehouse stock… ${progress.stockSeen.toLocaleString("en-IN")} rows`
+                      : "Finishing…"}
+                </span>
+                <span>{progress.pages} page(s) pulled</span>
+              </div>
+              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-200">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${progress.phase === "done" ? "bg-emerald-600" : "animate-pulse bg-emerald-500"}`}
+                  style={{ width: `${Math.min(100, progress.phase === "products" ? (progress.total ? Math.min(60, (progress.productsSeen / progress.total) * 60) : 30) : progress.phase === "stock" ? 78 : 95)}%` }}
+                />
+              </div>
+            </div>
+          ) : status?.cursor?.active ? (
+            <p className="mt-2 rounded-lg bg-amber-50 px-2.5 py-1.5 text-[10px] font-bold text-amber-700">
+              A full re-sync is paused mid-run ({status.cursor.phase === "products" ? `${status.cursor.productsSeen} products` : `${status.cursor.stockSeen} stock rows`} pulled from {new Date(status.cursor.startedAt).toLocaleString("en-IN")}) — press “Resume full re-sync” to continue it, no work is repeated.
+            </p>
+          ) : null}
           {/* godown mirror stats from the last re-sync — hidden until the ERP response carries warehouses */}
           {whSync?.warehouses ? (
             whSync.warehouses.available ? (
@@ -175,12 +252,12 @@ export function InventorySyncModule({ token }: { token: string }) {
                 <span className="rounded-full bg-yellow-400 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-black">
                   Warehouses: {whSync.warehouses.seen} · new {whSync.warehouses.created} · stock rows {whSync.stock?.upserted ?? 0}
                 </span>
-                {whSync.warehouses.notes.map((n) => (
+                {(whSync.warehouses.notes ?? []).map((n) => (
                   <span key={n} className="text-[10px] leading-snug text-gray-500">{n}</span>
                 ))}
               </div>
             ) : (
-              whSync.warehouses.notes[0] && <p className="mt-2 text-[10px] text-gray-500">{whSync.warehouses.notes[0]}</p>
+              (whSync.warehouses.notes ?? [])[0] && <p className="mt-2 text-[10px] text-gray-500">{(whSync.warehouses.notes ?? [])[0]}</p>
             )
           ) : null}
         </div>

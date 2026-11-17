@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, jsonError } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import { getSetting, setSetting } from "@/lib/settings";
-import { getUniversalConfig, verifyUniversalHealth, ensureMirrorTable } from "@/lib/erp-universal";
+import { getUniversalConfig, verifyUniversalHealth, ensureMirrorTable, getFullSyncCursorState } from "@/lib/erp-universal";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -27,13 +27,14 @@ export async function GET(req: NextRequest) {
   if (denied) return denied;
   try {
     const config = await getUniversalConfig();
-    const [health, dailyEnabled, watermark, lastPushAt, lastFullAt, lastDeltaAt] = await Promise.all([
+    const [health, dailyEnabled, watermark, lastPushAt, lastFullAt, lastDeltaAt, cursor] = await Promise.all([
       verifyUniversalHealth(config),
       getSetting("erp_universal_daily_enabled", "true"),
       getSetting("erp_universal_watermark", ""),
       getSetting("erp_universal_last_push_at", ""),
       getSetting("erp_universal_last_full_at", ""),
       getSetting("erp_universal_last_delta_at", ""),
+      getFullSyncCursorState().catch(() => null),
     ]);
     await ensureMirrorTable().catch(() => {});
     const [mirrorCount, mirrorActive, catalogErp, mrpShared, costShared, rateShared, stockShared, events] = await Promise.all([
@@ -53,6 +54,7 @@ export async function GET(req: NextRequest) {
       webhookUrl: await webhookUrl(req),
       counts: { mirror: mirrorCount, mirrorActive, catalogErp, sharedFields: { mrp: mrpShared, costPrice: costShared, deliveryRate: rateShared, availableStock: stockShared } },
       schedule: { dailyEnabled: dailyEnabled === "true", watermark, lastPushAt, lastFullAt, lastDeltaAt },
+      cursor,
       events,
     });
   } catch (e) {
