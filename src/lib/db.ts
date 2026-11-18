@@ -1,17 +1,21 @@
 import { PrismaClient } from '@prisma/client'
 
-// Hostinger shared MySQL enforces max_connections_per_hour (500 on current plan).
-// Every serverless instance opening a big Prisma pool burns through it fast,
-// causing ERROR 1226 outages. Keep the per-instance pool tiny and rely on
-// edge caching (catalog/products routes) to absorb traffic.
+// Neon Postgres (Lakebase) is the app database. The runtime URL is the POOLED
+// endpoint (PgBouncer transaction mode) — Prisma must run with pgbouncer=true
+// (no server-side prepared statements) and a tiny per-instance pool so Vercel
+// serverless concurrency never exhausts Neon connections. Migrations use the
+// DIRECT endpoint via the schema's directUrl (APP_DATABASE_URL_DIRECT).
 function datasourceUrl(): string | undefined {
   const raw = process.env.APP_DATABASE_URL;
   if (!raw) return undefined;
   try {
     const u = new URL(raw);
-    if (!u.searchParams.has("connection_limit")) u.searchParams.set("connection_limit", "4");
-    if (!u.searchParams.has("pool_timeout")) u.searchParams.set("pool_timeout", "20");
-    if (!u.searchParams.has("connect_timeout")) u.searchParams.set("connect_timeout", "15");
+    if (u.protocol.startsWith("postgres")) {
+      if (!u.searchParams.has("pgbouncer")) u.searchParams.set("pgbouncer", "true");
+      if (!u.searchParams.has("connection_limit")) u.searchParams.set("connection_limit", "2");
+      if (!u.searchParams.has("pool_timeout")) u.searchParams.set("pool_timeout", "20");
+      if (!u.searchParams.has("connect_timeout")) u.searchParams.set("connect_timeout", "15");
+    }
     return u.toString();
   } catch {
     return raw;

@@ -2,11 +2,10 @@
  * Key-value application settings (Setting table) — the single, dependency-free
  * settings helper for the whole app.
  *
- * Used by the Universal Inventory API integration (Admin → Inventory Sync), the
- * signed ERP webhook, the daily delta cron, SMS/WhatsApp config and the cron
- * secret. Previously this lived in lib/erp.ts together with the direct-ERP-MySQL
- * connector — that connector was retired: products now sync exclusively through
- * the dmkmarterp.in Universal REST API (API key + push secret stored here).
+ * Used by the direct ERP MySQL integration (Admin → ERP Data: credentials,
+ * ticked table/column mappings, sync cursor), the SMS/WhatsApp config and the
+ * cron secret. Formerly hosted the Universal REST API keys — that integration
+ * was retired when the owner shared the ERP MySQL database directly.
  */
 import { db } from "@/lib/db";
 

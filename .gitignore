@@ -75,3 +75,4 @@ tool-results/
 db/custom.db
 /db/*.db
 /download/
+.neon

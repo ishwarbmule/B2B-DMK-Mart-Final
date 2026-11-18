@@ -3,12 +3,14 @@ generator client {
 }
 
 datasource db {
-  // MySQL — the B2B store now lives on the owner's own MySQL server (no Neon).
+  // Neon Postgres (Lakebase) — the app database (accounts, orders, settings,
+  // ERP catalog cache/overlay). Pooled URL for the app, direct URL for migrations.
   // Local sandbox preview uses the SQLite twin at prisma/schema.sqlite.prisma.
   // Dedicated env name: the sandbox platform injects its own DATABASE_URL (sqlite),
   // which would override .env. APP_DATABASE_URL is app-owned everywhere (local + Vercel).
-  provider = "mysql"
-  url      = env("APP_DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("APP_DATABASE_URL")
+  directUrl = env("APP_DATABASE_URL_DIRECT")
 }
 
 // ───────────────────────── BRANDS (DMK Mart sells many brands) ─────────────────────────

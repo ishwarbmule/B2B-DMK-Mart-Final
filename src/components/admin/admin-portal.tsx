@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Globe, Package, Building2, ShoppingCart,
   Users, LogOut, Menu, X, Eye, Settings2, ChevronRight, Megaphone,
   Barcode as BarcodeIcon, BadgePercent, IndianRupee, Wallet, FileSpreadsheet,
-  MapPin, BookOpen, RefreshCw, Warehouse as WarehouseIcon,
+  MapPin, BookOpen, RefreshCw, Warehouse as WarehouseIcon, Database,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardModule, CustomersModule, PricingModule, CompanyProductsModule } from "./business-modules-1";
@@ -18,7 +18,7 @@ import { ApprovalsModule } from "./approvals-module";
 import { WarehouseStockModule } from "./warehouse-stock-module";
 import { WarehousesModule } from "./warehouses-module";
 import { SettingsModule } from "./settings-module";
-import { InventorySyncModule } from "./inventory-sync-module";
+import { ErpDirectModule } from "./erp-direct-module";
 import { BarcodeStudio } from "./barcode-studio";
 import { CrudModule } from "./ui-bits";
 import { CONFIGS } from "./crud-configs";
@@ -80,7 +80,7 @@ const NAV: { group: string; items: { id: ModuleId; label: string; icon: React.Co
       { id: "homeEditor", label: "Homepage Editor (v2)" },
       { id: "seoMeta", label: "SEO Manager" },
     ]},
-    { id: "inventorySync", label: "Inventory Sync (ERP API)", icon: RefreshCw },
+    { id: "erpDirect", label: "ERP Data (MySQL)", icon: Database },
     { id: "settings", label: "Settings", icon: Settings2 },
   ]},
 ];
@@ -205,7 +205,7 @@ export function AdminPortal() {
       case "liveEditor": return <LiveEditorModule token={token} />;
       case "homeEditor": return <HomeEditorModule token={token} />;
       case "storefronts": return <StorefrontsModule token={token} />;
-      case "inventorySync": return <InventorySyncModule token={token} />;
+      case "erpDirect": return <ErpDirectModule token={token} />;
       case "settings": return <SettingsModule token={token} />;
       case "brand-products": return <CompanyProductsModule token={token} />;
       default: {
