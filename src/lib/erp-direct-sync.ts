@@ -29,7 +29,7 @@
  */
 import { db } from "@/lib/db";
 import { getSetting, setSetting, logSyncEvent } from "@/lib/settings";
-import { assertIdentifier, describeErpTable, fetchErpPage } from "@/lib/erp-mysql";
+import { assertIdentifier, assertReadOnly, describeErpTable, erpPool, fetchErpPage } from "@/lib/erp-mysql";
 
 // ───────── mapping types + storage ─────────
 
@@ -44,7 +44,16 @@ export type ProductMapping = {
   columns: string[]; // ticked — shown in admin + exposed to the website verbatim
 };
 export type WarehouseMapping = { table: string; codeCol: string; nameCol: string; activeCol?: string; columns: string[] };
-export type StockMapping = { table: string; skuCol: string; warehouseCodeCol: string; qtyCol: string; columns: string[] };
+export type StockMapping = {
+  table: string; skuCol: string; warehouseCodeCol: string; qtyCol: string; columns: string[];
+  // ERP WarehouseStock rows key products/warehouses by ID, not sku/code. When set,
+  // the stock pull runs a READ-ONLY ERP-side JOIN so `skuCol`/`warehouseCodeCol`
+  // values arrive as the referenced columns' values under the same keys:
+  //   skuJoin:        { table: "Product",   idCol: "id", selectCol: "sku"  }
+  //   warehouseJoin:  { table: "Warehouse", idCol: "id", selectCol: "code" }
+  skuJoin?: { table: string; idCol: string; selectCol: string };
+  warehouseJoin?: { table: string; idCol: string; selectCol: string };
+};
 
 const KEY_PRODUCTS = "erp_map_products";
 const KEY_WAREHOUSES = "erp_map_warehouses";
@@ -427,13 +436,43 @@ export async function syncWarehouses(): Promise<{ seen: number; created: number;
 
 // ───────── per-warehouse stock ─────────
 
+/** Read-only JOINed stock fetch: substitutes ID-keyed columns with the values
+ *  they reference (Product.sku under the skuCol key, Warehouse.code under the
+ *  warehouseCodeCol key) so the existing row-processing logic is unchanged. */
+async function fetchStockJoined(sm: StockMapping): Promise<Record<string, unknown>[]> {
+  const p = await erpPool();
+  const sel: string[] = [];
+  for (const c of [...new Set([sm.qtyCol, ...(sm.columns || [])].filter(Boolean) as string[])]) {
+    assertIdentifier(c);
+    sel.push(`s.\`${c}\` AS \`${c}\``);
+  }
+  if (sm.skuJoin) {
+    assertIdentifier(sm.skuJoin.table); assertIdentifier(sm.skuJoin.idCol); assertIdentifier(sm.skuJoin.selectCol);
+    sel.push(`j1.\`${sm.skuJoin.selectCol}\` AS \`${sm.skuCol}\``);
+  }
+  if (sm.warehouseJoin) {
+    assertIdentifier(sm.warehouseJoin.table); assertIdentifier(sm.warehouseJoin.idCol); assertIdentifier(sm.warehouseJoin.selectCol);
+    sel.push(`j2.\`${sm.warehouseJoin.selectCol}\` AS \`${sm.warehouseCodeCol}\``);
+  }
+  assertIdentifier(sm.table);
+  let sql = `SELECT ${sel.join(", ")} FROM \`${sm.table}\` s`;
+  if (sm.skuJoin) sql += ` JOIN \`${sm.skuJoin.table}\` j1 ON j1.\`${sm.skuJoin.idCol}\` = s.\`${sm.skuCol}\``;
+  if (sm.warehouseJoin) sql += ` JOIN \`${sm.warehouseJoin.table}\` j2 ON j2.\`${sm.warehouseJoin.idCol}\` = s.\`${sm.warehouseCodeCol}\``;
+  sql += ` LIMIT 5000`;
+  assertReadOnly(sql);
+  const [rows] = await p.query(sql);
+  return rows as Record<string, unknown>[];
+}
+
 export async function syncStock(): Promise<{ rows: number; stocksUpserted: number; productsUpdated: number; missing: number; errors: string[] }> {
   const sm = await getStockMapping();
   const wm = await getWarehousesMapping();
   const pm = await getProductsMapping();
   if (!sm) throw new Error("Stock mapping not configured — tick columns in Admin → ERP Data first");
   const allCols = [...new Set([sm.skuCol, sm.warehouseCodeCol, sm.qtyCol, ...(sm.columns || [])].filter(Boolean) as string[])];
-  const rows = await fetchErpPage(sm.table, allCols, { limit: 5000, orderBy: sm.skuCol });
+  const rows = (sm.skuJoin || sm.warehouseJoin)
+    ? await fetchStockJoined(sm)
+    : await fetchErpPage(sm.table, allCols, { limit: 5000, orderBy: sm.skuCol });
   const result = { rows: rows.length, stocksUpserted: 0, productsUpdated: 0, missing: 0, errors: [] as string[] };
 
   const warehouses = await db.warehouse.findMany({ where: { source: "ERP" }, select: { id: true, code: true } });
