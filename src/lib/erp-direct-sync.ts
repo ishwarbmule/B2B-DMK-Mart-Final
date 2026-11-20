@@ -27,6 +27,7 @@
  * Big catalogs exceed the 60s serverless cap → sync runs ONE page per call with
  * a persisted cursor (the 504 lesson): products chunk via erp_sync_cursor_products.
  */
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getSetting, setSetting, logSyncEvent } from "@/lib/settings";
 import { assertIdentifier, assertReadOnly, describeErpTable, erpPool, fetchErpPage } from "@/lib/erp-mysql";
@@ -477,9 +478,10 @@ export async function syncStock(): Promise<{ rows: number; stocksUpserted: numbe
 
   const warehouses = await db.warehouse.findMany({ where: { source: "ERP" }, select: { id: true, code: true } });
   const whByCode = new Map(warehouses.map((w) => [w.code, w.id]));
-  const totals = new Map<string, number>(); // sku -> sum across godowns
-  const touched = new Map<string, Set<string>>(); // warehouseId -> productIds seen (stale cleanup)
+  const erpWhIds = warehouses.map((w) => w.id);
 
+  // parse + resolve in memory (no per-row DB queries)
+  const parsed: { sku: string; whId: string; qty: number }[] = [];
   for (const raw of rows) {
     const sku = str(val(raw, sm.skuCol));
     const whCode = str(val(raw, sm.warehouseCodeCol));
@@ -487,34 +489,65 @@ export async function syncStock(): Promise<{ rows: number; stocksUpserted: numbe
     if (!sku || !whCode) continue;
     const whId = whByCode.get(whCode);
     if (!whId) { result.missing++; continue; }
-    totals.set(sku, (totals.get(sku) ?? 0) + qty);
-    try {
-      const product = await db.product.findUnique({ where: { sku }, select: { id: true } });
-      if (!product) { result.missing++; continue; }
-      const existing = await db.warehouseStock.findUnique({
-        where: { warehouseId_productId: { warehouseId: whId, productId: product.id } },
-        select: { id: true, qty: true },
-      });
-      if (existing) {
-        if (existing.qty !== qty) await db.warehouseStock.update({ where: { id: existing.id }, data: { qty } });
-      } else {
-        await db.warehouseStock.create({ data: { warehouseId: whId, productId: product.id, qty } });
-      }
-      result.stocksUpserted++;
-      if (!touched.has(whId)) touched.set(whId, new Set());
-      touched.get(whId)!.add(product.id);
-    } catch (e: unknown) {
-      result.errors.push(`${sku}@${whCode}: ${e instanceof Error ? e.message : String(e)}`);
-    }
+    parsed.push({ sku, whId, qty });
+  }
+  const skus = [...new Set(parsed.map((r) => r.sku))];
+  const prodRows = skus.length
+    ? await db.product.findMany({ where: { sku: { in: skus } }, select: { id: true, sku: true } })
+    : [];
+  const prodBySku = new Map(prodRows.map((p) => [p.sku, p.id]));
+
+  const totals = new Map<string, number>(); // sku -> sum across godowns
+  const desired = new Map<string, { whId: string; pid: string; qty: number }>(); // "whId:pid" -> row
+  const touched = new Map<string, Set<string>>(); // warehouseId -> productIds seen (stale cleanup)
+  for (const r of parsed) {
+    const pid = prodBySku.get(r.sku);
+    if (!pid) { result.missing++; continue; }
+    totals.set(r.sku, (totals.get(r.sku) ?? 0) + r.qty);
+    desired.set(`${r.whId}:${pid}`, { whId: r.whId, pid, qty: r.qty });
+    if (!touched.has(r.whId)) touched.set(r.whId, new Set());
+    touched.get(r.whId)!.add(pid);
   }
 
-  // roll up per-godown totals onto the product (what buyers can order)
-  for (const [sku, total] of totals) {
-    const updated = await db.product.updateMany({ where: { sku, syncSource: { not: "LOCAL" } }, data: { stock: total } });
-    if (updated.count) {
-      result.productsUpdated++;
-      await db.erpProductMirror.updateMany({ where: { sku }, data: { availableStock: total } });
-    }
+  // ONE query for existing rows, then diff in memory
+  const pidList = [...new Set([...desired.values()].map((v) => v.pid))];
+  const existingRows = pidList.length
+    ? await db.warehouseStock.findMany({
+        where: { warehouseId: { in: erpWhIds }, productId: { in: pidList } },
+        select: { id: true, warehouseId: true, productId: true, qty: true },
+      })
+    : [];
+  const existingByKey = new Map(existingRows.map((e) => [`${e.warehouseId}:${e.productId}`, e]));
+
+  const creates: { warehouseId: string; productId: string; qty: number }[] = [];
+  const updateIds: { id: string; qty: number }[] = [];
+  for (const [key, d] of desired) {
+    const ex = existingByKey.get(key);
+    if (!ex) creates.push({ warehouseId: d.whId, productId: d.pid, qty: d.qty });
+    else if (ex.qty !== d.qty) updateIds.push({ id: ex.id, qty: d.qty });
+  }
+  for (let i = 0; i < creates.length; i += 1000) {
+    await db.warehouseStock.createMany({ data: creates.slice(i, i + 1000), skipDuplicates: true });
+  }
+  for (let i = 0; i < updateIds.length; i += 25) {
+    await Promise.all(updateIds.slice(i, i + 25).map((u) => db.warehouseStock.update({ where: { id: u.id }, data: { qty: u.qty } })));
+  }
+  result.stocksUpserted = desired.size;
+
+  // roll up per-godown totals onto the product (what buyers can order) —
+  // single bulk UPDATE ... FROM (VALUES ...) per table (the 504 lesson again:
+  // 2.8k per-row updateMany calls would blow the 60s serverless budget)
+  const totalsArr = [...totals.entries()];
+  if (totalsArr.length) {
+    const values = Prisma.join(
+      totalsArr.map(([sku, total]) => Prisma.sql`(${sku}, ${total})`),
+    );
+    result.productsUpdated = await db.$executeRaw(
+      Prisma.sql`UPDATE "Product" p SET "stock" = v.total FROM (VALUES ${values}) AS v(sku, total) WHERE p."sku" = v.sku AND p."syncSource" <> 'LOCAL'`,
+    );
+    await db.$executeRaw(
+      Prisma.sql`UPDATE "ErpProductMirror" m SET "availableStock" = v.total FROM (VALUES ${values}) AS v(sku, total) WHERE m."sku" = v.sku`,
+    );
   }
 
   // stale rows: ERP godown stock rows that no longer exist upstream (full pull covers it)
