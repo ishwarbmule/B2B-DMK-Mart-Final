@@ -76,3 +76,4 @@ db/custom.db
 /db/*.db
 /download/
 .neon
+scripts/env.local.known

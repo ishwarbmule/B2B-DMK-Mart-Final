@@ -296,86 +296,154 @@ export async function syncProductsPage(pageSize = 300, offsetOverride?: number):
   const rows = await fetchErpPage(m.table, allCols, { limit: pageSize, offset, orderBy: m.skuCol });
 
   const result: SyncPageResult = { seen: rows.length, created: 0, updated: 0, skipped: 0, offset, done: rows.length < pageSize, errors: [] };
-  const catCache = await loadCatCache();
 
+  // normalize in memory — no DB access per row
+  const items: NormalizedRow[] = [];
   for (const raw of rows) {
-    const item = normalizeProductRow(raw, m, imageBase);
-    if (!item) { result.skipped++; continue; }
+    const it = normalizeProductRow(raw, m, imageBase);
+    if (it) items.push(it);
+    else result.skipped++;
+  }
+  if (!items.length) {
+    if (result.done) { await setSetting("erp_sync_cursor_products", "0"); await setSetting("erp_sync_last_full_at", new Date().toISOString()); }
+    else await setSetting("erp_sync_cursor_products", String(offset + rows.length));
+    return result;
+  }
+
+  const catCache = await loadCatCache();
+  const now = new Date();
+
+  // ── brands: ONE table load, match in memory, create only missing (brand = ERP company) ──
+  const companies = [...new Set(items.map((i) => i.company.trim()).filter(Boolean))];
+  const brandRows = await db.brand.findMany({ select: { id: true, name: true, slug: true, erpNames: true } });
+  const norm = (s: string) => s.trim().toLowerCase();
+  const brandIdFor = new Map<string, string | null>();
+  const brandSlugTaken = new Set(brandRows.map((b) => b.slug));
+  for (const c of companies) {
+    const hit = brandRows.find((b) => norm(b.name) === norm(c))
+      ?? brandRows.find((b) => { try { return (JSON.parse(b.erpNames || "[]") as string[]).some((a) => norm(a) === norm(c)); } catch { return false; } });
+    brandIdFor.set(c, hit ? hit.id : null);
+  }
+  for (const c of companies.filter((x) => !brandIdFor.get(x))) {
+    let slug = slugify(c);
+    let n = 0;
+    while (brandSlugTaken.has(slug + (n ? `-${n}` : ""))) n++;
+    const finalSlug = n ? `${slug}-${n}` : slug;
+    brandSlugTaken.add(finalSlug);
     try {
-      // mirror upsert (SKU-keyed) — costPrice admin-only, ticked extras verbatim
-      const mirrorData = {
-        sku: item.sku, name: item.name, isActive: item.active,
-        mrp: m.mrpCol ? item.mrp : null,
-        costPrice: m.costCol ? item.costPrice : null,
-        deliveryRate: m.deliveryRateCol ? item.deliveryRate : null,
-        availableStock: m.stockCol ? item.stock : null,
-        erpUpdatedAt: new Date(),
-        lastSource: "MYSQL",
-        payloadJson: JSON.stringify(item.extras),
-        lastSyncedAt: new Date(),
-      };
-      await db.erpProductMirror.upsert({ where: { sku: item.sku }, create: mirrorData, update: mirrorData });
-
-      const brandId = await upsertBrandForCompany(item.company);
-      const dealer = item.rate > 0 ? item.rate : item.mrp;
-      const mrp = item.mrp > 0 ? item.mrp : dealer;
-      const data = {
-        erpId: item.erpId,
-        name: item.name,
-        company: item.company,
-        ...(brandId ? { brandId } : {}),
-        topId: catCache.fallback.topId, midId: catCache.fallback.midId, endId: catCache.fallback.endId,
-        unit: item.unit, packQty: item.packQty, piecesPerBox: item.piecesPerBox,
-        purchaseCost: item.costPrice,
-        dealerPrice: dealer, basePrice: dealer, mrp,
-        tier1: item.tier1, tier2: item.tier2, tier3: item.tier3, tier4: item.tier4, tier5: item.tier5,
-        deliveryRate: item.deliveryRate,
-        ...(m.stockCol ? { stock: Math.round(item.stock) } : {}),
-        lowStockThreshold: 10,
-        barcode: item.barcode, hsn: item.hsn, gst: item.gst, weightGrams: item.weightGrams,
-        syncSource: "ERP",
-        lastSyncedAt: new Date(),
-      };
-
-      const existing = await db.product.findUnique({ where: { sku: item.sku } })
-        ?? (item.erpId ? await db.product.findFirst({ where: { erpId: item.erpId } }) : null);
-
-      if (existing) {
-        // syncSource=LOCAL rows are admin-owned: a pull never overwrites their catalog data
-        if (existing.syncSource !== "LOCAL") {
-          const update: Record<string, unknown> = { ...data };
-          if (item.image) update.image = item.image; // keep local/Cloudinary image if ERP sends none
-          if (existing.activeSource !== "ADMIN") { update.active = item.active; update.activeSource = "ERP"; }
-          await db.product.update({ where: { id: existing.id }, data: update });
-        } else {
-          await db.product.update({ where: { id: existing.id }, data: { erpId: item.erpId, lastSyncedAt: new Date() } });
-        }
-        result.updated++;
-      } else {
-        let slug = slugifyProduct(`${item.company || "dmk"}-${item.name}`);
-        if (await db.product.findUnique({ where: { slug } })) slug = `${slug}-${item.sku.slice(-6).toLowerCase()}`;
-        await db.product.create({
-          data: {
-            ...data,
-            sku: item.sku,
-            slug,
-            active: item.active,
-            activeSource: "ERP",
-            image: item.image,
-            gallery: item.image ? JSON.stringify([item.image]) : "[]",
-            description: `${item.name} — synced from DMK Mart ERP.`,
-            seoTitle: `${item.name} | DMK Mart B2B`,
-            seoDesc: `Buy ${item.name} at wholesale price on DMK Mart.`,
-            keywords: `${item.name}, ${item.company}, wholesale`,
-            rating: 4.5,
-            reviewCount: 10,
-          },
-        });
-        result.created++;
-      }
-    } catch (e: unknown) {
-      result.errors.push(`${item.sku}: ${e instanceof Error ? e.message : String(e)}`);
+      const created = await db.brand.create({ data: { name: c, slug: finalSlug, erpNames: JSON.stringify([c]) } });
+      brandIdFor.set(c, created.id);
+    } catch {
+      const again = await db.brand.findFirst({ where: { name: c } });
+      if (again) brandIdFor.set(c, again.id);
     }
+  }
+
+  // ── ONE query: existing products (full rows for diffing) ──
+  const skus = items.map((i) => i.sku);
+  const existingRows = await db.product.findMany({ where: { sku: { in: skus } } });
+  const existingBySku = new Map(existingRows.map((p) => [p.sku, p]));
+
+  const common = (item: NormalizedRow, brandId: string | null) => {
+    const dealer = item.rate > 0 ? item.rate : item.mrp;
+    return {
+      erpId: item.erpId, name: item.name, company: item.company.trim(),
+      ...(brandId ? { brandId } : {}),
+      topId: catCache.fallback.topId, midId: catCache.fallback.midId, endId: catCache.fallback.endId,
+      unit: item.unit, packQty: item.packQty, piecesPerBox: item.piecesPerBox,
+      purchaseCost: item.costPrice, dealerPrice: dealer, basePrice: dealer,
+      mrp: item.mrp > 0 ? item.mrp : dealer,
+      tier1: item.tier1, tier2: item.tier2, tier3: item.tier3, tier4: item.tier4, tier5: item.tier5,
+      deliveryRate: item.deliveryRate,
+      ...(m.stockCol ? { stock: Math.round(item.stock) } : {}),
+      lowStockThreshold: 10,
+      barcode: item.barcode, hsn: item.hsn, gst: item.gst, weightGrams: item.weightGrams,
+    };
+  };
+
+  // ── split creates vs updates (diff in memory, write only real changes) ──
+  const creates: Record<string, unknown>[] = [];
+  const updates: { id: string; data: Record<string, unknown> }[] = [];
+  for (const item of items) {
+    const company = item.company.trim();
+    const brandId = brandIdFor.get(company) ?? null;
+    const ex = existingBySku.get(item.sku);
+    if (!ex) {
+      creates.push({
+        ...common(item, brandId),
+        syncSource: "ERP", lastSyncedAt: now,
+        sku: item.sku,
+        slug: `${slugifyProduct(`${company || "dmk"}-${item.name}`)}-${item.sku.slice(-6).toLowerCase()}`,
+        active: item.active, activeSource: "ERP",
+        image: item.image,
+        gallery: item.image ? JSON.stringify([item.image]) : "[]",
+        description: `${item.name} — synced from DMK Mart ERP.`,
+        seoTitle: `${item.name} | DMK Mart B2B`,
+        seoDesc: `Buy ${item.name} at wholesale price on DMK Mart.`,
+        keywords: `${item.name}, ${item.company}, wholesale`,
+        rating: 4.5, reviewCount: 10,
+      });
+      result.created++;
+    } else {
+      const base = common(item, brandId) as Record<string, unknown>;
+      const prev = ex as unknown as Record<string, unknown>;
+      const data: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(base)) {
+        const pv = prev[k] instanceof Date ? (prev[k] as Date).getTime() : prev[k];
+        const cv = v instanceof Date ? v.getTime() : v;
+        if (JSON.stringify(pv) !== JSON.stringify(cv)) data[k] = v;
+      }
+      if (item.image) { if (prev.image !== item.image) data.image = item.image; } // keep local/Cloudinary image if ERP sends none
+      if (ex.activeSource !== "ADMIN") { if (prev.active !== item.active) data.active = item.active; data.activeSource = "ERP"; }
+      if (ex.syncSource === "LOCAL") { data.erpId = item.erpId; data.lastSyncedAt = now; } // admin-owned rows: link only
+      if (Object.keys(data).length) { data.lastSyncedAt = now; updates.push({ id: ex.id, data }); result.updated++; }
+    }
+  }
+
+  // slug collision guard for the whole page in ONE query
+  if (creates.length) {
+    const wanted = creates.map((c) => c.slug as string);
+    const taken = new Set((await db.product.findMany({ where: { slug: { in: wanted } }, select: { slug: true } })).map((r) => r.slug));
+    for (const c of creates) {
+      if (taken.has(c.slug as string)) c.slug = `${c.slug}-${String(c.sku).slice(-4).toLowerCase()}`;
+    }
+    for (let i = 0; i < creates.length; i += 250) {
+      await db.product.createMany({ data: creates.slice(i, i + 250) as never, skipDuplicates: true });
+    }
+  }
+  for (let i = 0; i < updates.length; i += 10) {
+    await Promise.all(updates.slice(i, i + 10).map((u) => db.product.update({ where: { id: u.id }, data: u.data })));
+  }
+
+  // ── mirror: batch creates + changed-only updates (costPrice admin-only field) ──
+  const mirrorRows = await db.erpProductMirror.findMany({ where: { sku: { in: skus } } });
+  const mirrorBySku = new Map(mirrorRows.map((r) => [r.sku, r]));
+  const mCreates: Record<string, unknown>[] = [];
+  const mUpdates: { id: string; data: Record<string, unknown> }[] = [];
+  for (const item of items) {
+    const row: Record<string, unknown> = {
+      sku: item.sku, name: item.name, isActive: item.active,
+      mrp: m.mrpCol ? item.mrp : null,
+      costPrice: m.costCol ? item.costPrice : null,
+      deliveryRate: m.deliveryRateCol ? item.deliveryRate : null,
+      availableStock: m.stockCol ? Math.round(item.stock) : null,
+      lastSource: "MYSQL", payloadJson: JSON.stringify(item.extras),
+    };
+    const ex = mirrorBySku.get(item.sku);
+    if (!ex) mCreates.push({ ...row, erpUpdatedAt: now, lastSyncedAt: now });
+    else {
+      const diff: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(row)) {
+        if (JSON.stringify((ex as unknown as Record<string, unknown>)[k]) !== JSON.stringify(v)) diff[k] = v;
+      }
+      if (Object.keys(diff).length) { diff.lastSource = "MYSQL"; diff.lastSyncedAt = now; diff.erpUpdatedAt = now; mUpdates.push({ id: ex.id, data: diff }); }
+    }
+  }
+  for (let i = 0; i < mCreates.length; i += 500) {
+    await db.erpProductMirror.createMany({ data: mCreates.slice(i, i + 500) as never, skipDuplicates: true });
+  }
+  for (let i = 0; i < mUpdates.length; i += 10) {
+    await Promise.all(mUpdates.slice(i, i + 10).map((u) => db.erpProductMirror.update({ where: { id: u.id }, data: u.data })));
   }
 
   // persisted cursor — one page per request, next call continues (504 lesson)
@@ -385,6 +453,11 @@ export async function syncProductsPage(pageSize = 300, offsetOverride?: number):
   } else {
     await setSetting("erp_sync_cursor_products", String(offset + rows.length));
   }
+  await logSyncEvent({
+    direction: "ERP→WEB", action: "mysql-products", status: result.errors.length ? "PARTIAL" : "OK",
+    message: `page@${offset} ${result.created}c/${result.updated}u/${result.skipped}s ${result.done ? "(full done)" : "(continues next page)"}`,
+    seen: result.seen, created: result.created, updated: result.updated, skipped: result.skipped,
+  });
   return result;
 }
 
