@@ -106,7 +106,7 @@ export function DashboardModule({ token }: { token: string }) {
         <ShieldCheck className="h-4 w-4 shrink-0" />
         <span className="font-bold">ERP Data (MySQL):</span>
         <span className="text-gray-600">{data.lastSync ? `${data.lastSync.direction} · ${data.lastSync.status} · ${data.lastSync.message} · ${new Date(data.lastSync.createdAt).toLocaleString("en-IN")}` : "No sync yet"}</span>
-        <Link href="/admin" className="ml-auto text-[11px] font-bold text-gray-500 underline">Tick shared tables &amp; columns in ERP Data (MySQL) · read-only pull, 15-min cron</Link>
+        <Link href="/admin" className="ml-auto text-[11px] font-bold text-gray-500 underline">Tick shared tables &amp; columns in ERP Data (MySQL) · read-only pull, daily cron</Link>
       </div>
 
       {/* KPIs — window aware with deltas */}

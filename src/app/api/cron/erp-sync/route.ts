@@ -1,15 +1,15 @@
-import { runErpTick } from "@/lib/erp-direct-sync";
+import { runErpDaily } from "@/lib/erp-direct-sync";
 import { getSetting } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * Vercel Cron — every 15 minutes (vercel.json). Auth: ?key=CRON_SECRET env or
- * the admin-managed cron_secret setting, or a valid admin token (manual run).
- * The tick interval-gates itself (erp_auto_sync_minutes) so external schedulers
- * hitting more often stay harmless, and advances the product pull by one page
- * with the persisted cursor until the full catalog is refreshed.
+ * Vercel Cron — DAILY (vercel.json `0 1 * * *` = 1:00 UTC / 6:30 AM IST).
+ * Hobby plan allows one cron per day, so the run loops product pages within
+ * its 50s budget (cursor persisted — leftover rows continue next run or via
+ * the admin "Re-sync now" loop). Auth: ?key=CRON_SECRET env or the
+ * admin-managed cron_secret setting, or a valid admin token (manual run).
  */
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -21,7 +21,7 @@ export async function GET(req: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
-    const result = await runErpTick(false);
+    const result = await runErpDaily();
     return Response.json(result);
   } catch (e) {
     return Response.json({ error: e instanceof Error ? e.message : "tick failed" }, { status: 500 });

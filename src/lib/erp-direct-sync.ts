@@ -493,6 +493,64 @@ export async function syncStock(): Promise<{ rows: number; stocksUpserted: numbe
 export type TickResult = { ran: boolean; reason?: string; products?: SyncPageResult; warehouses?: { created: number; updated: number; deactivated: number }; stock?: { rows: number; stocksUpserted: number; productsUpdated: number }; durationMs: number; errors: string[] };
 
 /**
+ * Daily sync for Vercel HOBBY (cron limited to once per day): refreshes
+ * warehouses + stock fully, then pulls product pages IN A LOOP within the
+ * function time budget (Hobby serverless cap 60s), pageBudget caps the worst
+ * case. Cursor persists, so whatever the budget could not cover continues on
+ * the next daily run — or instantly via the admin "Re-sync now" loop.
+ */
+export async function runErpDaily(opts?: { timeBudgetMs?: number; pageBudget?: number }): Promise<TickResult> {
+  const t0 = Date.now();
+  const budget = opts?.timeBudgetMs ?? 50_000;
+  const pageCap = opts?.pageBudget ?? 15;
+  await setSetting("erp_sync_last_tick_at", new Date().toISOString());
+  const errors: string[] = [];
+  const out: TickResult = { ran: true, durationMs: 0, errors };
+
+  const pm = await getProductsMapping();
+  const wm = await getWarehousesMapping();
+  const sm = await getStockMapping();
+  if (!pm && !wm && !sm) {
+    out.reason = "no ERP mappings configured yet";
+    out.durationMs = Date.now() - t0;
+    return out;
+  }
+
+  if (wm) {
+    try {
+      const w = await syncWarehouses();
+      out.warehouses = { created: w.created, updated: w.updated, deactivated: w.deactivated };
+    } catch (e) { errors.push(`warehouses: ${e instanceof Error ? e.message : String(e)}`); }
+  }
+  if (sm) {
+    try {
+      const s = await syncStock();
+      out.stock = { rows: s.rows, stocksUpserted: s.stocksUpserted, productsUpdated: s.productsUpdated };
+      if (s.errors.length) errors.push(...s.errors.slice(0, 5));
+    } catch (e) { errors.push(`stock: ${e instanceof Error ? e.message : String(e)}`); }
+  }
+  if (pm) {
+    let pages = 0;
+    let last: SyncPageResult | null = null;
+    try {
+      do {
+        last = await syncProductsPage(300);
+        pages++;
+        if (last.errors.length) errors.push(...last.errors.slice(0, 3));
+      } while (!last.done && pages < pageCap && Date.now() - t0 < budget);
+      out.products = last;
+      await logSyncEvent({
+        direction: "ERP→WEB", action: "mysql-daily", status: errors.length ? "PARTIAL" : "OK",
+        message: `${pages} page(s), last@${last.offset} ${last.created}c/${last.updated}u/${last.skipped}s ${last.done ? "(full done)" : "(budget cap — continues tomorrow or Re-sync now)"}`,
+        seen: last.seen, created: last.created, updated: last.updated, skipped: last.skipped, durationMs: Date.now() - t0,
+      });
+    } catch (e) { errors.push(`products: ${e instanceof Error ? e.message : String(e)}`); }
+  }
+  out.durationMs = Date.now() - t0;
+  return out;
+}
+
+/**
  * One tick = ensure warehouses+stock fresh (cheap) + advance products by one
  * page (bounded work for the 60s cap). The admin "Re-sync now" loop calls this
  * repeatedly until products.done, so a full 2k+ catalog never times out.

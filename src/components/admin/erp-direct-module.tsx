@@ -10,7 +10,7 @@
  *  3. Mandatory mappings — products (SKU/name/pricing/stock), warehouses
  *     (godowns), per-godown stock. Brand = ERP company name (auto-upserted).
  *  4. Re-sync now — chunked full pull (one page per request, persisted cursor)
- *     so a 2k+ catalog never hits the serverless timeout. A 15-min cron tick
+ *     so a 2k+ catalog never hits the serverless timeout. A daily cron (Hobby plan) loops pages within its time budget
  *     keeps it fresh; ERP stock is read-only — orders are entered in the ERP
  *     software by the team, the next sync reads the reduced stock.
  */

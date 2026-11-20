@@ -9,7 +9,7 @@ export const maxDuration = 60;
  *   resync — one FULL-PULL chunk (warehouses + stock + next product page, cursor
  *            persisted). The admin UI loops calls until products.done — a big
  *            catalog never hits the serverless timeout (the 504 lesson).
- *   tick   — the 15-min maintenance pass (interval-gated unless forced).
+ *   tick   — the cron maintenance pass (interval-gated unless forced).
  */
 export async function POST(req: Request) {
   const unauthorized = requireAdmin(req);
