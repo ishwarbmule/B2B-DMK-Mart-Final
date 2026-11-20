@@ -47,7 +47,7 @@ local-*
 *.log
 dev.log
 dev.out.log
-test
+# (removed bare `test` — it swallowed src/app/api/admin/erp-direct/test/)
 prompt
 
 server.log
