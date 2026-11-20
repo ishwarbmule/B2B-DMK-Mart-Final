@@ -15,13 +15,13 @@ export async function POST(req: Request) {
   const unauthorized = requireAdmin(req);
   if (unauthorized) return unauthorized;
   try {
-    const body = (await req.json().catch(() => ({}))) as { action?: string; pageSize?: number; force?: boolean };
+    const body = (await req.json().catch(() => ({}))) as { action?: string; pageSize?: number; force?: boolean; stage?: "warehouses" | "stock" | "products" };
     const action = body.action ?? "resync";
     if (action === "tick") {
       const result = await runErpTick(body.force ?? false);
       return Response.json(result);
     }
-    const result = await fullResyncChunk(Math.min(Math.max(50, body.pageSize ?? 300), 1000));
+    const result = await fullResyncChunk(Math.min(Math.max(50, body.pageSize ?? 300), 1000), body.stage);
     return Response.json(result);
   } catch (e) {
     return jsonError(e instanceof Error ? e.message : "Sync failed", 500);

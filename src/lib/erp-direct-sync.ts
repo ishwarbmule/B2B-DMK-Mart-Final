@@ -679,23 +679,27 @@ export async function runErpTick(force = false): Promise<TickResult> {
 }
 
 /** Full re-sync driver: loops product pages until done (called per HTTP request, cursor persisted). */
-export async function fullResyncChunk(pageSize = 300): Promise<{ products?: SyncPageResult; warehouses?: unknown; stock?: unknown; errors: string[] }> {
+export async function fullResyncChunk(pageSize = 300, stage?: "warehouses" | "stock" | "products"): Promise<{ products?: SyncPageResult; warehouses?: unknown; stock?: unknown; errors: string[]; stageTimings?: Record<string, number> }> {
   const errors: string[] = [];
-  const out: { products?: SyncPageResult; warehouses?: unknown; stock?: unknown; errors: string[] } = { errors };
+  const timings: Record<string, number> = {};
+  const t = (k: string, fn: () => Promise<void>) => async () => { const t0 = Date.now(); await fn(); timings[k] = Date.now() - t0; };
+  const out: { products?: SyncPageResult; warehouses?: unknown; stock?: unknown; errors: string[]; stageTimings?: Record<string, number> } = { errors, stageTimings: timings };
   const wm = await getWarehousesMapping();
   const sm = await getStockMapping();
   const pm = await getProductsMapping();
-  if (wm) {
-    try { out.warehouses = await syncWarehouses(); } catch (e) { errors.push(`warehouses: ${e instanceof Error ? e.message : String(e)}`); }
+  if (wm && (!stage || stage === "warehouses")) {
+    try { await t("warehouses", async () => { out.warehouses = await syncWarehouses(); })(); } catch (e) { errors.push(`warehouses: ${e instanceof Error ? e.message : String(e)}`); }
   }
-  if (sm) {
+  if (sm && (!stage || stage === "stock")) {
     try {
-      const s = await syncStock();
-      out.stock = { rows: s.rows, stocksUpserted: s.stocksUpserted, productsUpdated: s.productsUpdated };
+      await t("stock", async () => {
+        const s = await syncStock();
+        out.stock = { rows: s.rows, stocksUpserted: s.stocksUpserted, productsUpdated: s.productsUpdated };
+      })();
     } catch (e) { errors.push(`stock: ${e instanceof Error ? e.message : String(e)}`); }
   }
-  if (pm) {
-    try { out.products = await syncProductsPage(pageSize); } catch (e) { errors.push(`products: ${e instanceof Error ? e.message : String(e)}`); }
+  if (pm && (!stage || stage === "products")) {
+    try { await t("products", async () => { out.products = await syncProductsPage(pageSize); })(); } catch (e) { errors.push(`products: ${e instanceof Error ? e.message : String(e)}`); }
   }
   return out;
 }
