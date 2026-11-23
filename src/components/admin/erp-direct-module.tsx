@@ -1,472 +1,437 @@
 "use client";
 
 /**
- * ERP Data (MySQL) module — the owner's ERP database is shared with the site
- * over the network (remote MySQL). Everything here is READ-ONLY toward the ERP:
+ * Data Sync — the owner's guided sync surface (built for a non-technical user).
  *
- *  1. Connection — paste host/port/db/user/password (or env), Test Connection.
- *  2. Tick system — pick the ERP tables, tick which columns to share. Ticked
- *     columns appear on the admin panel (Data tab) and flow to the website.
- *  3. Mandatory mappings — products (SKU/name/pricing/stock), warehouses
- *     (godowns), per-godown stock. Brand = ERP company name (auto-upserted).
- *  4. Re-sync now — chunked full pull (one page per request, persisted cursor)
- *     so a 2k+ catalog never hits the serverless timeout. A daily cron (Hobby plan) loops pages within its time budget
- *     keeps it fresh; ERP stock is read-only — orders are entered in the ERP
- *     software by the team, the next sync reads the reduced stock.
+ * The flow reads like plain language and never exposes source-system details:
+ * no host/database/version, no table or column names, no firm names, no tax
+ * statuses — only warehouses, cities and product details.
+ *
+ *   1 · Connect        — Test connection. Success says exactly one word more.
+ *   2 · Warehouses     — tick the warehouses to show; products + stock follow.
+ *   3 · Product details— tick what product information appears.
+ *   4 · Update Products— applies everything: hides unticked data, pulls the
+ *                        ticked warehouses, reconciles what is listed.
+ *
+ * Ticks are STAGED: nothing changes until "Update Products" is clicked.
+ * The source system is strictly read-only — every write lands in this site's
+ * own database only.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Database, Link2, Loader2, PlugZap, RefreshCcw, Save, Search, Table2, Warehouse as WarehouseIcon,
+  CheckCircle2, CircleDashed, Loader2, PlugZap, RefreshCcw, Warehouse as WarehouseIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api, ModuleHeader } from "./ui-bits";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
-type ErpStatus = { configured: boolean; connected: boolean; error?: string; version?: string; database?: string; host?: string; tables?: number };
-type ColumnInfo = { field: string; type: string; null: string; key: string };
-type Mapping = Record<string, string | string[] | undefined> & { table: string; columns?: string[] };
-
-type Status = {
-  mappings: { products: { table: string; ticked: number } | null; warehouses: { table: string; ticked: number } | null; stock: { table: string; ticked: number } | null };
-  counts: { mirror: number; erpProducts: number; erpWarehouses: number; erpStockRows: number; brands: number };
-  cursor: { productsOffset: number; lastFullAt: string; lastWarehousesAt: string; lastStockAt: string; lastTickAt: string };
-  history: { id: string; direction: string; action: string; status: string; message: string; productsSeen: number; created: number; updated: number; skipped: number; durationMs: number; createdAt: string }[];
+type Wh = { id: string; name: string; city: string; active: boolean; products: number };
+type Group = { id: string; label: string; ticked: boolean; locked?: boolean };
+type Sources = {
+  configured: boolean; connected: boolean; error?: string;
+  hasSelection: boolean; selectedIds: string[]; groups: Group[]; warehouses: Wh[];
 };
-
-const ENTITIES = [
-  { id: "products", label: "Products", icon: Table2, hint: "SKU, name, pricing (MRP + rate), stock, image — the catalog" },
-  { id: "warehouses", label: "Warehouses", icon: WarehouseIcon, hint: "ERP godowns — mandatory, syncs with codes" },
-  { id: "stock", label: "Godown Stock", icon: Database, hint: "per-warehouse quantities — buyers' orderable stock" },
-] as const;
-type EntityId = (typeof ENTITIES)[number]["id"];
-
-const MAPPING_FIELDS: Record<EntityId, { key: string; label: string; required?: boolean }[]> = {
-  products: [
-    { key: "skuCol", label: "SKU column", required: true },
-    { key: "nameCol", label: "Name column", required: true },
-    { key: "companyCol", label: "Company column (becomes Brand)" },
-    { key: "mrpCol", label: "MRP column" },
-    { key: "rateCol", label: "Rate column (selling price)" },
-    { key: "costCol", label: "Cost column (admin-only)" },
-    { key: "deliveryRateCol", label: "Delivery rate column" },
-    { key: "stockCol", label: "Stock column" },
-    { key: "imageCol", label: "Image column" },
-    { key: "activeCol", label: "Active/status column" },
-    { key: "unitCol", label: "Unit column" },
-    { key: "packQtyCol", label: "Pack qty column" },
-    { key: "tier1Col", label: "Tier 1 column" },
-    { key: "tier2Col", label: "Tier 2 column" },
-    { key: "tier3Col", label: "Tier 3 column" },
-    { key: "tier4Col", label: "Tier 4 column" },
-    { key: "tier5Col", label: "Tier 5 column" },
-  ],
-  warehouses: [
-    { key: "codeCol", label: "Godown code column", required: true },
-    { key: "nameCol", label: "Godown name column", required: true },
-    { key: "activeCol", label: "Active column" },
-  ],
-  stock: [
-    { key: "skuCol", label: "SKU column", required: true },
-    { key: "warehouseCodeCol", label: "Godown code column", required: true },
-    { key: "qtyCol", label: "Quantity column", required: true },
-  ],
+type Preview = {
+  counts: { productsTotal: number; productsShown: number; warehousesTotal: number; warehousesShown: number; stockRows: number };
+  products: { name: string; sku: string; price: number; mrp: number | null; stock: number | null; company: string | null; active: boolean }[];
+  warehouses: { name: string; city: string; active: boolean; stockRows: number }[];
 };
+type History = { id: string; action: string; status: string; message: string; createdAt: string }[];
 
 const slimScroll = "[scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300";
+const card = "rounded-xl border border-gray-200 bg-white";
+const sectionTitle = "text-[15px] font-medium text-gray-900";
+const sectionSub = "mt-1 text-[13px] leading-5 text-gray-500";
+const quietChip = "rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500";
+
+function sameSet(a: Set<string>, b: Set<string>): boolean {
+  if (a.size !== b.size) return false;
+  for (const v of a) if (!b.has(v)) return false;
+  return true;
+}
+function sameGroups(a: Record<string, boolean>, b: Record<string, boolean>): boolean {
+  const ka = Object.keys(a).filter((k) => a[k] === false);
+  const kb = Object.keys(b).filter((k) => b[k] === false);
+  return sameSet(new Set(ka), new Set(kb));
+}
+const nf = (n: number) => n.toLocaleString("en-IN");
 
 export function ErpDirectModule({ token }: { token: string }) {
   const call = useMemo(() => api(token), [token]);
-  const [status, setStatus] = useState<Status | null>(null);
-  const [conn, setConn] = useState<ErpStatus | null>(null);
+
+  const [loading, setLoading] = useState(true);
+  const [sources, setSources] = useState<Sources | null>(null);
+  const [preview, setPreview] = useState<Preview | null>(null);
+  const [history, setHistory] = useState<History>([]);
+
+  // staged ticks
+  const [selIds, setSelIds] = useState<Set<string>>(new Set());
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [groups, setGroups] = useState<Record<string, boolean>>({});
+  const [savedGroups, setSavedGroups] = useState<Record<string, boolean>>({});
+
+  const [connState, setConnState] = useState<"unknown" | "ok" | "fail">("unknown");
   const [testing, setTesting] = useState(false);
-
-  const [entity, setEntity] = useState<EntityId>("products");
-  const [tables, setTables] = useState<{ name: string; rows: number | null }[]>([]);
-  const [columns, setColumns] = useState<ColumnInfo[]>([]);
-  const [mapping, setMapping] = useState<Mapping | null>(null);
-  const [savingMapping, setSavingMapping] = useState(false);
-
+  const [applying, setApplying] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [syncLog, setSyncLog] = useState<string[]>([]);
+  const [log, setLog] = useState<string[]>([]);
+  const [tab, setTab] = useState<"products" | "warehouses">("products");
 
-  const [browser, setBrowser] = useState<{ columns: string[]; rows: Record<string, unknown>[]; total: number; page: number; table: string } | null>(null);
-  const [bq, setBq] = useState("");
-
-  // godown scope — WHICH ERP warehouses feed the site (products + stock)
-  const [whSel, setWhSel] = useState<{ id: string; code: string; name: string; active: boolean; stockRows: number }[]>([]);
-  const [whCodes, setWhCodes] = useState<string[]>([]);
-  const [whPick, setWhPick] = useState<Set<string>>(new Set());
-  const [savingWh, setSavingWh] = useState(false);
-
-  // ── loaders ──
-  const loadStatus = useCallback(() => {
-    call("/api/admin/erp-direct/status").then(setStatus).catch((e) => toast.error(e instanceof Error ? e.message : "Status failed"));
-  }, [call]);
-  const loadTables = useCallback(() => {
-    call("/api/admin/erp-direct/tables")
-      .then((d) => setTables(d.tables ?? []))
-      .catch((e) => toast.error(e instanceof Error ? e.message : "Could not list ERP tables"));
-  }, [call]);
-  const loadSelection = useCallback(() => {
-    call("/api/admin/erp-direct/selection")
-      .then((d) => {
-        setWhSel(d.warehouses ?? []);
-        setWhCodes(d.codes ?? []);
-        setWhPick(new Set(d.codes ?? []));
-      })
-      .catch(() => {});
-  }, [call]);
-
-  useEffect(() => { loadStatus(); loadTables(); loadSelection(); }, [loadStatus, loadTables, loadSelection]);
-
-  const loadEntityMapping = useCallback((ent: EntityId, suggestTable?: string) => {
-    const qs = suggestTable ? `&suggestTable=${encodeURIComponent(suggestTable)}` : "";
-    call(`/api/admin/erp-direct/mapping?entity=${ent}${qs}`)
-      .then((d) => {
-        if (d.current) { setMapping(d.current); setColumns([]); }
-        else if (d.suggestion) { setMapping(d.suggestion); setColumns([]); toast.info(`Auto-detected mapping for ${suggestTable} — verify the highlighted columns, then Save`); }
-        else setMapping(null);
-      })
-      .catch((e) => toast.error(e instanceof Error ? e.message : "Mapping load failed"));
-    if (suggestTable) {
-      call(`/api/admin/erp-direct/columns?table=${encodeURIComponent(suggestTable)}`)
-        .then((d) => setColumns(d.columns ?? []))
-        .catch(() => setColumns([]));
+  const load = useCallback(async () => {
+    try {
+      const [s, p, st] = await Promise.all([
+        call("/api/admin/erp-direct/sources"),
+        call("/api/admin/erp-direct/preview"),
+        call("/api/admin/erp-direct/status"),
+      ]);
+      setSources(s);
+      setPreview(p);
+      setHistory((st.history ?? []) as History);
+      const ids = new Set<string>((s.selectedIds ?? []) as string[]);
+      setSavedIds(ids);
+      setSelIds(new Set(ids));
+      const g: Record<string, boolean> = {};
+      for (const grp of (s.groups ?? []) as Group[]) g[grp.id] = grp.ticked;
+      setSavedGroups({ ...g });
+      setGroups({ ...g });
+      setConnState(s.connected ? "ok" : s.configured ? "fail" : "unknown");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Load failed");
+    } finally {
+      setLoading(false);
     }
   }, [call]);
 
-  useEffect(() => { loadEntityMapping(entity); }, [entity, loadEntityMapping]);
+  useEffect(() => { load(); }, [load]);
 
-  // ── actions ──
+  const dirty = !!sources && (!sameSet(selIds, savedIds) || !sameGroups(groups, savedGroups));
+  const connected = connState === "ok";
+  const stagedWhCount = selIds.size;
+  const stagedSummary = useMemo(() => {
+    if (!dirty || !sources) return "";
+    const added = [...selIds].filter((id) => !savedIds.has(id)).length;
+    const removed = [...savedIds].filter((id) => !selIds.has(id)).length;
+    const parts: string[] = [];
+    if (added) parts.push(`${added} warehouse${added > 1 ? "s" : ""} to show`);
+    if (removed) parts.push(`${removed} to hide`);
+    const detailChanges = Object.keys(groups).filter((k) => (savedGroups[k] !== false) !== (groups[k] !== false) && k !== "pricing");
+    if (detailChanges.length) parts.push(`${detailChanges.length} detail change${detailChanges.length > 1 ? "s" : ""}`);
+    return parts.join(" · ");
+  }, [dirty, sources, selIds, savedIds, groups, savedGroups]);
+
   const testConnection = async () => {
     setTesting(true);
     try {
       const s = await call("/api/admin/erp-direct/test");
-      setConn(s);
-      if (s.connected) { toast.success(`ERP connected — ${s.database} (${s.tables} tables, ${s.version})`); loadTables(); }
-      else toast.error(s.error ?? "Connection failed");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Connection test failed");
-    } finally { setTesting(false); }
-  };
-
-  const pickTable = async (t: string) => {
-    if (!mapping) {
-      loadEntityMapping(entity, t);
-      return;
-    }
-    setMapping({ ...mapping, table: t });
-    try {
-      const d = await call(`/api/admin/erp-direct/columns?table=${encodeURIComponent(t)}`);
-      setColumns(d.columns ?? []);
-    } catch { setColumns([]); }
-  };
-
-  const saveMapping = async () => {
-    if (!mapping) return;
-    setSavingMapping(true);
-    try {
-      await call("/api/admin/erp-direct/mapping", { method: "POST", body: JSON.stringify({ entity, mapping }) });
-      toast.success(`${entity} mapping saved — ticked columns now show in the Data tab`);
-      loadStatus();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Save failed");
-    } finally { setSavingMapping(false); }
-  };
-
-  const toggleTick = (col: string) => {
-    if (!mapping) return;
-    const cur = new Set(mapping.columns ?? []);
-    if (cur.has(col)) cur.delete(col); else cur.add(col);
-    setMapping({ ...mapping, columns: [...cur] });
-  };
-
-  const saveSelection = async () => {
-    setSavingWh(true);
-    try {
-      await call("/api/admin/erp-direct/selection", { method: "POST", body: JSON.stringify({ codes: [...whPick] }) });
-      setWhCodes([...whPick]);
-      toast.success(whPick.size ? `Sync scope saved — ${whPick.size} godown${whPick.size > 1 ? "s" : ""}` : "Scope cleared — all godowns will sync");
-      loadStatus();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Save failed");
-    } finally { setSavingWh(false); }
-  };
-
-  const resyncNow = async () => {
-    setSyncing(true);
-    setSyncLog([]);
-    const log: string[] = [];
-    try {
-      for (let i = 0; i < 100; i++) {
-        const r = await call("/api/admin/erp-direct/sync", { method: "POST", body: JSON.stringify({ action: "resync" }) });
-        const parts: string[] = [];
-        if (r.warehouses) parts.push(`godowns +${r.warehouses.created}/~${r.warehouses.updated}`);
-        if (r.stock) parts.push(`stock ${r.stock.stocksUpserted} rows / ${r.stock.productsUpdated} skus`);
-        if (r.products) parts.push(`products page@${r.products.offset}: ${r.products.created} new, ${r.products.updated} updated`);
-        if (r.errors?.length) parts.push(`errors: ${r.errors.slice(0, 2).join("; ")}`);
-        log.push(`Pass ${i + 1}: ${parts.join(" · ") || "nothing configured"}`);
-        setSyncLog([...log]);
-        if (!r.products || r.products.done) { log.push(r.products ? "FULL PULL COMPLETE" : "Products not configured — skipped"); setSyncLog([...log]); break; }
+      if (s.connected) {
+        setConnState("ok");
+        toast.success("Connected");
+        await load();
+      } else {
+        setConnState("fail");
+        toast.error(s.error || "Connection failed");
       }
-      toast.success("Re-sync finished");
-      loadStatus();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Re-sync failed");
-      setSyncLog([...log, `FAILED: ${e instanceof Error ? e.message : "error"}`]);
-    } finally { setSyncing(false); }
+      setConnState("fail");
+      toast.error(e instanceof Error ? e.message : "Connection failed");
+    } finally {
+      setTesting(false);
+    }
   };
 
-  const loadBrowser = useCallback((page = 1, q = "") => {
-    call(`/api/admin/erp-direct/data?entity=${entity}&page=${page}${q ? `&q=${encodeURIComponent(q)}` : ""}`)
-      .then(setBrowser)
-      .catch((e) => toast.error(e instanceof Error ? e.message : "Data load failed"));
-  }, [call, entity]);
+  const toggleWh = (id: string) => {
+    setSelIds((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const toggleGroup = (id: string) => {
+    setGroups((cur) => ({ ...cur, [id]: cur[id] === false }));
+  };
 
-  useEffect(() => { setBrowser(null); }, [entity]);
-  const openBrowser = () => loadBrowser(1, bq);
+  /** The full pull, chunk by chunk — one page per request so a big catalog
+   *  never hits the function timeout. Runs against the SAVED selection. */
+  const runPullLoop = async (): Promise<boolean> => {
+    const lines: string[] = [];
+    for (let i = 0; i < 100; i++) {
+      const r = await call("/api/admin/erp-direct/sync", { method: "POST", body: JSON.stringify({ action: "resync" }) });
+      const parts: string[] = [];
+      if (r.warehouses) parts.push(`warehouses ${r.warehouses.created + r.warehouses.updated} checked`);
+      if (r.stock) parts.push(`stock ${nf(r.stock.stocksUpserted)} rows`);
+      if (r.products) parts.push(`products page ${i + 1}: ${nf(r.products.created)} new, ${nf(r.products.updated)} updated`);
+      lines.push(parts.join(" · ") || "nothing to pull yet");
+      setLog([...lines]);
+      if (!r.products || r.products.done) return true;
+    }
+    return false;
+  };
 
-  const pages = browser ? Math.max(1, Math.ceil(browser.total / 50)) : 1;
+  const updateProducts = async () => {
+    if (!selIds.size) { toast.error("Tick at least one warehouse first"); return; }
+    if (!confirm("Update products now? Unticked warehouses and details will be hidden from the site.")) return;
+    setApplying(true);
+    setLog([]);
+    try {
+      await call("/api/admin/erp-direct/apply", { method: "POST", body: JSON.stringify({ ids: [...selIds], groups }) });
+      setLog(["Saving your choices… done"]);
+      const done = await runPullLoop();
+      if (done) {
+        setLog((cur) => [...cur, "Reconciling what is listed…"]);
+        const f = await call("/api/admin/erp-direct/apply", { method: "POST", body: JSON.stringify({ action: "finalize" }) });
+        toast.success(`Products updated — ${nf(f.hiddenProducts ?? 0)} hidden, ${nf(f.shownProducts ?? 0)} shown`);
+        setSavedIds(new Set(selIds));
+        setSavedGroups({ ...groups });
+      } else {
+        toast.error("Pulled most products but did not finish — click Update Products again to continue");
+      }
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Update failed");
+      setLog((cur) => [...cur, "Failed — your choices are saved; click Update Products again to retry"]);
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const syncNow = async () => {
+    setSyncing(true);
+    setLog([]);
+    try {
+      setLog(["Refreshing warehouses and stock…"]);
+      const done = await runPullLoop();
+      const f = await call("/api/admin/erp-direct/apply", { method: "POST", body: JSON.stringify({ action: "finalize" }) });
+      if (done) toast.success(`Sync finished — ${nf(f.hiddenProducts ?? 0)} hidden, ${nf(f.shownProducts ?? 0)} shown`);
+      else toast.error("Synced part of the catalog — click Sync again to continue");
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 py-16 text-sm text-gray-400">
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading
+      </div>
+    );
+  }
+
+  const busy = applying || syncing;
+  const mrpOn = groups["mrp"] !== false;
+  const stockOn = groups["stock"] !== false;
+  const brandOn = groups["brand"] !== false;
 
   return (
     <div>
-      <ModuleHeader title="ERP Data (MySQL)" sub="Read-only link into the ERP database — tick what to share, map the mandatory pieces, keep stock honest">
-        <Button variant="outline" size="sm" onClick={testConnection} disabled={testing}>
-          {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlugZap className="h-4 w-4" />} Test Connection
-        </Button>
-        <Button size="sm" className="bg-black text-white hover:bg-gray-800" onClick={resyncNow} disabled={syncing}>
-          {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />} Re-sync now
+      <ModuleHeader title="Data Sync" sub="Keep products, warehouses and stock fresh — pick what to show, then update">
+        <Button variant="outline" size="sm" onClick={syncNow} disabled={busy || !connected}>
+          {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />} Sync now
         </Button>
       </ModuleHeader>
 
-      {/* connection + counts */}
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <div className="rounded-xl border bg-white p-3 sm:col-span-2 lg:col-span-2">
-          <div className="flex items-center gap-2 text-sm font-bold">
-            <Link2 className="h-4 w-4" /> ERP link
-            {conn?.connected ? <Badge className="bg-green-100 text-green-800">connected</Badge>
-              : conn && !conn.connected ? <Badge className="bg-red-100 text-red-700">error</Badge>
-              : <Badge variant="secondary">not tested</Badge>}
-          </div>
-          <p className="mt-1 text-xs text-gray-500">
-            {conn?.connected ? `${conn.host} · ${conn.database} · MySQL ${conn.version} · ${conn.tables} tables`
-              : conn?.error ? conn.error
-              : "Credentials come from env (ERP_MYSQL_*) or the Settings table — the connection is strictly read-only."}
-          </p>
-        </div>
-        {[
-          { label: "ERP products", value: status?.counts.erpProducts ?? "—", sub: `${status?.counts.mirror ?? "—"} mirrored rows` },
-          { label: "ERP godowns", value: status?.counts.erpWarehouses ?? "—", sub: `${status?.counts.erpStockRows ?? "—"} stock rows` },
-          { label: "Brands (=companies)", value: status?.counts.brands ?? "—", sub: "auto-upserted from ERP" },
-        ].map((s) => (
-          <div key={s.label} className="rounded-xl border bg-white p-3">
-            <p className="text-[12px] font-medium text-gray-500">{s.label}</p>
-            <p className="text-2xl font-semibold">{s.value}</p>
-            <p className="text-[11px] text-gray-400">{s.sub}</p>
-          </div>
-        ))}
-      </div>
-
-      {status?.cursor.lastFullAt && (
-        <p className="mb-4 text-xs text-gray-500">
-          Last full product pull: {new Date(status.cursor.lastFullAt).toLocaleString()} · last tick: {status.cursor.lastTickAt ? new Date(status.cursor.lastTickAt).toLocaleString() : "—"}
-        </p>
-      )}
-
-      {/* step 1 — godown scope: WHICH warehouses feed the site */}
-      <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4">
-        <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+      {/* 1 · connection */}
+      <section className={`${card} mb-4 p-5`}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-[15px] font-semibold text-gray-900">Step 1 — Pick the warehouses to sync</h2>
-            <p className="mt-0.5 text-[13px] text-gray-500">Products and stock are pulled only for the godowns you tick. Nothing selected means all godowns sync.</p>
+            <h2 className={sectionTitle}>1 · Connect</h2>
+            <p className={sectionSub}>
+              {connected
+                ? "Connected — pick the warehouses below"
+                : "Connect once to load the warehouse list"}
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[12px] tabular-nums text-gray-400">
-              {whCodes.length ? `${whCodes.length} of ${whSel.length} selected` : "all godowns (no filter)"}
-            </span>
-            <Button size="sm" onClick={saveSelection} disabled={savingWh || !whSel.length}>
-              {savingWh ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save scope
+          <div className="flex items-center gap-3">
+            {connected ? (
+              <span className="flex items-center gap-1.5 text-[13px] font-medium text-gray-700">
+                <CheckCircle2 className="h-4 w-4" /> Connected
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-[13px] text-gray-500">
+                <CircleDashed className="h-4 w-4 text-gray-400" /> Not connected
+              </span>
+            )}
+            <Button variant="outline" size="sm" onClick={testConnection} disabled={testing || busy}>
+              {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlugZap className="h-4 w-4" />} Test connection
             </Button>
           </div>
         </div>
-        {whSel.length ? (
-          <div className={`mt-3 grid max-h-44 gap-1 overflow-y-auto rounded-lg border border-gray-200 p-2 sm:grid-cols-2 lg:grid-cols-4 ${slimScroll}`}>
-            {whSel.map((w) => (
-              <label key={w.id} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[13px] transition-colors hover:bg-gray-50">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 accent-black"
-                  checked={whPick.has(w.code)}
-                  onChange={() => {
-                    const next = new Set(whPick);
-                    if (next.has(w.code)) next.delete(w.code); else next.add(w.code);
-                    setWhPick(next);
-                  }}
-                />
-                <span className="min-w-0 flex-1 truncate" title={`${w.name} (${w.code})`}>{w.name}</span>
-                <span className="shrink-0 text-[11px] tabular-nums text-gray-400">{w.stockRows}</span>
-                {!w.active && <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">off</span>}
-              </label>
-            ))}
+      </section>
+
+      {/* 2 · warehouses */}
+      <section className={`${card} mb-4 p-5`}>
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className={sectionTitle}>2 · Warehouses</h2>
+            <p className={sectionSub}>Tick the warehouses to show on the site — their products and stock come with them. Unticked ones hide.</p>
+          </div>
+          <span className="text-[12px] tabular-nums text-gray-400">{stagedWhCount} of {sources?.warehouses.length ?? 0} ticked</span>
+        </div>
+        {connected && (sources?.warehouses.length ?? 0) > 0 ? (
+          <div className={`mt-3 grid max-h-64 gap-1 overflow-y-auto rounded-lg border border-gray-200 p-2 sm:grid-cols-2 lg:grid-cols-3 ${slimScroll}`}>
+            {sources!.warehouses.map((w) => {
+              const stagedOn = selIds.has(w.id);
+              const savedOn = savedIds.has(w.id);
+              const change = stagedOn !== savedOn;
+              return (
+                <label key={w.id} className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 transition-colors ${stagedOn ? "border-gray-900 bg-gray-50" : "border-gray-200 hover:bg-gray-50"}`}>
+                  <input type="checkbox" className="h-4 w-4 accent-gray-900" checked={stagedOn} onChange={() => toggleWh(w.id)} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-medium text-gray-900">{w.name}</span>
+                    <span className="block truncate text-[12px] text-gray-500">{w.city || "—"} · {nf(w.products)} products</span>
+                  </span>
+                  {change && <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${stagedOn ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-600"}`}>{stagedOn ? "Will show" : "Will hide"}</span>}
+                </label>
+              );
+            })}
           </div>
         ) : (
           <p className="mt-3 rounded-lg bg-gray-50 p-3 text-[13px] text-gray-500">
-            No ERP godowns mirrored yet — map the Warehouses table below and run a sync once; the godown list will appear here.
+            {connected ? "No warehouses are available right now — they will appear here once added." : "Test the connection first — the warehouse list loads from it."}
           </p>
         )}
-      </div>
+      </section>
 
-      {/* entity tabs */}
-      <div className="mb-3 flex flex-wrap gap-2">
-        {ENTITIES.map((e) => (
-          <button
-            key={e.id}
-            onClick={() => setEntity(e.id)}
-            className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition ${
-              entity === e.id ? "bg-black text-white" : "border bg-white text-gray-600 hover:bg-gray-50"
-            }`}
-          >
-            <e.icon className="h-3.5 w-3.5" /> {e.label}
-            {status?.mappings[e.id] && <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${entity === e.id ? "bg-white/20" : "bg-green-100 text-green-700"}`}>{status.mappings[e.id]!.ticked} ticked</span>}
-          </button>
-        ))}
-      </div>
-      <p className="mb-3 text-xs text-gray-500">{ENTITIES.find((e) => e.id === entity)!.hint}</p>
-
-      {/* mapping editor */}
-      <div className="mb-4 rounded-xl border bg-white p-4">
-        <div className="mb-3 flex flex-wrap items-end gap-3">
-          <div className="min-w-56">
-            <Label className="text-[12px] font-medium text-gray-500">ERP table</Label>
-            <select
-              className="mt-1 w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-sm"
-              value={mapping?.table ?? ""}
-              onChange={(e) => pickTable(e.target.value)}
-            >
-              <option value="">— pick an ERP table —</option>
-              {tables.map((t) => (
-                <option key={t.name} value={t.name}>{t.name}{t.rows !== null ? ` (~${t.rows} rows)` : ""}</option>
-              ))}
-            </select>
-          </div>
-          <Button size="sm" onClick={saveMapping} disabled={savingMapping || !mapping}>
-            {savingMapping ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save mapping
-          </Button>
-          {mapping && (
-            <Button size="sm" variant="outline" onClick={openBrowser}>
-              <Table2 className="h-4 w-4" /> View data ({mapping.columns?.length ?? 0} ticked cols)
-            </Button>
-          )}
+      {/* 3 · product details */}
+      <section className={`${card} mb-4 p-5`}>
+        <h2 className={sectionTitle}>3 · Product details</h2>
+        <p className={sectionSub}>Choose which product details to show. Name, code and selling price are always on.</p>
+        <div className="mt-3 grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
+          {(sources?.groups ?? []).map((g) => {
+            const stagedOn = groups[g.id] !== false;
+            const change = (savedGroups[g.id] !== false) !== stagedOn && !g.locked;
+            return (
+              <label key={g.id} className={`flex items-center gap-2.5 rounded-lg border px-3 py-2.5 ${g.locked ? "cursor-default border-gray-200 bg-gray-50 opacity-80" : `cursor-pointer ${stagedOn ? "border-gray-900 bg-gray-50" : "border-gray-200 hover:bg-gray-50"}`}`}>
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-gray-900"
+                  checked={stagedOn}
+                  disabled={g.locked}
+                  onChange={() => toggleGroup(g.id)}
+                />
+                <span className="min-w-0 flex-1 truncate text-[13px] text-gray-900">{g.label}</span>
+                {g.locked && <span className={quietChip}>always on</span>}
+                {change && <span className={quietChip}>{stagedOn ? "Will show" : "Will hide"}</span>}
+              </label>
+            );
+          })}
         </div>
+      </section>
 
-        {mapping ? (
-          <>
-            <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              {MAPPING_FIELDS[entity].map((f) => (
-                <div key={f.key}>
-                  <Label className="text-[12px] font-medium text-gray-500">
-                    {f.label}{f.required && <span className="text-red-500"> *</span>}
-                  </Label>
-                  <select
-                    className="mt-0.5 w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs"
-                    value={(mapping[f.key] as string) ?? ""}
-                    onChange={(e) => setMapping({ ...mapping, [f.key]: e.target.value || undefined })}
-                  >
-                    <option value="">— none —</option>
-                    {(columns.length ? columns.map((c) => c.field) : [...new Set([...(mapping.columns ?? []), ...Object.keys(mapping)])]).map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-            </div>
-
-            <p className="mb-1.5 text-[12px] font-medium text-gray-500">
-              Tick columns to share ({mapping.columns?.length ?? 0} ticked) — ticked columns appear in the Data tab and flow to the website
-            </p>
-            <div className={`grid max-h-40 gap-1 overflow-y-auto rounded-lg border p-2 sm:grid-cols-3 lg:grid-cols-5 ${slimScroll}`}>
-              {(columns.length ? columns : (mapping.columns ?? []).map((f) => ({ field: f, type: "", null: "", key: "" }))).map((c) => (
-                <label key={c.field} className="flex cursor-pointer items-center gap-1.5 rounded px-1 py-0.5 text-xs hover:bg-gray-50">
-                  <input
-                    type="checkbox"
-                    className="h-3.5 w-3.5 accent-black"
-                    checked={(mapping.columns ?? []).includes(c.field)}
-                    onChange={() => toggleTick(c.field)}
-                  />
-                  <span className="truncate" title={`${c.field} · ${c.type}`}>{c.field}</span>
-                  {c.type && <span className="ml-auto shrink-0 text-[9px] text-gray-400">{c.type.split("(")[0]}</span>}
-                </label>
-              ))}
-              {!columns.length && !mapping.columns?.length && <p className="col-span-full p-2 text-center text-xs text-gray-400">Pick a table to load its columns</p>}
-            </div>
-          </>
-        ) : (
-          <p className="py-6 text-center text-sm text-gray-400">
-            No mapping yet — pick an ERP table above and the auto-detected suggestion will fill in (verify, tick extra columns, Save).
+      {/* 4 · update */}
+      <section className={`${card} mb-4 flex flex-wrap items-center justify-between gap-3 p-5`}>
+        <div>
+          <h2 className={sectionTitle}>4 · Update</h2>
+          <p className={sectionSub}>
+            {dirty && stagedSummary
+              ? `Staged: ${stagedSummary} — nothing changes until you update`
+              : connected ? "No changes waiting — ticks above apply when you update" : "Connect first to make changes"}
           </p>
-        )}
-      </div>
+        </div>
+        <Button size="sm" className="bg-black text-white hover:bg-gray-800" onClick={updateProducts} disabled={busy || !dirty || !connected}>
+          {applying ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />} Update Products
+        </Button>
+      </section>
 
-      {/* sync log */}
-      {syncLog.length > 0 && (
-        <div className={`mb-4 max-h-36 overflow-y-auto rounded-xl border bg-gray-50 p-3 font-mono text-[11px] leading-relaxed text-gray-600 ${slimScroll}`}>
-          {syncLog.map((l, i) => <p key={i}>{l}</p>)}
+      {/* progress */}
+      {log.length > 0 && (
+        <div className={`mb-4 max-h-36 overflow-y-auto rounded-xl border border-gray-200 bg-gray-50 p-3 font-mono text-[11px] leading-relaxed text-gray-600 ${slimScroll}`}>
+          {log.map((l, i) => <p key={i}>{l}</p>)}
         </div>
       )}
 
-      {/* data browser — the ticked columns, live */}
-      {browser && (
-        <div className="mb-4 rounded-xl border bg-white">
-          <div className="flex flex-wrap items-center gap-2 border-b p-3">
-            <Table2 className="h-4 w-4 text-gray-400" />
-            <p className="text-sm font-bold">{browser.table} <span className="font-normal text-gray-400">· {browser.total} rows · ticked columns</span></p>
-            <div className="ml-auto flex items-center gap-2">
-              <Input className="h-8 w-44 text-xs" placeholder="Search SKU…" value={bq} onChange={(e) => setBq(e.target.value)} onKeyDown={(e) => e.key === "Enter" && loadBrowser(1, bq)} />
-              <Button size="sm" variant="outline" onClick={() => loadBrowser(1, bq)}><Search className="h-3.5 w-3.5" /></Button>
-              <Button size="sm" variant="outline" disabled={browser.page <= 1} onClick={() => loadBrowser(browser.page - 1, bq)}>‹</Button>
-              <span className="text-xs text-gray-500">{browser.page}/{pages}</span>
-              <Button size="sm" variant="outline" disabled={browser.page >= pages} onClick={() => loadBrowser(browser.page + 1, bq)}>›</Button>
+      {/* synced data preview */}
+      {preview && (
+        <section className={`${card} mb-4`}>
+          <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 p-4">
+            <h2 className={sectionTitle}>Synced data</h2>
+            <span className="text-[12px] tabular-nums text-gray-400">
+              {nf(preview.counts.productsShown)} of {nf(preview.counts.productsTotal)} products listed · {nf(preview.counts.warehousesShown)} of {nf(preview.counts.warehousesTotal)} warehouses shown · {nf(preview.counts.stockRows)} stock rows
+            </span>
+            <div className="ml-auto flex gap-1">
+              {(["products", "warehouses"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={`h-8 rounded-lg px-3 text-[12px] font-medium capitalize transition-colors ${tab === t ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-100"}`}
+                >
+                  {t}
+                </button>
+              ))}
             </div>
           </div>
-          <div className={`overflow-x-auto ${slimScroll}`}>
-            <table className="w-full text-xs">
+          {tab === "products" ? (
+            <div className={`overflow-x-auto ${slimScroll}`}>
+              <table className="w-full text-left text-[13px] tabular-nums">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50 text-[12px] font-medium text-gray-500">
+                    <th className="px-4 py-2.5">Product</th>
+                    <th className="px-4 py-2.5">Code</th>
+                    {brandOn && <th className="px-4 py-2.5">Brand</th>}
+                    <th className="px-4 py-2.5 text-right">Price</th>
+                    {mrpOn && <th className="px-4 py-2.5 text-right">MRP</th>}
+                    {stockOn && <th className="px-4 py-2.5 text-right">Stock</th>}
+                    <th className="px-4 py-2.5 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {preview.products.map((p, i) => (
+                    <tr key={`${p.sku}-${i}`} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                      <td className="max-w-[320px] truncate px-4 py-2 text-gray-900">{p.name}</td>
+                      <td className="px-4 py-2 text-gray-500">{p.sku}</td>
+                      {brandOn && <td className="max-w-[160px] truncate px-4 py-2 text-gray-500">{p.company || "—"}</td>}
+                      <td className="px-4 py-2 text-right text-gray-900">{p.price ? `₹${p.price.toFixed(2)}` : "—"}</td>
+                      {mrpOn && <td className="px-4 py-2 text-right text-gray-500">{p.mrp ? `₹${p.mrp.toFixed(2)}` : "—"}</td>}
+                      {stockOn && <td className="px-4 py-2 text-right text-gray-500">{p.stock ?? "—"}</td>}
+                      <td className="px-4 py-2 text-right"><span className={quietChip}>{p.active ? "listed" : "hidden"}</span></td>
+                    </tr>
+                  ))}
+                  {!preview.products.length && <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No products synced yet</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <table className="w-full text-left text-[13px] tabular-nums">
               <thead>
-                <tr className="border-b bg-gray-50 text-left">
-                  {browser.columns.map((c) => <th key={c} className="whitespace-nowrap px-3 py-2 font-bold text-gray-500">{c}</th>)}
+                <tr className="border-b border-gray-200 bg-gray-50 text-[12px] font-medium text-gray-500">
+                  <th className="px-4 py-2.5">Warehouse</th>
+                  <th className="px-4 py-2.5">City</th>
+                  <th className="px-4 py-2.5 text-right">Stock rows</th>
+                  <th className="px-4 py-2.5 text-right">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {browser.rows.map((r, i) => (
-                  <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
-                    {browser.columns.map((c) => <td key={c} className="max-w-52 truncate whitespace-nowrap px-3 py-1.5">{r[c] === null || r[c] === undefined ? <span className="text-gray-300">—</span> : String(r[c])}</td>)}
+                {preview.warehouses.map((w, i) => (
+                  <tr key={`${w.name}-${i}`} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                    <td className="px-4 py-2 text-gray-900"><span className="flex items-center gap-2"><WarehouseIcon className="h-4 w-4 text-gray-400" />{w.name}</span></td>
+                    <td className="px-4 py-2 text-gray-500">{w.city || "—"}</td>
+                    <td className="px-4 py-2 text-right text-gray-500">{nf(w.stockRows)}</td>
+                    <td className="px-4 py-2 text-right"><span className={quietChip}>{w.active ? "shown" : "hidden"}</span></td>
                   </tr>
                 ))}
-                {!browser.rows.length && <tr><td colSpan={browser.columns.length} className="p-6 text-center text-gray-400">No rows</td></tr>}
+                {!preview.warehouses.length && <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400">No warehouses synced yet</td></tr>}
               </tbody>
             </table>
-          </div>
-        </div>
+          )}
+        </section>
       )}
 
       {/* history */}
-      {status?.history?.length ? (
-        <div className="rounded-xl border bg-white">
-          <p className="border-b p-3 text-sm font-bold">Sync history</p>
-          <div className={`max-h-56 overflow-y-auto p-3 text-xs text-gray-600 ${slimScroll}`}>
-            {status.history.map((h) => (
-              <p key={h.id} className="border-b py-1 last:border-0">
-                <span className="font-mono text-[10px] text-gray-400">{new Date(h.createdAt).toLocaleString()}</span>{" "}
-                <Badge variant="secondary" className="mr-1 text-[9px]">{h.action}</Badge>
-                <span className={h.status === "OK" ? "text-green-700" : "text-amber-700"}>{h.message}</span>{" "}
-                <span className="text-gray-400">({h.durationMs}ms)</span>
+      {history.length > 0 && (
+        <section className={card}>
+          <p className="border-b border-gray-200 p-4 text-[13px] font-medium text-gray-900">Sync history</p>
+          <div className={`max-h-56 overflow-y-auto p-4 text-[12px] text-gray-600 ${slimScroll}`}>
+            {history.map((h) => (
+              <p key={h.id} className="border-b border-gray-100 py-1.5 last:border-0">
+                <span className="mr-2 font-mono text-[10px] text-gray-400">{new Date(h.createdAt).toLocaleString()}</span>
+                <span className={h.status === "OK" ? "text-gray-700" : "text-amber-700"}>{h.message}</span>
               </p>
             ))}
           </div>
-        </div>
-      ) : null}
+        </section>
+      )}
     </div>
   );
 }

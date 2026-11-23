@@ -176,6 +176,18 @@ export async function countErpTable(table: string): Promise<number> {
 }
 
 /**
+ * Internal read-only query runner (SELECT only, bound params). Used by the
+ * sync engine for ERP-side JOINs (e.g. godown ⇄ firm lookups). Every statement
+ * here is built in code from validated identifiers — never from user input.
+ */
+export async function erpQuery(sql: string, params: unknown[] = []): Promise<Record<string, unknown>[]> {
+  assertReadOnly(sql);
+  const p = await erpPool();
+  const [rows] = await p.query<mysql.RowDataPacket[]>(sql, params);
+  return rows as unknown as Record<string, unknown>[];
+}
+
+/**
  * Generic ticked-column page fetch: SELECT the mapped + ticked columns from an
  * ERP table with LIMIT/OFFSET. Used by the sync engine AND the admin data
  * browser ("ticked columns appear on the admin panel").

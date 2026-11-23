@@ -30,7 +30,7 @@
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getSetting, setSetting, logSyncEvent } from "@/lib/settings";
-import { assertIdentifier, assertReadOnly, describeErpTable, erpPool, fetchErpPage } from "@/lib/erp-mysql";
+import { assertIdentifier, assertReadOnly, describeErpTable, erpPool, erpQuery, fetchErpPage } from "@/lib/erp-mysql";
 
 // ───────── mapping types + storage ─────────
 
@@ -58,7 +58,10 @@ export type StockMapping = {
 
 const KEY_PRODUCTS = "erp_map_products";
 const KEY_WAREHOUSES = "erp_map_warehouses";
-const KEY_SELECTED_WAREHOUSES = "erp_sync_selected_warehouses";
+const KEY_SELECTED_WAREHOUSES = "erp_sync_selected_warehouses"; // legacy: godown CODES
+const KEY_SELECTED_WAREHOUSE_IDS = "erp_sync_selected_whids";   // current: ERP godown row IDs (codes collide across firms)
+const KEY_PRODUCT_GROUPS = "erp_sync_product_groups";           // friendly "product details" ticks
+const KEY_WH_NEON_MAP = "erp_wh_neon_map";                      // ERP godown ID → Neon Warehouse.id
 const KEY_STOCK = "erp_map_stock";
 
 export async function getProductsMapping(): Promise<ProductMapping | null> {
@@ -98,6 +101,97 @@ export async function getSelectedWarehouseCodes(): Promise<string[]> {
 export async function saveSelectedWarehouseCodes(codes: string[]): Promise<void> {
   const clean = [...new Set((codes || []).map((c) => String(c).trim()).filter(Boolean))];
   await setSetting(KEY_SELECTED_WAREHOUSES, JSON.stringify(clean));
+}
+
+// ───────── godown listing (read-only ERP read, firm-aware) ─────────
+
+export type ErpGodown = {
+  erpId: string; code: string; name: string; city: string;
+  isActive: boolean; productCount: number;
+  gstMode: string; gstin: string; // internal — NEVER shown in the UI
+};
+
+/**
+ * Read-only ERP read: every godown joined with its owning firm's tax mode.
+ * The admin UI only ever shows NON_GST-firm godowns and never renders the firm
+ * name, tax status, code, table or column names — just "Warehouse · City".
+ */
+export async function listErpGodowns(): Promise<ErpGodown[]> {
+  const rows = await erpQuery(
+    "SELECT w.`id` AS erpId, w.`code` AS code, w.`name` AS name, w.`city` AS city, " +
+    "w.`isActive` AS isActive, f.`gstMode` AS gstMode, f.`gstin` AS gstin, " +
+    "(SELECT COUNT(*) FROM `WarehouseStock` s WHERE s.`warehouseId` = w.`id`) AS productCount " +
+    "FROM `Warehouse` w JOIN `Firm` f ON f.`id` = w.`firmId` ORDER BY w.`name` ASC, w.`id` ASC"
+  );
+  return rows.map((r) => ({
+    erpId: str(r.erpId),
+    code: str(r.code),
+    name: str(r.name) || str(r.code) || "Warehouse",
+    city: str(r.city),
+    isActive: coerceActive(r.isActive),
+    productCount: num(r.productCount),
+    gstMode: str(r.gstMode).toUpperCase(),
+    gstin: str(r.gstin),
+  }));
+}
+
+/** Godowns the admin is allowed to pick — non-GST firms only (UI shows them
+ *  without any firm/tax wording). */
+export async function listNonGstGodowns(): Promise<ErpGodown[]> {
+  const all = await listErpGodowns();
+  return all.filter((g) => g.gstMode === "NON_GST" || (!g.gstMode && !g.gstin));
+}
+
+// ───────── selection state (which godowns feed the site) ─────────
+
+export async function getSelectedWarehouseIds(): Promise<string[]> {
+  try {
+    const raw = await getSetting(KEY_SELECTED_WAREHOUSE_IDS, "");
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.map(String).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveSelectedWarehouseIds(ids: string[]): Promise<void> {
+  const clean = [...new Set((ids || []).map((s) => String(s).trim()).filter(Boolean))];
+  await setSetting(KEY_SELECTED_WAREHOUSE_IDS, JSON.stringify(clean));
+}
+
+async function loadWhNeonMap(): Promise<Record<string, string>> {
+  try { return JSON.parse(await getSetting(KEY_WH_NEON_MAP, "{}")) as Record<string, string>; } catch { return {}; }
+}
+async function saveWhNeonMap(m: Record<string, string>): Promise<void> {
+  await setSetting(KEY_WH_NEON_MAP, JSON.stringify(m));
+}
+
+/**
+ * The authoritative selection: ERP godown row IDs. IDs (not codes) because this
+ * source has godown codes shared by different firms ("WH-MAIN" twice) and all
+ * stock rows key by row ID. A legacy code-based selection is migrated once,
+ * so the daily cron keeps its scope right after deploy.
+ */
+export async function selectionState(): Promise<{ configured: boolean; ids: string[] }> {
+  const raw = await getSetting(KEY_SELECTED_WAREHOUSE_IDS, "");
+  if (raw) {
+    try {
+      const arr = JSON.parse(raw);
+      return { configured: true, ids: Array.isArray(arr) ? arr.map(String).filter(Boolean) : [] };
+    } catch { /* fall through to legacy */ }
+  }
+  const codes = await getSelectedWarehouseCodes();
+  if (!codes.length) return { configured: false, ids: [] };
+  try {
+    const all = await listErpGodowns();
+    const ids = codes.map((c) => all.find((g) => g.code === c)?.erpId ?? "").filter(Boolean);
+    if (ids.length) {
+      await saveSelectedWarehouseIds(ids);
+      return { configured: true, ids };
+    }
+  } catch { /* source unreachable — fall back to legacy unscoped behaviour */ }
+  return { configured: false, ids: [] };
 }
 
 /** WHERE fragment limiting an ERP read to the selected godowns; null = no filter. */
@@ -334,12 +428,28 @@ export async function syncProductsPage(pageSize = 300, offsetOverride?: number):
   const allCols = [...new Set([m.skuCol, m.nameCol, m.companyCol, m.mrpCol, m.rateCol, m.costCol, m.deliveryRateCol,
     m.stockCol, m.imageCol, m.activeCol, m.unitCol, m.packQtyCol, m.hsnCol, m.gstCol, m.barcodeCol, m.weightCol,
     m.piecesPerBoxCol, m.tier1Col, m.tier2Col, m.tier3Col, m.tier4Col, m.tier5Col, ...(m.columns || [])].filter(Boolean) as string[])];
-  // godown scope: when the admin picked specific warehouses, only pull SKUs that
-  // exist in those godowns (read-only subquery through the stock mapping table)
+  // godown scope: when the admin picked specific warehouses, only pull SKUs
+  // stocked in those godowns. This source keys stock rows by godown row ID and
+  // joins them to products/warehouses by ID, so the scope runs through the
+  // stock table on IDs — codes collide across firms here. Read-only: SELECT
+  // subquery with bound params.
   const smForScope = await getStockMapping();
-  const scope = smForScope
-    ? await selectedGodownWhere(smForScope.warehouseCodeCol, { viaStockTable: { table: smForScope.table, skuCol: smForScope.skuCol } })
-    : null;
+  const sel = await selectionState();
+  let scope: { whereSql: string; params: unknown[] } | null = null;
+  if (sel.configured) {
+    if (!sel.ids.length) {
+      scope = { whereSql: "1 = 0", params: [] }; // every godown unticked → pull nothing
+    } else if (smForScope?.skuJoin || smForScope?.warehouseJoin) {
+      const skuCol = assertIdentifier(m.skuCol);
+      const tbl = assertIdentifier(smForScope.table);
+      const pidCol = assertIdentifier(smForScope.skuCol);
+      const gidCol = assertIdentifier(smForScope.warehouseCodeCol);
+      const marks = sel.ids.map(() => "?").join(", ");
+      scope = { whereSql: `\`${skuCol}\` IN (SELECT \`${pidCol}\` FROM \`${tbl}\` WHERE \`${gidCol}\` IN (${marks}))`, params: sel.ids };
+    } else if (smForScope) {
+      scope = await selectedGodownWhere(smForScope.warehouseCodeCol, { viaStockTable: { table: smForScope.table, skuCol: smForScope.skuCol } });
+    }
+  }
   const rows = await fetchErpPage(m.table, allCols, {
     limit: pageSize, offset, orderBy: m.skuCol,
     ...(scope ? { extraWhere: scope.whereSql, extraParams: scope.params } : {}),
@@ -517,43 +627,66 @@ function slugifyProduct(s: string) {
 
 // ───────── warehouses (godowns) ─────────
 
-export async function syncWarehouses(): Promise<{ seen: number; created: number; updated: number; deactivated: number; errors: string[] }> {
+export async function syncWarehouses(): Promise<{ seen: number; created: number; updated: number; deactivated: number; skipped: boolean; errors: string[] }> {
   const m = await getWarehousesMapping();
-  if (!m) throw new Error("Warehouse mapping not configured — tick columns in Admin → ERP Data first");
-  const allCols = [...new Set([m.codeCol, m.nameCol, m.activeCol, ...(m.columns || [])].filter(Boolean) as string[])];
-  const rows = await fetchErpPage(m.table, allCols, { limit: 1000, orderBy: m.codeCol });
-  const result = { seen: 0, created: 0, updated: 0, deactivated: 0, errors: [] as string[] };
-  const seenCodes = new Set<string>();
-  for (const raw of rows) {
-    const code = str(val(raw, m.codeCol));
-    const name = str(val(raw, m.nameCol)) || code;
-    if (!code) continue;
+  if (!m) throw new Error("Warehouse mapping not configured");
+  const result = { seen: 0, created: 0, updated: 0, deactivated: 0, skipped: false, errors: [] as string[] };
+  const sel = await selectionState();
+  // every godown unticked → nothing to mirror; visibility reconciliation happens at finalize
+  if (sel.configured && !sel.ids.length) {
+    result.skipped = true;
+    await setSetting("erp_sync_last_warehouses_at", new Date().toISOString());
+    return result;
+  }
+  // read-only ERP read — godown list with firm tax mode (only used to scope)
+  const godowns = await listErpGodowns();
+  const byId = new Map(godowns.map((g) => [g.erpId, g]));
+  const wanted = sel.configured ? sel.ids : godowns.map((g) => g.erpId);
+  const neonMap = await loadWhNeonMap();
+  const claimedNeon = new Set(Object.values(neonMap));
+  const keptIds = new Set<string>();
+  for (const id of wanted) {
+    const g = byId.get(id);
+    if (!g) continue;
     result.seen++;
-    seenCodes.add(code);
+    keptIds.add(id);
     try {
-      const active = m.activeCol ? coerceActive(val(raw, m.activeCol)) : true;
-      const existing = await db.warehouse.findFirst({ where: { code } });
-      if (existing) {
-        await db.warehouse.update({ where: { id: existing.id }, data: { name, active, source: "ERP" } });
+      const data = { code: g.code, name: g.name, city: g.city || "", active: true, source: "ERP" };
+      // resolve the Neon row: mapped first, then legacy adopt by code (skip rows
+      // already claimed by another godown — codes can repeat across firms)
+      let row = neonMap[id] ? await db.warehouse.findFirst({ where: { id: neonMap[id] } }) : null;
+      if (!row && g.code) {
+        const legacy = await db.warehouse.findFirst({ where: { code: g.code, source: "ERP" }, orderBy: { createdAt: "asc" } });
+        if (legacy && !claimedNeon.has(legacy.id)) row = legacy;
+      }
+      if (row) {
+        await db.warehouse.update({ where: { id: row.id }, data });
+        neonMap[id] = row.id;
+        claimedNeon.add(row.id);
         result.updated++;
       } else {
-        await db.warehouse.create({ data: { code, name, active, source: "ERP" } });
+        const created = await db.warehouse.create({ data });
+        neonMap[id] = created.id;
+        claimedNeon.add(created.id);
         result.created++;
       }
     } catch (e: unknown) {
-      result.errors.push(`${code}: ${e instanceof Error ? e.message : String(e)}`);
+      result.errors.push(`${g.code}: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  // FULL pull: ERP godowns that vanished get deactivated (never deleted — order history FK safety)
-  if (rows.length < 1000) {
-    const erpWarehouses = await db.warehouse.findMany({ where: { source: "ERP" }, select: { id: true, code: true, active: true } });
-    for (const w of erpWarehouses) {
-      if (w.code && !seenCodes.has(w.code) && w.active) {
-        await db.warehouse.update({ where: { id: w.id }, data: { active: false } });
-        result.deactivated++;
-      }
+  // hide godown rows that are no longer selected (never delete — order FK safety)
+  const erpRows = await db.warehouse.findMany({ where: { source: "ERP" }, select: { id: true, code: true, active: true } });
+  const wantedCodes = new Set(wanted.map((id) => byId.get(id)?.code).filter(Boolean) as string[]);
+  const neonToErp = new Map(Object.entries(neonMap).map(([erpId, neonId]) => [neonId, erpId] as const));
+  for (const w of erpRows) {
+    const erpId = neonToErp.get(w.id);
+    const keep = erpId ? keptIds.has(erpId) : wantedCodes.has(w.code);
+    if (!keep && w.active) {
+      await db.warehouse.update({ where: { id: w.id }, data: { active: false } });
+      result.deactivated++;
     }
   }
+  await saveWhNeonMap(neonMap);
   await setSetting("erp_sync_last_warehouses_at", new Date().toISOString());
   return result;
 }
@@ -582,10 +715,20 @@ async function fetchStockJoined(sm: StockMapping): Promise<Record<string, unknow
   let sql = `SELECT ${sel.join(", ")} FROM \`${sm.table}\` s`;
   if (sm.skuJoin) sql += ` JOIN \`${sm.skuJoin.table}\` j1 ON j1.\`${sm.skuJoin.idCol}\` = s.\`${sm.skuCol}\``;
   if (sm.warehouseJoin) sql += ` JOIN \`${sm.warehouseJoin.table}\` j2 ON j2.\`${sm.warehouseJoin.idCol}\` = s.\`${sm.warehouseCodeCol}\``;
-  // godown scope: only the selected godowns' stock rows
-  const scope = await selectedGodownWhere(sm.warehouseCodeCol);
+  // godown scope: only stock rows of the warehouses the admin picked. The
+  // joined read keys godowns by row ID — scope on IDs, never on codes (codes
+  // are shared by different firms here).
+  const whSel = await selectionState();
   const params: unknown[] = [];
-  if (scope) { sql += ` WHERE ${scope.whereSql}`; params.push(...scope.params); }
+  if (whSel.configured) {
+    if (!whSel.ids.length) {
+      sql += ` WHERE 1 = 0`;
+    } else {
+      const marks = whSel.ids.map(() => "?").join(", ");
+      sql += ` WHERE s.\`${assertIdentifier(sm.warehouseCodeCol)}\` IN (${marks})`;
+      params.push(...whSel.ids);
+    }
+  }
   sql += ` LIMIT 5000`;
   assertReadOnly(sql);
   const [rows] = await p.query(sql, params);
@@ -834,6 +977,212 @@ export async function fullResyncChunk(pageSize = 300, stage?: "warehouses" | "st
     try { await t("products", async () => { out.products = await syncProductsPage(pageSize); })(); } catch (e) { errors.push(`products: ${e instanceof Error ? e.message : String(e)}`); }
   }
   return out;
+}
+
+// ───────── guided sync — friendly "product details" ticks + staged apply ─────────
+
+/**
+ * The owner-facing product detail groups. Each group owns the mapping keys of
+ * the synced product fields it stands for. Locked groups stay on (name, code
+ * and selling price keep the store working). The ticks are the UX layer; the
+ * mapping rebuilt from them is the execution layer.
+ */
+const GROUP_DEFS: { id: string; label: string; keys: (keyof ProductMapping)[]; locked?: boolean }[] = [
+  { id: "pricing", label: "Selling price", keys: ["rateCol", "tier4Col"], locked: true },
+  { id: "mrp", label: "MRP", keys: ["mrpCol", "tier5Col"] },
+  { id: "tiers", label: "Wholesale tier prices", keys: ["tier1Col", "tier2Col", "tier3Col"] },
+  { id: "delivery", label: "Delivery rate", keys: ["deliveryRateCol"] },
+  { id: "stock", label: "Stock quantity", keys: ["stockCol"] },
+  { id: "unitPack", label: "Unit & pack size", keys: ["unitCol", "packQtyCol", "piecesPerBoxCol"] },
+  { id: "barcode", label: "Barcode", keys: ["barcodeCol"] },
+  { id: "hsnTax", label: "HSN & tax rate", keys: ["hsnCol", "gstCol"] },
+  { id: "image", label: "Product image", keys: ["imageCol"] },
+  { id: "brand", label: "Brand / company", keys: ["companyCol"] },
+  { id: "weight", label: "Weight", keys: ["weightCol"] },
+];
+
+export type ProductGroupState = { id: string; label: string; ticked: boolean; locked?: boolean };
+
+/** Current ticks (the guided flow's staged surface). Defaults to all-on until
+ *  the owner saves a first choice. "other" covers unmapped ticked columns. */
+export async function getProductGroups(): Promise<ProductGroupState[]> {
+  let saved: Record<string, boolean> = {};
+  try {
+    const raw = await getSetting(KEY_PRODUCT_GROUPS, "");
+    if (raw) saved = JSON.parse(raw) as Record<string, boolean>;
+  } catch { saved = {}; }
+  const out: ProductGroupState[] = GROUP_DEFS.map((g) => ({
+    id: g.id,
+    label: g.label,
+    locked: g.locked,
+    ticked: g.locked ? true : saved[g.id] !== false,
+  }));
+  out.push({ id: "other", label: "Extra details", ticked: saved["other"] !== false });
+  return out;
+}
+
+function groupOn(groups: Record<string, boolean>, id: string, locked?: boolean): boolean {
+  return locked ? true : groups[id] !== false;
+}
+
+/**
+ * Rebuild the products mapping from the friendly ticks. Locked groups stay;
+ * unticked groups drop their mapped columns AND their mapping keys, so the
+ * sync stops pulling those details and admin surfaces hide them.
+ */
+export function rebuildMappingFromGroups(pm: ProductMapping, groups: Record<string, boolean>): ProductMapping {
+  const next: ProductMapping = { ...pm };
+  const semanticCols = new Set<string>();
+  const keptCols = new Set<string>();
+  for (const g of GROUP_DEFS) {
+    const on = groupOn(groups, g.id, g.locked);
+    for (const k of g.keys) {
+      const col = pm[k];
+      if (!col) continue;
+      const c = String(col);
+      semanticCols.add(c);
+      if (on) keptCols.add(c);
+      else (next as unknown as Record<string, unknown>)[k] = undefined;
+    }
+  }
+  const basic = [String(pm.skuCol), String(pm.nameCol)].filter(Boolean);
+  const extras = (pm.columns || []).filter((c) => !semanticCols.has(c));
+  const other = groupOn(groups, "other");
+  next.columns = [...new Set([...basic, ...keptCols, ...(other ? extras : [])])];
+  return next;
+}
+
+// ───────── staged apply (the "Update Products" button) ─────────
+
+export type ApplyResult = { shownWarehouses: number; hiddenWarehouses: number };
+
+/**
+ * Apply, part 1 (fast, site-database only): persist the ticked godown IDs and
+ * the product-detail groups, then flip visibility for warehouses already
+ * mapped here. Unticked → hidden (active=false, its stock rows removed);
+ * re-ticked → visible again and refilled by the pull that follows.
+ */
+export async function applySyncSelection(input: { ids?: string[]; groups?: Record<string, boolean> }): Promise<ApplyResult> {
+  if (input.ids) {
+    const clean = [...new Set(input.ids.map((s) => String(s).trim()).filter(Boolean))];
+    if (!clean.length) throw new Error("Pick at least one warehouse");
+    await saveSelectedWarehouseIds(clean);
+  }
+  if (input.groups) {
+    await setSetting(KEY_PRODUCT_GROUPS, JSON.stringify(input.groups));
+    const pm = await getProductsMapping();
+    if (pm) await saveProductsMapping(rebuildMappingFromGroups(pm, input.groups));
+  }
+  const ids = new Set(await getSelectedWarehouseIds());
+  const neonMap = await loadWhNeonMap();
+  let shownWarehouses = 0;
+  let hiddenWarehouses = 0;
+  for (const [erpId, neonId] of Object.entries(neonMap)) {
+    const w = await db.warehouse.findFirst({ where: { id: neonId, source: "ERP" } });
+    if (!w) continue;
+    if (ids.has(erpId) && !w.active) {
+      await db.warehouse.update({ where: { id: neonId }, data: { active: true } });
+      shownWarehouses++;
+    } else if (!ids.has(erpId) && w.active) {
+      await db.warehouse.update({ where: { id: neonId }, data: { active: false } });
+      await db.warehouseStock.deleteMany({ where: { warehouseId: neonId } });
+      hiddenWarehouses++;
+    }
+  }
+  await logSyncEvent({
+    direction: "ERP→WEB", action: "selection-apply", status: "OK",
+    message: `${ids.size} warehouse(s) selected · ${shownWarehouses} shown / ${hiddenWarehouses} hidden`,
+  });
+  return { shownWarehouses, hiddenWarehouses };
+}
+
+export type FinalizeResult = { shownWarehouses: number; hiddenWarehouses: number; shownProducts: number; hiddenProducts: number };
+
+/**
+ * Apply, part 2 (runs after the pull completes): reconcile visibility with the
+ * saved selection. ERP rows never mapped here get hidden too, and products not
+ * stocked in any shown warehouse stop being listed (active=false; admin-owned
+ * active overrides are respected).
+ */
+export async function finalizeSyncSelection(): Promise<FinalizeResult> {
+  const sel = await selectionState();
+  let godowns: ErpGodown[] = [];
+  try { godowns = await listErpGodowns(); } catch { /* source offline — reconcile with what the site knows */ }
+  const wantedIds = new Set(sel.ids);
+  const wantedCodes = new Set(godowns.filter((g) => wantedIds.has(g.erpId)).map((g) => g.code));
+  const neonMap = await loadWhNeonMap();
+  const neonToErp = new Map(Object.entries(neonMap).map(([erpId, neonId]) => [neonId, erpId] as const));
+  const rows = await db.warehouse.findMany({ where: { source: "ERP" }, select: { id: true, code: true, active: true } });
+  let shownWarehouses = 0;
+  let hiddenWarehouses = 0;
+  for (const w of rows) {
+    const erpId = neonToErp.get(w.id);
+    const want = sel.configured ? (erpId ? wantedIds.has(erpId) : wantedCodes.has(w.code)) : true;
+    if (want && !w.active) {
+      await db.warehouse.update({ where: { id: w.id }, data: { active: true } });
+      shownWarehouses++;
+    } else if (!want && w.active) {
+      await db.warehouse.update({ where: { id: w.id }, data: { active: false } });
+      await db.warehouseStock.deleteMany({ where: { warehouseId: w.id } });
+      hiddenWarehouses++;
+    }
+  }
+  // products: listed = stocked in a shown warehouse
+  const stockRows = await db.warehouseStock.findMany({
+    where: { warehouse: { source: "ERP", active: true } },
+    select: { productId: true },
+  });
+  const covered = [...new Set(stockRows.map((r) => r.productId))];
+  const syncOwned: Prisma.ProductWhereInput = {
+    syncSource: "ERP",
+    activeSource: { not: "ADMIN" }, // column is NOT NULL — admin overrides stay untouched
+  };
+  const hiddenProducts = Number(await db.product.updateMany({
+    where: covered.length
+      ? { ...syncOwned, active: true, id: { notIn: covered } }
+      : { ...syncOwned, active: true },
+    data: { active: false },
+  }).then((r) => (typeof r === "number" ? r : r.count)));
+  const shownProducts = covered.length
+    ? Number(await db.product.updateMany({ where: { ...syncOwned, active: false, id: { in: covered } }, data: { active: true } }).then((r) => (typeof r === "number" ? r : r.count)))
+    : 0;
+  await logSyncEvent({
+    direction: "ERP→WEB", action: "selection-finalize", status: "OK",
+    message: `${shownWarehouses} wh shown / ${hiddenWarehouses} hidden · ${shownProducts} products shown / ${hiddenProducts} hidden`,
+  });
+  return { shownWarehouses, hiddenWarehouses, shownProducts, hiddenProducts };
+}
+
+// ───────── bootstrap (first run — the guided flow needs no manual mapping) ─────────
+
+const DMK_DEFAULT_WAREHOUSES: WarehouseMapping = {
+  table: "Warehouse", codeCol: "code", nameCol: "name", activeCol: "isActive",
+  columns: ["code", "name", "city", "type", "isActive"],
+};
+const DMK_DEFAULT_STOCK: StockMapping = {
+  table: "WarehouseStock", skuCol: "productId", warehouseCodeCol: "warehouseId", qtyCol: "quantity",
+  columns: ["quantity", "reservedQty", "damagedQty"],
+  skuJoin: { table: "Product", idCol: "id", selectCol: "sku" },
+  warehouseJoin: { table: "Warehouse", idCol: "id", selectCol: "code" },
+};
+const DMK_DEFAULT_PRODUCTS: ProductMapping = {
+  table: "Product", skuCol: "sku", nameCol: "name", companyCol: "company",
+  mrpCol: "tier5Mrp", rateCol: "tier4Retailer", costCol: "purchaseCost", deliveryRateCol: "deliveryRate",
+  stockCol: "stockQuantity", imageCol: "photoUrl", activeCol: "isActive", unitCol: "unit", packQtyCol: "packQty",
+  piecesPerBoxCol: "piecesPerBox", hsnCol: "hsnCode", gstCol: "gstRate", barcodeCol: "barcode",
+  weightCol: "weightGrams", tier1Col: "tier1Distributor", tier2Col: "tier2Wholesale", tier3Col: "tier3SemiWholesale",
+  tier4Col: "tier4Retailer", tier5Col: "tier5Mrp",
+  columns: ["sku", "name", "company", "brand", "category", "top_level_category", "end_level_category",
+    "tier1Distributor", "tier2Wholesale", "tier3SemiWholesale", "tier4Retailer", "tier5Mrp", "deliveryRate",
+    "stockQuantity", "photoUrl", "isActive", "unit", "packQty", "piecesPerBox", "hsnCode", "gstRate",
+    "barcode", "weightGrams", "alternateName"],
+};
+
+/** Create the mappings on first use so the guided flow never needs manual mapping. */
+export async function ensureSyncMappings(): Promise<void> {
+  if (!(await getWarehousesMapping())) await saveWarehousesMapping(DMK_DEFAULT_WAREHOUSES);
+  if (!(await getStockMapping())) await saveStockMapping(DMK_DEFAULT_STOCK);
+  if (!(await getProductsMapping())) await saveProductsMapping(DMK_DEFAULT_PRODUCTS);
 }
 
 /** Guard: any accidental write path that reaches for the ERP pool fails here first.

@@ -1,19 +1,25 @@
-import { requireAdmin, jsonError } from "@/lib/admin-auth";
+import { requireAdmin } from "@/lib/admin-auth";
 import { testErpConnection } from "@/lib/erp-mysql";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-/** GET — ERP MySQL connectivity probe (SELECT VERSION() + table count).
- *  Used by the admin ERP Data module "Test Connection" button. Never throws:
- *  connection problems come back as { connected: false, error }. */
+/** GET — connectivity probe for the Data Sync wizard. On success the response
+ *  carries NOTHING about the source system (no host, database, version or
+ *  table count) — the owner just sees "Connected". Problems surface as a
+ *  generic message; detail stays in the server logs. Never throws. */
 export async function GET(req: Request) {
   const unauthorized = requireAdmin(req);
   if (unauthorized) return unauthorized;
   try {
     const status = await testErpConnection();
-    return Response.json(status);
+    return Response.json({
+      configured: status.configured,
+      connected: status.connected,
+      ...(status.connected ? {} : { error: "Could not reach the data source — check the saved credentials" }),
+    });
   } catch (e) {
-    return jsonError(e instanceof Error ? e.message : "ERP connection test failed", 502);
+    console.error("[erp-direct/test]", e); // detail in logs only
+    return Response.json({ configured: true, connected: false, error: "Could not reach the data source — check the saved credentials" });
   }
 }

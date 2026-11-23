@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Globe, Package, Building2, ShoppingCart,
   Users, LogOut, Menu, X, Eye, Settings2, ChevronRight, Megaphone,
   Barcode as BarcodeIcon, BadgePercent, IndianRupee, Wallet, FileSpreadsheet,
-  MapPin, BookOpen, RefreshCw, Warehouse as WarehouseIcon, Database,
+  MapPin, BookOpen, RefreshCw, Warehouse as WarehouseIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardModule, CustomersModule, PricingModule, CompanyProductsModule } from "./business-modules-1";
@@ -80,7 +80,7 @@ const NAV: { group: string; items: { id: ModuleId; label: string; icon: React.Co
       { id: "homeEditor", label: "Homepage Editor (v2)" },
       { id: "seoMeta", label: "SEO Manager" },
     ]},
-    { id: "erpDirect", label: "ERP Data (MySQL)", icon: Database },
+    { id: "erpDirect", label: "Data Sync", icon: RefreshCw },
     { id: "settings", label: "Settings", icon: Settings2 },
   ]},
 ];
@@ -185,7 +185,7 @@ export function AdminPortal() {
   if (booting) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black">
-        <p className="animate-pulse text-xs font-semiboldst text-gray-500">Checking session…</p>
+        <p className="text-xs font-medium text-gray-500">Checking session…</p>
       </div>
     );
   }
@@ -303,12 +303,12 @@ export function AdminPortal() {
       <div className="flex">
         {/* sidebar */}
         <aside
-          className={`fixed inset-y-14 left-0 z-30 w-64 overflow-y-auto border-r border-gray-800 bg-gray-950 pb-8 transition-transform lg:sticky lg:top-14 lg:h-[calc(100vh-3.5rem)] lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+          className={`fixed inset-y-14 left-0 z-30 w-[260px] overflow-y-auto border-r border-gray-800 bg-gray-950 pb-8 transition-transform lg:sticky lg:top-14 lg:h-[calc(100vh-3.5rem)] lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
         >
           <nav className="px-2 py-3">
-            {NAV.map((g) => (
+            {NAV.map((g, gi) => (
               <div key={g.group} className="mb-1">
-                <p className="px-3 pb-2 pt-5 text-[11px] font-medium text-gray-500">{g.group}</p>
+                <p className={`px-3 pb-2 ${gi === 0 ? "pt-2" : "pt-6"} text-[11px] text-gray-500`}>{g.group}</p>
                 {g.items.map((it) => {
                   const isOpen = openGroup === it.id;
                   const isActive = active === it.id || it.sub?.some((s) => s.id === active);
@@ -320,19 +320,19 @@ export function AdminPortal() {
                           if (it.sub) setOpenGroup(isOpen ? null : it.id);
                           else { setActive(it.id); setSidebarOpen(false); }
                         }}
-                        className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-3 text-left text-[13px] transition-colors ${isActive ? "bg-yellow-400 font-medium text-black" : "font-normal text-gray-400 hover:bg-gray-900 hover:text-white"}`}
+                        className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-3 text-left text-[13px] transition-colors ${isActive ? "bg-yellow-400 font-medium text-black" : "text-gray-400 hover:bg-gray-900 hover:text-white"}`}
                       >
                         <Icon className="h-4 w-4 shrink-0" />
                         <span className="flex-1">{it.label}</span>
                         {it.sub && <ChevronRight className={`h-3 w-3 transition-transform ${isOpen ? "rotate-90" : ""}`} />}
                       </button>
                       {it.sub && isOpen && (
-                        <div className="ml-4 mt-0.5 space-y-0.5 border-l border-gray-800 pl-2">
+                        <div className="ml-[26px] mt-0.5 space-y-0.5 border-l border-gray-800 pl-3">
                           {it.sub.map((s) => (
                             <button
                               key={s.id}
                               onClick={() => { setActive(s.id); setSidebarOpen(false); }}
-                              className={`block w-full rounded-md px-2.5 py-1.5 text-left text-[12px] transition-colors ${active === s.id ? "bg-gray-800 text-yellow-400" : "text-gray-500 hover:text-white"}`}
+                              className={`block h-8 w-full rounded-md px-2.5 text-left text-[12px] leading-8 transition-colors ${active === s.id ? "bg-gray-800 text-yellow-400" : "text-gray-500 hover:text-white"}`}
                             >
                               {s.label}
                             </button>
@@ -350,9 +350,11 @@ export function AdminPortal() {
         {sidebarOpen && <div className="fixed inset-0 z-20 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
         {/* main */}
-        <main className="min-w-0 flex-1 p-4 md:p-6">
-          <p className="mb-4 text-[12px] text-gray-400">{activeLabel}</p>
-          {renderModule()}
+        <main className="min-w-0 flex-1 px-4 py-6 md:px-6 lg:px-8">
+          <div className="mx-auto max-w-[1600px]">
+            <p className="mb-5 text-[12px] text-gray-400">{activeLabel}</p>
+            {renderModule()}
+          </div>
         </main>
       </div>
     </div>
