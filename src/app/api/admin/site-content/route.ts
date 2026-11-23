@@ -9,12 +9,14 @@
  *    kicker | heading | content | buttonText | tagline). Plain text only —
  *    the multicolour *star* heading syntax stays a Hero Section (Sliders) admin feature.
  *
- * Self-healing: if the SiteContent table is missing on a fresh MySQL deploy
+ * Self-healing: if the SiteContent table is missing on a fresh deploy
  * (schema pushed only on next `prisma db push`), the first admin request creates
- * it idempotently so the editor works immediately.
+ * it idempotently so the editor works immediately. Dialect-aware:
+ * production is Neon Postgres, local dev is the SQLite twin.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { dbDialect } from "@/lib/db-dialect";
 import { requireAdmin } from "@/lib/admin-auth";
 import { LIVE_TEXTS } from "@/lib/live-content";
 
@@ -33,32 +35,10 @@ function parseSliderKey(key: string): { id: string; field: SliderField } | null 
   return { id, field: field as SliderField };
 }
 
-/** SQLite twin locally, MySQL in production — detect by asking for a SQLite-only function. */
-async function isSqliteRuntime(): Promise<boolean> {
-  try {
-    await db.$queryRawUnsafe("SELECT sqlite_version() AS v");
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function ensureTable(): Promise<void> {
   if (ensured) return;
-  const sqlite = await isSqliteRuntime();
-  if (sqlite) {
-    await db.$executeRawUnsafe(
-      `CREATE TABLE IF NOT EXISTS "SiteContent" (
-         "id" TEXT NOT NULL PRIMARY KEY,
-         "key" TEXT NOT NULL,
-         "page" TEXT NOT NULL DEFAULT 'home',
-         "label" TEXT NOT NULL DEFAULT '',
-         "value" TEXT NOT NULL,
-         "updatedAt" DATETIME NOT NULL
-       )`
-    );
-    await db.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "SiteContent_key_key" ON "SiteContent"("key")`);
-  } else {
+  const dialect = await dbDialect();
+  if (dialect === "mysql") {
     await db.$executeRawUnsafe(
       `CREATE TABLE IF NOT EXISTS \`SiteContent\` (
          \`id\` VARCHAR(191) NOT NULL,
@@ -71,6 +51,20 @@ async function ensureTable(): Promise<void> {
          UNIQUE INDEX \`SiteContent_key_key\` (\`key\`)
        ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
     );
+  } else {
+    // Postgres (Neon production) and the SQLite twin share this ANSI form —
+    // double-quoted identifiers, no backticks, CURRENT_TIMESTAMP default.
+    await db.$executeRawUnsafe(
+      `CREATE TABLE IF NOT EXISTS "SiteContent" (
+         "id" TEXT NOT NULL PRIMARY KEY,
+         "key" TEXT NOT NULL,
+         "page" TEXT NOT NULL DEFAULT 'home',
+         "label" TEXT NOT NULL DEFAULT '',
+         "value" TEXT NOT NULL,
+         "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+       )`
+    );
+    await db.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "SiteContent_key_key" ON "SiteContent"("key")`);
   }
   ensured = true;
 }

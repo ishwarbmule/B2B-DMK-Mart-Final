@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, jsonError } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
+import { dbDialect } from "@/lib/db-dialect";
 import { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -140,23 +141,59 @@ export async function POST(req: NextRequest) {
 
           await db.$transaction(
             async (tx) => {
-              // temp tables are connection-scoped — everything must run on ONE pooled
-              // connection, hence the interactive transaction
-              await tx.$executeRawUnsafe(`DROP TEMPORARY TABLE IF EXISTS _cat_tmp`);
-              await tx.$executeRawUnsafe(`CREATE TEMPORARY TABLE _cat_tmp (sku VARCHAR(64) PRIMARY KEY, topId VARCHAR(64), midId VARCHAR(64), endId VARCHAR(64))`);
-              for (let i = 0; i < rows.length; i += 800) {
-                const batch = rows.slice(i, i + 800);
-                const values = Prisma.join(
-                  batch.map((r) => Prisma.sql`(${r.sku}, ${r.topId}, ${r.midId}, ${r.endId})`),
-                  ", "
+              // temp tables are connection/session-scoped — everything must run on ONE pooled
+              // connection, hence the interactive transaction. SQL is dialect-aware:
+              // MySQL keeps TEMPORARY TABLE + UPDATE..JOIN; Postgres (Neon prod) and the
+              // SQLite twin use the ANSI quoted + correlated-subquery UPDATE (identical on both).
+              const dialect = await dbDialect();
+              if (dialect === "mysql") {
+                await tx.$executeRawUnsafe(`DROP TEMPORARY TABLE IF EXISTS _cat_tmp`);
+                await tx.$executeRawUnsafe(`CREATE TEMPORARY TABLE _cat_tmp (sku VARCHAR(64) PRIMARY KEY, topId VARCHAR(64), midId VARCHAR(64), endId VARCHAR(64))`);
+                for (let i = 0; i < rows.length; i += 800) {
+                  const batch = rows.slice(i, i + 800);
+                  const values = Prisma.join(
+                    batch.map((r) => Prisma.sql`(${r.sku}, ${r.topId}, ${r.midId}, ${r.endId})`),
+                    ", "
+                  );
+                  await tx.$executeRaw(Prisma.sql`INSERT INTO _cat_tmp (sku, topId, midId, endId) VALUES ${values}`);
+                }
+                const resMysql: any = await tx.$executeRawUnsafe(
+                  `UPDATE Product p JOIN _cat_tmp t ON p.sku = t.sku SET p.topId = t.topId, p.midId = t.midId, p.endId = t.endId, p.updatedAt = NOW()`
                 );
-                await tx.$executeRaw(Prisma.sql`INSERT INTO _cat_tmp (sku, topId, midId, endId) VALUES ${values}`);
+                productsUpdated = Number(resMysql ?? 0);
+                await tx.$executeRawUnsafe(`DROP TEMPORARY TABLE IF EXISTS _cat_tmp`);
+              } else {
+                // Postgres / SQLite — double-quoted identifiers (Prisma camelCase columns);
+                // pre-drop guards against a leftover temp table on pooled sessions.
+                if (dialect === "postgres") {
+                  await tx.$executeRawUnsafe(`DROP TABLE IF EXISTS pg_temp._cat_tmp`);
+                } else {
+                  await tx.$executeRawUnsafe(`DROP TABLE IF EXISTS _cat_tmp`);
+                }
+                await tx.$executeRawUnsafe(`CREATE TEMP TABLE _cat_tmp ("sku" TEXT PRIMARY KEY, "topId" TEXT, "midId" TEXT, "endId" TEXT)`);
+                for (let i = 0; i < rows.length; i += 800) {
+                  const batch = rows.slice(i, i + 800);
+                  const values = Prisma.join(
+                    batch.map((r) => Prisma.sql`(${r.sku}, ${r.topId}, ${r.midId}, ${r.endId})`),
+                    ", "
+                  );
+                  await tx.$executeRaw(Prisma.sql`INSERT INTO _cat_tmp ("sku", "topId", "midId", "endId") VALUES ${values}`);
+                }
+                const resAnsi: any = await tx.$executeRawUnsafe(
+                  `UPDATE "Product" SET
+                     "topId" = (SELECT "topId" FROM _cat_tmp WHERE _cat_tmp."sku" = "Product"."sku"),
+                     "midId" = (SELECT "midId" FROM _cat_tmp WHERE _cat_tmp."sku" = "Product"."sku"),
+                     "endId" = (SELECT "endId" FROM _cat_tmp WHERE _cat_tmp."sku" = "Product"."sku"),
+                     "updatedAt" = CURRENT_TIMESTAMP
+                   WHERE "sku" IN (SELECT "sku" FROM _cat_tmp)`
+                );
+                productsUpdated = Number(resAnsi ?? 0);
+                if (dialect === "postgres") {
+                  await tx.$executeRawUnsafe(`DROP TABLE IF EXISTS pg_temp._cat_tmp`);
+                } else {
+                  await tx.$executeRawUnsafe(`DROP TABLE IF EXISTS _cat_tmp`);
+                }
               }
-              const res: any = await tx.$executeRawUnsafe(
-                `UPDATE Product p JOIN _cat_tmp t ON p.sku = t.sku SET p.topId = t.topId, p.midId = t.midId, p.endId = t.endId, p.updatedAt = NOW()`
-              );
-              productsUpdated = Number(res ?? 0);
-              await tx.$executeRawUnsafe(`DROP TEMPORARY TABLE IF EXISTS _cat_tmp`);
             },
             { timeout: 50_000, maxWait: 15_000 }
           );

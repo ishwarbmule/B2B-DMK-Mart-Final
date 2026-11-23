@@ -58,11 +58,17 @@ function parseSections(raw: string | undefined): HomeSectionCfg[] {
 
 /* ─────────────── Hero carousel (slides editable: Admin → Website Management → Manage Sliders) ─────────────── */
 function OfferHero() {
-  const sliders = useCatalog()?.sliders ?? [];
+  const catalog = useCatalog();
+  const sliders = catalog?.sliders;
 
   return (
     <section>
-      {sliders.length > 0 ? (
+      {sliders == null ? (
+        // Catalog still fetching — show a neutral placeholder sized like the hero
+        // carousel. Rendering <HeroBanner> here flashed the outdated static artwork
+        // on every fresh page load until /api/catalog resolved and swapped it out.
+        <div className="h-[440px] w-full animate-pulse rounded-2xl border border-amber-100 bg-amber-50/70 sm:h-[460px] lg:h-[540px]" aria-hidden />
+      ) : sliders.length > 0 ? (
         <HeroSlider sliders={sliders} onCta={() => (window.location.href = "/catalog")} />
       ) : (
         <HeroBanner />
