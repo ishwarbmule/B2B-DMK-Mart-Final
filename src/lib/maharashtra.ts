@@ -81,3 +81,27 @@ export function nearbyLocationsForWarehouse(name: string, code = ""): { group: s
     return { group: "Pune belt (Pune warehouse)", locations: [...PUNE_NEARBY].sort((a, b) => a.localeCompare(b)) };
   return { group: "All Maharashtra", locations: MAHARASHTRA_LOCATIONS };
 }
+
+/** Which warehouse belt serves a customer's city/town — used for location-based
+ *  product visibility: a buyer from a Pune-belt town sees the Pune godown's
+ *  products, a buyer from the Ahmednagar belt sees Kolhar's. Matched against the
+ *  belt location lists (case-insensitive, parenthetical suffixes tolerated —
+ *  "Loni" matches "Loni (Ahmednagar)"). Returns null when the location is
+ *  outside both belts (rest of Maharashtra — those buyers keep the
+ *  default/nearest-warehouse behaviour). */
+export function beltOfLocation(city?: string | null): "PUNE" | "KOLHAR" | null {
+  const c = (city || "").trim().toLowerCase().replace(/\s+/g, " ");
+  if (!c) return null;
+  const strip = (s: string) => s.toLowerCase().replace(/\s+/g, " ").replace(/\s*\(.*\)\s*/g, "").trim();
+  const tryLists = (target: string): "PUNE" | "KOLHAR" | null => {
+    if (!target) return null;
+    if (PUNE_NEARBY.some((l) => l.toLowerCase() === target) || "pune" === target) return "PUNE";
+    if (KOLHAR_NEARBY.some((l) => l.toLowerCase() === target)) return "KOLHAR";
+    return null;
+  };
+  // exact entry first ("shrirampur", "loni (ahmednagar)")
+  const direct = tryLists(c);
+  if (direct) return direct;
+  // parens-stripped second ("loni" → "Loni (Ahmednagar)", "kedgaon (daund)" → "Kedgaon")
+  return tryLists(strip(c));
+}

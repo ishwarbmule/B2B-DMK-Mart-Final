@@ -6,11 +6,14 @@
  * POST → builds the PDF from LIVE data with body filters:
  *        { companies[], topId?, midId?, endId?, readyOnly?, includeOutOfStock?,
  *          showPrices?, tier?, maxProducts? }
- *        Response: application/pdf binary (download blob).
- *        Meta (version id, share URL, counts) is returned in the
- *        `X-Brochure-Meta` header as base64url JSON.
- *        When Cloudinary is configured the PDF is also uploaded as a raw
- *        resource → shareable https link for WhatsApp / email.
+ *        Two response modes:
+ *        · SMALL PDF  (< SHARE_THRESHOLD bytes) → application/pdf binary download.
+ *        · LARGE PDF  → uploaded to Cloudinary (raw resource) and a JSON
+ *          { shareUrl, meta } is returned instead. Serverless responses are
+ *          hard-capped (~4.5 MB) — streaming a big PDF used to 500 here; a
+ *          Cloudinary-hosted link has no such limit and downloads faster.
+ *        When Cloudinary is NOT configured, the binary is streamed regardless
+ *        (with the size clamps below it usually still fits).
  */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -19,6 +22,14 @@ import { generateBrochure, uploadBrochureShare, SITE_URL, type BrochureFilters }
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+
+/** Serverless response bodies are capped ~4.5 MB — anything bigger must go via
+ *  the Cloudinary share link instead of a direct binary stream. */
+const SHARE_THRESHOLD_BYTES = 3.2 * 1024 * 1024;
+
+function cloudinaryConfigured(): boolean {
+  return !!(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET);
+}
 
 export async function GET(req: NextRequest) {
   const unauthorized = requireAdmin(req);
@@ -57,21 +68,29 @@ export async function POST(req: NextRequest) {
       includeOutOfStock: !!body.includeOutOfStock,
       showPrices: body.showPrices !== false,
       tier: typeof body.tier === "string" ? body.tier : "dealer",
-      maxProducts: Number(body.maxProducts) || 200,
+      maxProducts: Math.min(Number(body.maxProducts) || 120, 250),
     };
 
     const { buffer, meta } = await generateBrochure(filters);
 
-    // Best-effort share upload (WhatsApp / email need a public https link).
+    // Big PDFs can never survive the serverless response cap — upload to
+    // Cloudinary and hand back the hosted link. Small PDFs stream directly.
+    const needsShare = cloudinaryConfigured() && (body.share === true || buffer.length > SHARE_THRESHOLD_BYTES);
     let shareUrl: string | null = null;
-    try {
-      shareUrl = await uploadBrochureShare(buffer, meta.filename);
-    } catch { shareUrl = null; }
-    if (shareUrl) meta.shareUrl = shareUrl;
+    if (needsShare) {
+      try {
+        shareUrl = await uploadBrochureShare(buffer, meta.filename);
+      } catch { shareUrl = null; }
+      meta.shareUrl = shareUrl || undefined;
+    }
 
     await db.activityLog.create({
       data: { action: "EXPORT", entity: "brochure", detail: `${meta.id}: ${meta.count} products, companies=[${meta.companies.slice(0, 6).join(", ")}]${shareUrl ? " · shared" : ""}`, user: "Super Admin" },
     }).catch(() => {});
+
+    if (needsShare && shareUrl) {
+      return NextResponse.json({ shareUrl, meta, bytes: buffer.length });
+    }
 
     const metaHeader = Buffer.from(JSON.stringify(meta)).toString("base64url");
     return new NextResponse(new Uint8Array(buffer), {

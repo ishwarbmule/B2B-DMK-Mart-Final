@@ -55,7 +55,7 @@ function makeId(): string {
 
 /* ── images ── */
 
-const IMG_PLACEHOLDER_W = 420;
+const IMG_PLACEHOLDER_W = 300; // small thumbs keep the PDF well inside serverless response limits
 const IMG_CACHE = new Map<string, string>(); // url → dataURL (process lifetime)
 
 function cloudinaryThumb(url: string): string | null {
@@ -77,7 +77,7 @@ async function fetchImage(url: string, fit: "cover" | "inside" = "cover"): Promi
     const jpg = await sharp(buf).rotate()
       .flatten({ background: "#ffffff" })
       .resize(IMG_PLACEHOLDER_W, IMG_PLACEHOLDER_W, { fit })
-      .jpeg({ quality: 74 }).toBuffer();
+      .jpeg({ quality: 62 }).toBuffer();
     const dataUrl = `data:image/jpeg;base64,${jpg.toString("base64")}`;
     if (IMG_CACHE.size > 600) IMG_CACHE.clear();
     IMG_CACHE.set(cacheKey, dataUrl);
@@ -141,7 +141,7 @@ interface BrochureProduct {
 }
 
 export async function loadBrochureProducts(f: BrochureFilters) {
-  const max = Math.max(10, Math.min(400, Number(f.maxProducts) || 200));
+  const max = Math.max(10, Math.min(250, Number(f.maxProducts) || 120));
   const where: Prisma.ProductWhereInput = { active: true };
   if (f.companies?.length) where.company = { in: f.companies };
   if (f.endId) where.endId = f.endId;

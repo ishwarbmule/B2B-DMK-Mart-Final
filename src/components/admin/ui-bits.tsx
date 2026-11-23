@@ -1,16 +1,70 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, Plus, Pencil, Trash2, X, Loader2, RefreshCw, ChevronLeft, ChevronRight, UploadCloud } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, X, Loader2, RefreshCw, ChevronLeft, ChevronRight, UploadCloud, Images, Eraser, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
 
-/** Image URL field with one-click Cloudinary upload (used by every CRUD module with type:"image").
- *  `aspect` enforces a frame ratio client-side (e.g. "16:9" for Big Sale banners) — wrong-shape
- *  files are rejected BEFORE upload so only correctly sized creatives land in Cloudinary. */
-function ImageField({ value, onChange, token, aspect }: { value: string; onChange: (v: string) => void; token: string; aspect?: string }) {
+/** Cloudinary media picker — browse images ALREADY uploaded to the site's
+ *  Cloudinary library (folder-scoped) and pick one, so brand logos / banners
+ *  can be reused without re-uploading. */
+function CloudinaryPicker({ token, folder, onPick, onClose }: {
+  token: string; folder: string; onPick: (url: string) => void; onClose: () => void;
+}) {
+  const [images, setImages] = useState<{ url: string; publicId: string }[] | null>(null);
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    fetch(`/api/admin/cloudinary?folder=${encodeURIComponent(folder)}&max=60`, { headers: { authorization: `Bearer ${token}` } })
+      .then(async (r) => {
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || `List failed (${r.status})`);
+        setImages(d.images || []);
+      })
+      .catch((e) => setErr(e instanceof Error ? e.message : "Could not load Cloudinary images"));
+  }, [token, folder]);
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="max-h-[86vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-5" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <p className="flex items-center gap-2 text-[15px] font-semibold text-gray-900"><Images className="h-4 w-4 text-yellow-600" /> Pick from Cloudinary</p>
+            <p className="text-[11px] text-gray-400">Images already in your media library · folder dmk-mart/{folder}</p>
+          </div>
+          <button onClick={onClose} aria-label="Close"><X className="h-4 w-4 text-gray-400 hover:text-gray-700" /></button>
+        </div>
+        {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{err}</p>}
+        {images === null && !err && <p className="flex items-center gap-2 py-10 text-center text-sm text-gray-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading library…</p>}
+        {images !== null && images.length === 0 && !err && (
+          <p className="rounded-lg border border-dashed p-8 text-center text-xs text-gray-400">No images in dmk-mart/{folder} yet — upload one and it will appear here for next time.</p>
+        )}
+        {images !== null && images.length > 0 && (
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+            {images.map((img) => (
+              <button
+                key={img.publicId}
+                type="button"
+                onClick={() => { onPick(img.url); onClose(); }}
+                className="group overflow-hidden rounded-lg border border-gray-200 transition-colors hover:border-yellow-400"
+                title={img.publicId}
+              >
+                <Image src={img.url} alt="" width={120} height={120} className="aspect-square w-full object-cover" unoptimized />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Image URL field with one-click Cloudinary upload, media-library picker and
+ *  a clear (remove) action. `aspect` enforces a frame ratio client-side
+ *  (e.g. "16:9" for Big Sale banners) — wrong-shape files are rejected BEFORE
+ *  upload so only correctly sized creatives land in Cloudinary. */
+function ImageField({ value, onChange, token, aspect, folder }: { value: string; onChange: (v: string) => void; token: string; aspect?: string; folder?: string }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [picking, setPicking] = useState(false);
 
   const checkAspect = (file: File, want: string): Promise<string | null> =>
     new Promise((resolve) => {
@@ -76,7 +130,29 @@ function ImageField({ value, onChange, token, aspect }: { value: string; onChang
         {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
         {uploading ? "Uploading…" : "Upload"}
       </button>
-      {value ? <Image src={value} alt="" width={40} height={40} className="h-10 w-10 shrink-0 rounded-md object-cover" unoptimized /> : null}
+      <button
+        type="button"
+        onClick={() => setPicking(true)}
+        title="Pick an image already stored in Cloudinary"
+        className="flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 text-[11px] font-bold text-gray-600 hover:border-yellow-400 hover:text-black"
+      >
+        <Images className="h-4 w-4" /> Library
+      </button>
+      {value ? (
+        <>
+          <Image src={value} alt="" width={40} height={40} className="h-10 w-10 shrink-0 rounded-md object-cover" unoptimized />
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            title="Remove this image (clears the field — the file stays in Cloudinary)"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-red-100 text-red-500 hover:bg-red-50"
+            aria-label="Remove image"
+          >
+            <Eraser className="h-4 w-4" />
+          </button>
+        </>
+      ) : null}
+      {picking && <CloudinaryPicker token={token} folder={folder || "products"} onPick={(url) => onChange(url)} onClose={() => setPicking(false)} />}
     </div>
   );
 }
@@ -191,6 +267,16 @@ export interface FieldDef {
   hideInTable?: boolean;
   default?: string | number | boolean;
   aspect?: string; // for image fields — enforce frame ratio, e.g. "16:9"
+  folder?: string; // for image fields — Cloudinary sub-folder for Upload/Library
+  advanced?: boolean; // grouped under "Advanced styling" in the form — presets usually fill these
+}
+
+/** One-click prebuilt setups — clicking a chip fills the whole form with sane
+ *  values so a non-technical admin only tweaks the basics and saves. */
+export interface PresetDef {
+  label: string;
+  hint?: string;
+  values: Record<string, string | number | boolean>;
 }
 
 export interface ColumnDef {
@@ -327,9 +413,12 @@ function ScopePicker({ scopeType, value, onChange, token }: { scopeType: string;
   );
 }
 
-/** Reusable CRUD module: search + add/edit dialog + delete + refresh */
+/** Reusable CRUD module: search + add/edit dialog + delete + refresh.
+ *  `presets` — one-click prebuilt setups shown above the form (non-technical UX);
+ *  fields flagged `advanced` collapse into an "Advanced styling" drawer that
+ *  presets fill automatically. `headerExtra` — module-wide action button(s). */
 export function CrudModule({
-  entity, title, sub, fields, columns, token, nameField, extraActions, tableImage, onRowsChange,
+  entity, title, sub, fields, columns, token, nameField, extraActions, tableImage, onRowsChange, presets, headerExtra,
 }: {
   entity: string;
   title: string;
@@ -341,6 +430,8 @@ export function CrudModule({
   tableImage?: string;
   extraActions?: (row: Record<string, unknown>, refresh: () => void) => React.ReactNode;
   onRowsChange?: (rows: Record<string, unknown>[]) => void;
+  presets?: PresetDef[];
+  headerExtra?: React.ReactNode;
 }) {
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
@@ -404,6 +495,12 @@ export function CrudModule({
     setEditing(row);
   };
 
+  /** apply a prebuilt setup onto the current form (keeps name/identity fields) */
+  const applyPreset = (p: PresetDef) => {
+    setForm((f) => ({ ...f, ...p.values }));
+    toast.success(`${p.label} setup applied — review the details and save`);
+  };
+
   const save = async () => {
     setSaving(true);
     try {
@@ -443,9 +540,49 @@ export function CrudModule({
     }
   };
 
+  const simpleFields = fields.filter((f) => !f.advanced);
+  const advancedFields = fields.filter((f) => f.advanced);
+
+  const renderField = (f: FieldDef) => (
+    <div key={f.key}>
+      <label className="text-xs font-semibold text-gray-700">{f.label}{f.required !== false && f.type !== "toggle" ? " *" : ""}</label>
+      {f.type === "toggle" ? (
+        <div className="pt-1.5"><Toggle checked={!!form[f.key]} onChange={(v) => setForm({ ...form, [f.key]: v })} /></div>
+      ) : f.type === "select" ? (
+        <select value={String(form[f.key] ?? "")} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} className="h-10 w-full rounded-lg border border-gray-200 px-2 text-sm outline-none focus:border-yellow-400">
+          <option value="">Select…</option>
+          {f.options?.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+      ) : f.type === "ref" ? (
+        <select value={String(form[f.key] ?? "")} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} className="h-10 w-full rounded-lg border border-gray-200 px-2 text-sm outline-none focus:border-yellow-400">
+          <option value="">Select…</option>
+          {(refs[f.refEntity || ""] || []).map((r) => (
+            <option key={String(r.id)} value={String(r.id)}>{String(r[f.refLabelField || "name"])}</option>
+          ))}
+        </select>
+      ) : f.type === "textarea" ? (
+        <textarea value={String(form[f.key] ?? "")} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} rows={3} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-yellow-400" />
+      ) : f.type === "scope" ? (
+        <ScopePicker scopeType={String(form.scopeType || "ALL")} value={String(form[f.key] ?? "[]")} onChange={(v) => setForm({ ...form, [f.key]: v })} token={token} />
+      ) : f.type === "image" ? (
+        <ImageField value={String(form[f.key] ?? "")} onChange={(v) => setForm({ ...form, [f.key]: v })} token={token} aspect={f.aspect} folder={f.folder} />
+      ) : (
+        <input
+          type={f.type === "number" ? "number" : f.type === "password" ? "password" : "text"}
+          step={f.step}
+          value={String(form[f.key] ?? "")}
+          onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+          placeholder={f.placeholder}
+          className="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-yellow-400"
+        />
+      )}
+    </div>
+  );
+
   return (
     <div>
       <ModuleHeader title={title} sub={sub}>
+        {headerExtra}
         <button onClick={load} className="flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-[13px] font-medium text-gray-700 transition-colors hover:bg-gray-50">
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
         </button>
@@ -518,42 +655,34 @@ export function CrudModule({
               <h3 className="text-[15px] font-semibold text-gray-900">{editing.id ? `Edit ${title.replace(/Management|s$/g, "")}` : `Add ${title.replace(/Management|s$/g, "")}`}</h3>
               <button onClick={() => setEditing(null)} aria-label="Close"><X className="h-4 w-4 text-gray-400 transition-colors hover:text-gray-700" /></button>
             </div>
-            <div className="space-y-3">
-              {fields.map((f) => (
-                <div key={f.key}>
-                  <label className="text-xs font-semibold text-gray-700">{f.label}{f.required !== false && f.type !== "toggle" ? " *" : ""}</label>
-                  {f.type === "toggle" ? (
-                    <div className="pt-1.5"><Toggle checked={!!form[f.key]} onChange={(v) => setForm({ ...form, [f.key]: v })} /></div>
-                  ) : f.type === "select" ? (
-                    <select value={String(form[f.key] ?? "")} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} className="h-10 w-full rounded-lg border border-gray-200 px-2 text-sm outline-none focus:border-yellow-400">
-                      <option value="">Select…</option>
-                      {f.options?.map((o) => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                  ) : f.type === "ref" ? (
-                    <select value={String(form[f.key] ?? "")} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} className="h-10 w-full rounded-lg border border-gray-200 px-2 text-sm outline-none focus:border-yellow-400">
-                      <option value="">Select…</option>
-                      {(refs[f.refEntity || ""] || []).map((r) => (
-                        <option key={String(r.id)} value={String(r.id)}>{String(r[f.refLabelField || "name"])}</option>
-                      ))}
-                    </select>
-                  ) : f.type === "textarea" ? (
-                    <textarea value={String(form[f.key] ?? "")} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} rows={3} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-yellow-400" />
-                  ) : f.type === "scope" ? (
-                    <ScopePicker scopeType={String(form.scopeType || "ALL")} value={String(form[f.key] ?? "[]")} onChange={(v) => setForm({ ...form, [f.key]: v })} token={token} />
-                  ) : f.type === "image" ? (
-                    <ImageField value={String(form[f.key] ?? "")} onChange={(v) => setForm({ ...form, [f.key]: v })} token={token} aspect={f.aspect} />
-                  ) : (
-                    <input
-                      type={f.type === "number" ? "number" : f.type === "password" ? "password" : "text"}
-                      step={f.step}
-                      value={String(form[f.key] ?? "")}
-                      onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
-                      placeholder={f.placeholder}
-                      className="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-yellow-400"
-                    />
-                  )}
+            {presets && presets.length > 0 && (
+              <div className="mb-4 rounded-xl border border-yellow-300 bg-yellow-50 p-3">
+                <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold text-gray-700"><Sparkles className="h-3.5 w-3.5 text-yellow-600" /> Prebuilt setups — pick one, tweak the basics, save</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {presets.map((p) => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => applyPreset(p)}
+                      title={p.hint || p.label}
+                      className="rounded-full border border-yellow-400 bg-white px-3 py-1.5 text-[11px] font-bold text-gray-700 hover:bg-yellow-100"
+                    >
+                      {p.label}
+                    </button>
+                  ))}
                 </div>
-              ))}
+              </div>
+            )}
+            <div className="space-y-3">
+              {simpleFields.map(renderField)}
+              {advancedFields.length > 0 && (
+                <details className="rounded-xl border border-gray-200 bg-gray-50/60 p-3">
+                  <summary className="cursor-pointer select-none text-[12px] font-bold text-gray-600">Advanced styling &amp; layout ({advancedFields.length} fields — presets already set these)</summary>
+                  <div className="mt-3 space-y-3">
+                    {advancedFields.map(renderField)}
+                  </div>
+                </details>
+              )}
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setEditing(null)} className="h-9 rounded-lg border border-gray-200 px-4 text-[13px] font-medium text-gray-700 transition-colors hover:bg-gray-50">Cancel</button>

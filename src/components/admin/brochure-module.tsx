@@ -101,6 +101,16 @@ export function BrochureModule({ token }: { token: string }) {
         const d = await res.json().catch(() => ({}));
         throw new Error(d.error || `Generation failed (${res.status})`);
       }
+      const contentType = res.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        // LARGE PDF — the server hosted it on Cloudinary (serverless responses
+        // cannot stream big binaries). Open the hosted link for download.
+        const d = await res.json() as { shareUrl: string; meta: BrochureMeta };
+        if (d.meta) setLast(d.meta);
+        window.open(d.shareUrl, "_blank");
+        toast.success(`Catalog ${d.meta?.id ?? ""} ready — ${d.meta?.count ?? "?"} products · hosted download opened`);
+        return;
+      }
       const blob = await res.blob();
       const metaHeader = res.headers.get("x-brochure-meta");
       const info: BrochureMeta | null = metaHeader ? JSON.parse(atob(metaHeader.replace(/-/g, "+").replace(/_/g, "/"))) : null;

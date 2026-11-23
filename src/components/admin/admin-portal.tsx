@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Globe, Package, Building2, ShoppingCart,
   Users, LogOut, Menu, X, Eye, Settings2, ChevronRight, Megaphone,
   Barcode as BarcodeIcon, BadgePercent, IndianRupee, Wallet, FileSpreadsheet,
-  MapPin, BookOpen, RefreshCw, Warehouse as WarehouseIcon,
+  MapPin, BookOpen, Warehouse as WarehouseIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardModule, CustomersModule, PricingModule, CompanyProductsModule } from "./business-modules-1";
@@ -18,6 +18,7 @@ import { ApprovalsModule } from "./approvals-module";
 import { WarehouseStockModule } from "./warehouse-stock-module";
 import { WarehousesModule } from "./warehouses-module";
 import { SettingsModule } from "./settings-module";
+import { BrandsModule } from "./brands-module";
 import { ErpDirectModule } from "./erp-direct-module";
 import { BarcodeStudio } from "./barcode-studio";
 import { CrudModule } from "./ui-bits";
@@ -80,7 +81,6 @@ const NAV: { group: string; items: { id: ModuleId; label: string; icon: React.Co
       { id: "homeEditor", label: "Homepage Editor (v2)" },
       { id: "seoMeta", label: "SEO Manager" },
     ]},
-    { id: "erpDirect", label: "Data Sync", icon: RefreshCw },
     { id: "settings", label: "Settings", icon: Settings2 },
   ]},
 ];
@@ -256,6 +256,7 @@ export function AdminPortal() {
       case "storefronts": return <StorefrontsModule token={token} />;
       case "erpDirect": return <ErpDirectModule token={token} />;
       case "settings": return <SettingsModule token={token} />;
+      case "brands": return <BrandsModule token={token} />;
       case "brand-products": return <CompanyProductsModule token={token} />;
       default: {
         const cfg = CONFIGS[active];
@@ -270,6 +271,7 @@ export function AdminPortal() {
             fields={cfg.fields}
             columns={cfg.columns}
             tableImage={cfg.tableImage}
+            presets={cfg.presets}
             token={token}
           />
         );

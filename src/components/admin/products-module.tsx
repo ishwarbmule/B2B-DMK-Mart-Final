@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
-import { ChevronLeft, ChevronRight, Download, FileUp, Flame, ImagePlus, Images, Link2, Loader2, Plus, Power, RefreshCcw, Search, ShoppingCart, Star, Trash2, TrendingUp, Upload, Wand2, X, Zap } from "lucide-react";
+import { ChevronLeft, ChevronRight, CheckSquare, Download, FileUp, Flame, ImagePlus, Images, Link2, Loader2, Plus, Power, RefreshCcw, Search, ShoppingCart, Star, Trash2, TrendingUp, Upload, Wand2, X, Zap } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { api, ModuleHeader, Toggle } from "./ui-bits";
@@ -86,6 +86,7 @@ export function ProductsModule({ token }: { token: string }) {
   const [catEnd, setCatEnd] = useState("");
   const [loading, setLoading] = useState(true);
   const [sel, setSel] = useState<Record<string, boolean>>({});
+  const [selAllMatch, setSelAllMatch] = useState(false); // select-all spanned every matching page
   const [companies, setCompanies] = useState<CompanyOpt[]>([]);
   const [tops, setTops] = useState<Top[]>([]);
   const [allEnds, setAllEnds] = useState<EndRow[]>([]);
@@ -124,6 +125,7 @@ export function ProductsModule({ token }: { token: string }) {
       setTotal(d.total ?? 0);
       setPages(d.pages ?? 1);
       setSel({});
+      setSelAllMatch(false);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to load");
     } finally {
@@ -151,6 +153,32 @@ export function ProductsModule({ token }: { token: string }) {
   }, [token]);
 
   const selIds = Object.keys(sel).filter((k) => sel[k]);
+  const allMatchingSelected = selAllMatch && rows.length > 0 && rows.every((r) => sel[r.id]);
+
+  /** Select-all that respects the ACTIVE FILTER: with filters set only the
+   *  matching products get selected (across every page); with no filter the
+   *  whole catalog is selected. Fetches all matching ids from the server. */
+  const selectAllMatching = async () => {
+    try {
+      const params = new URLSearchParams({ idsOnly: "1" });
+      if (q) params.set("q", q);
+      if (company) params.set("company", company);
+      if (flag) params.set("flag", flag);
+      if (status) params.set("status", status);
+      if (catTop) params.set("top", catTop);
+      if (catEnd) params.set("end", catEnd);
+      if (whFilter) params.set("warehouseId", whFilter);
+      const d = await call(`/api/admin/products?${params}`);
+      const ids: string[] = d.ids ?? [];
+      setSel(Object.fromEntries(ids.map((id) => [id, true])));
+      setSelAllMatch(true);
+      toast.success(`${ids.length} products selected (every match for the current filters)`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Select all failed");
+    }
+  };
+
+  const clearSelection = () => { setSel({}); setSelAllMatch(false); };
 
   /* Cloudinary upload — product images land in dmk-mart/products */
   const uploadImage = async (file: File): Promise<string> => {
@@ -191,6 +219,29 @@ export function ProductsModule({ token }: { token: string }) {
       toast.error(e instanceof Error ? e.message : "Upload failed");
     } finally {
       setUploading(false);
+    }
+  };
+
+  /* per-warehouse stock (warehouse-wise management): draft edits saved on blur/Enter */
+  const [qtyDraft, setQtyDraft] = useState<Record<string, string>>({});
+  const saveWhQty = async (r: Row) => {
+    const raw = qtyDraft[r.id];
+    if (raw === undefined || !whFilter) return;
+    setQtyDraft((d) => { const n = { ...d }; delete n[r.id]; return n; });
+    const qty = Math.max(0, Math.round(Number(raw) || 0));
+    if (qty === (r.warehouseStocks?.[0]?.qty ?? 0)) return; // unchanged
+    try {
+      const res = await fetch("/api/admin/warehouse-stock", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify({ warehouseId: whFilter, rows: [{ productId: r.id, qty }] }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || "Save failed");
+      toast.success(`${r.sku} → ${qty} in ${warehouses.find((w) => w.id === whFilter)?.name ?? "warehouse"}`);
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Stock update failed");
     }
   };
 
@@ -446,6 +497,21 @@ export function ProductsModule({ token }: { token: string }) {
       {/* bulk toolbar */}
       <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-yellow-300 bg-yellow-50 p-2.5">
         <span className="text-[12px] font-medium text-gray-500">Bulk set {selIds.length > 0 ? `(${selIds.length} selected)` : "(select rows below)"} →</span>
+        {allMatchingSelected && (
+          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">every matching product selected ✓</span>
+        )}
+        <button
+          onClick={selectAllMatching}
+          title={q || company || flag || status || catTop || catEnd || whFilter ? "Selects EVERY product matching the current filters — across all pages" : "Selects the whole catalog"}
+          className="flex items-center gap-1 rounded-lg border border-yellow-400 bg-white px-2.5 py-1 text-[11px] font-bold text-gray-800 hover:bg-yellow-100"
+        >
+          <CheckSquare className="h-3.5 w-3.5 text-yellow-600" /> Select all{total ? ` ${total}` : ""} matching
+        </button>
+        {selIds.length > 0 && (
+          <button onClick={clearSelection} className="rounded-lg border bg-white px-2.5 py-1 text-[11px] font-bold text-gray-600 hover:bg-gray-50">
+            Clear selection
+          </button>
+        )}
         {FLAGS.map((f) => (
           <div key={f.key} className="flex items-center gap-1 rounded-lg border bg-white px-2 py-1">
             <f.icon className="h-3.5 w-3.5 text-yellow-600" />
@@ -464,14 +530,17 @@ export function ProductsModule({ token }: { token: string }) {
         <table className="w-full text-xs">
           <thead className="bg-gray-50 text-left text-[12px] font-medium text-gray-500">
             <tr>
-              <th className="px-2 py-2.5"><input type="checkbox" checked={rows.length > 0 && selIds.length === rows.length} onChange={(e) => setSel(Object.fromEntries(rows.map((r) => [r.id, e.target.checked])))} /></th>
+              <th className="px-2 py-2.5"><input type="checkbox" checked={rows.length > 0 && rows.every((r) => sel[r.id])} onChange={(e) => setSel(Object.fromEntries(rows.map((r) => [r.id, e.target.checked])))} title="Select / clear this page — use 'Select all matching' in the yellow bar for every page" /></th>
               <th className="px-2 py-2.5">Product</th>
               <th className="px-2 py-2.5">Company</th>
               <th className="px-2 py-2.5">Category</th>
               <th className="px-2 py-2.5 text-right">Cost</th>
               <th className="px-2 py-2.5 text-right">Price</th>
               <th className="px-2 py-2.5 text-right">MRP</th>
-              <th className="px-2 py-2.5 text-right">{whFilter ? "Godown qty" : "Stock"}</th>
+              <th className="px-2 py-2.5 text-right">
+                {whFilter ? `${warehouses.find((w) => w.id === whFilter)?.name ?? "Godown"} qty` : "Stock"}
+                {whFilter && <span className="block text-[9px] font-normal text-gray-400">editable — type & press Enter</span>}
+              </th>
               <th className="px-2 py-2.5">Sections</th>
               <th className="px-2 py-2.5">Live</th>
               <th className="px-2 py-2.5"></th>
@@ -501,8 +570,18 @@ export function ProductsModule({ token }: { token: string }) {
                 <td className="px-2 py-2 text-right text-gray-500">{formatINR(r.purchaseCost)}</td>
                 <td className="px-2 py-2 text-right font-bold">{formatINR(r.dealerPrice)}</td>
                 <td className="px-2 py-2 text-right text-gray-500">{formatINR(r.mrp)}</td>
-                <td className={`px-2 py-2 text-right font-semibold ${r.stock <= 10 ? "text-red-500" : ""}`}>
-                  {whFilter ? (r.warehouseStocks?.[0]?.qty ?? 0) : r.stock}
+                <td className={`px-2 py-2 text-right ${whFilter ? "" : `font-semibold ${r.stock <= 10 ? "text-red-500" : ""}`}`}>
+                  {whFilter ? (
+                    <input
+                      value={qtyDraft[r.id] ?? String(r.warehouseStocks?.[0]?.qty ?? 0)}
+                      onChange={(e) => setQtyDraft((d) => ({ ...d, [r.id]: e.target.value }))}
+                      onBlur={() => saveWhQty(r)}
+                      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                      inputMode="numeric"
+                      className="w-16 rounded-md border border-yellow-300 bg-yellow-50/60 px-1.5 py-1 text-right text-xs font-semibold outline-none focus:border-yellow-500"
+                      title="This warehouse's stock for the product — edit and press Enter"
+                    />
+                  ) : r.stock}
                 </td>
                 <td className="px-2 py-2">
                   <div className="flex gap-1">

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { customerFromReq } from "@/lib/customer-auth";
 import { rankWarehouses } from "@/lib/geo";
 import { GUEST_TIER, locationPriceFor } from "@/lib/pricing";
+import { beltOfLocation } from "@/lib/maharashtra";
 
 export const dynamic = "force-dynamic";
 
@@ -75,7 +76,12 @@ export async function GET(req: NextRequest) {
           orderBy: [{ isDefault: "desc" }, { sortOrder: "asc" }],
           select: { id: true, name: true, city: true, isDefault: true, sortOrder: true },
         });
-        const nearest = rankWarehouses(whs, cust.city, cust.pincode)[0];
+        // location-based visibility: a buyer's belt (Pune / Ahmednagar-Kolhar)
+        // decides WHICH godown's products they see, falling back to the
+        // nearest-warehouse ranking for towns outside both belts
+        const belt = beltOfLocation(cust.city);
+        const beltWh = belt ? whs.find((w) => beltOfLocation(w.name) === belt || w.name.toLowerCase().includes(belt === "PUNE" ? "pune" : "nagar")) : undefined;
+        const nearest = beltWh ?? rankWarehouses(whs, cust.city, cust.pincode)[0];
         if (nearest) {
           where.warehouseStocks = { some: { warehouseId: nearest.id, qty: { gt: 0 } } };
           buyerWarehouseName = nearest.name;

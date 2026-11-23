@@ -1,25 +1,39 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Save, SendHorizontal, MessageSquareText, MessageCircle } from "lucide-react";
+import { Save, SendHorizontal, MessageSquareText, MessageCircle, Building2, Globe, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { api, ModuleHeader } from "./ui-bits";
+import { ErpDirectModule } from "./erp-direct-module";
 
-const GROUPS: { title: string; keys: [string, string][] }[] = [
+const GROUPS: { title: string; hint: string; icon: React.ComponentType<{ className?: string }>; keys: [string, string, string?][] }[] = [
   {
-    title: "Firm Profile (printed on invoices)",
+    title: "Firm Profile",
+    hint: "Printed on every invoice, label and brochure — keep it exactly as it should appear.",
+    icon: Building2,
     keys: [
-      ["firm_name", "Firm name"], ["firm_address", "Registered address"],
-      ["firm_phone", "Phone"], ["firm_email", "Email"],
-      ["firm_bank", "Bank"], ["firm_bank_account", "Bank A/c"], ["firm_ifsc", "IFSC"], ["firm_upi", "UPI ID"],
+      ["firm_name", "Firm name", "e.g. DMK Mart — appears at the top of invoices"],
+      ["firm_address", "Registered address", "Full address with city & PIN — printed under the firm name"],
+      ["firm_phone", "Phone", "Main business number, shown on invoices & labels"],
+      ["firm_email", "Email", "Business email for invoices"],
+      ["firm_bank", "Bank", "Bank name for the account-transfer details on invoices"],
+      ["firm_bank_account", "Bank A/c", "Account number (only shared on invoices)"],
+      ["firm_ifsc", "IFSC", "Branch IFSC code"],
+      ["firm_upi", "UPI ID", "e.g. dmkmark@upi — quick payment option on invoices"],
     ],
   },
   {
     title: "Storefront",
+    hint: "What customers see on the public website and in support messages.",
+    icon: Globe,
     keys: [
-      ["site_title", "Site title"], ["site_tagline", "Tagline"], ["meta_description", "Meta description"],
-      ["support_phone", "Support phone"], ["support_email", "Support email"], ["address", "Storefront address"],
-      ["invoice_prefix", "Invoice prefix"],
+      ["site_title", "Site title", "Browser tab title & homepage brand line"],
+      ["site_tagline", "Tagline", "Short line under the site title"],
+      ["meta_description", "Meta description", "Google search description (1–2 lines)"],
+      ["support_phone", "Support phone", "Shown in the website Chat button & order messages"],
+      ["support_email", "Support email", "Customer support email"],
+      ["address", "Storefront address", "Pickup / visiting address shown to customers"],
+      ["invoice_prefix", "Invoice prefix", "Order numbers start with this, e.g. DMK"],
     ],
   },
 ];
@@ -257,28 +271,49 @@ export function SettingsModule({ token }: { token: string }) {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        {GROUPS.map((g) => (
-          <div key={g.title} className="rounded-xl border bg-white p-4">
-            <p className="mb-3 text-xs font-bold">{g.title}</p>
-            <div className="grid gap-2">
-              {g.keys.map(([key, label]) => (
-                <label key={key} className="block">
-                  <span className="mb-1 block text-[10px] font-bold uppercase text-gray-500">{label}</span>
-                  <input
-                    value={settings[key] ?? ""}
-                    onChange={(e) => setSettings((s) => ({ ...s, [key]: e.target.value }))}
-                    className="h-9 w-full rounded-lg border px-3 text-xs"
-                  />
-                </label>
-              ))}
+        {GROUPS.map((g) => {
+          const Icon = g.icon;
+          return (
+            <div key={g.title} className="rounded-xl border bg-white p-5">
+              <div className="mb-1 flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-black"><Icon className="h-4 w-4 text-yellow-400" /></span>
+                <p className="text-sm font-semibold text-gray-900">{g.title}</p>
+              </div>
+              <p className="mb-3 text-[11px] leading-relaxed text-gray-500">{g.hint}</p>
+              <div className="grid gap-3">
+                {g.keys.map(([key, label, hint]) => (
+                  <label key={key} className="block">
+                    <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-gray-600">{label}</span>
+                    <input
+                      value={settings[key] ?? ""}
+                      onChange={(e) => setSettings((s) => ({ ...s, [key]: e.target.value }))}
+                      placeholder={hint}
+                      className="h-10 w-full rounded-lg border px-3 text-sm outline-none focus:border-yellow-400"
+                    />
+                    {hint && <span className="mt-0.5 block text-[10px] text-gray-400">{hint}</span>}
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="mt-4 rounded-xl border bg-white p-4">
         <p className="text-xs font-bold">Legal pages</p>
         <p className="mt-1 text-[11px] text-gray-500">Terms, Privacy, Refund & Shipping pages are managed under <b>Website Management → Pages</b>. Pages flagged LEGAL automatically appear in the storefront footer and sitemap.xml.</p>
+      </div>
+
+      {/* DATA SYNC — moved out of the sidebar; lives here under Settings */}
+      <div className="mt-6">
+        <div className="mb-3 flex items-center gap-2">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-black"><RefreshCw className="h-4 w-4 text-yellow-400" /></span>
+          <div>
+            <p className="text-sm font-semibold text-gray-900">Data Sync</p>
+            <p className="text-[11px] text-gray-500">Connect, pick the warehouses to show and update products — the guided flow now lives here.</p>
+          </div>
+        </div>
+        <ErpDirectModule token={token} />
       </div>
     </div>
   );

@@ -17,7 +17,8 @@ export async function GET(req: NextRequest) {
   const top = sp.get("top") || "";
   const mid = sp.get("mid") || "";
   const end = sp.get("end") || "";
-  const warehouseId = sp.get("warehouseId") || ""; // warehouse-oriented management: only products stocked at this godown
+  const warehouseId = sp.get("warehouseId") || ""; // warehouse-oriented management: per-godown stock column
+  const idsOnly = sp.get("idsOnly") === "1"; // bulk select-all: return just the matching product IDs
   const page = Math.max(1, parseInt(sp.get("page") || "1"));
   const limit = Math.min(100, Math.max(5, parseInt(sp.get("limit") || "20")));
 
@@ -42,7 +43,16 @@ export async function GET(req: NextRequest) {
   if (status === "active") where.active = true;
   if (status === "inactive") where.active = false;
   if (status === "lowstock") where.stock = { lte: 10 };
-  if (warehouseId) where.warehouseStocks = { some: { warehouseId } };
+  // warehouse-wise management: the catalog is the same across godowns — pick a
+  // warehouse and every product is listed with THAT godown's qty (0 = not stocked
+  // there yet, editable inline). Only an explicit onlyStocked=1 narrows the list.
+  if (warehouseId && sp.get("onlyStocked") === "1") where.warehouseStocks = { some: { warehouseId } };
+
+  if (idsOnly) {
+    // bulk operations need every matching id, not just the current page
+    const rows = await db.product.findMany({ where, orderBy: { createdAt: "desc" }, take: 5000, select: { id: true } });
+    return NextResponse.json({ ids: rows.map((r) => r.id), total: rows.length });
+  }
 
   const [total, rows] = await Promise.all([
     db.product.count({ where }),
