@@ -132,7 +132,7 @@ export function WarehousesModule({ token }: { token: string }) {
         <button onClick={load} className="flex h-11 items-center gap-1.5 rounded-lg border bg-white px-3 text-xs font-semibold hover:bg-gray-50">
           <RefreshCcw className={`h-3.5 w-3.5 ${whs === null ? "animate-spin" : ""}`} /> Refresh
         </button>
-        <button onClick={openAdd} className="flex h-11 items-center gap-1.5 rounded-lg bg-yellow-400 px-3.5 text-xs font-black uppercase tracking-wide text-black hover:bg-yellow-300">
+        <button onClick={openAdd} className="flex h-11 items-center gap-1.5 rounded-lg bg-yellow-400 px-3.5 text-xs font-semibold text-black hover:bg-yellow-300">
           <Plus className="h-4 w-4" /> Add Warehouse
         </button>
       </ModuleHeader>
@@ -151,7 +151,7 @@ export function WarehousesModule({ token }: { token: string }) {
             <div key={w.id} className={`flex flex-col rounded-xl border bg-white p-4 ${w.active ? "" : "opacity-60"}`}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="flex items-center gap-1.5 text-sm font-black text-gray-900">
+                  <p className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
                     <WarehouseIcon className="h-4 w-4 shrink-0 text-yellow-500" />
                     <span className="truncate">{w.name}</span>
                   </p>
@@ -213,7 +213,7 @@ export function WarehousesModule({ token }: { token: string }) {
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent className={`max-h-[92vh] w-full max-w-lg overflow-y-auto border-gray-800 bg-gray-950 p-5 text-white sm:rounded-2xl ${slimScroll}`}>
           <DialogHeader>
-            <DialogTitle className="text-base font-black text-white">{editing ? `Edit — ${editing.name}` : "Add Warehouse"}</DialogTitle>
+            <DialogTitle className="text-base font-semibold text-white">{editing ? `Edit — ${editing.name}` : "Add Warehouse"}</DialogTitle>
             <DialogDescription className="text-[11px] text-gray-400">
               {editing
                 ? editing.source === "ERP"
@@ -263,7 +263,7 @@ export function WarehousesModule({ token }: { token: string }) {
           {form.isDefault && <p className="text-[10px] font-semibold text-yellow-400">Making this the default unsets the current default warehouse.</p>}
 
           <div className="flex gap-2">
-            <Button onClick={save} disabled={saving || !form.name.trim()} className="h-11 flex-1 bg-yellow-400 text-xs font-black uppercase tracking-wide text-black hover:bg-yellow-300 disabled:opacity-50">
+            <Button onClick={save} disabled={saving || !form.name.trim()} className="h-11 flex-1 bg-yellow-400 text-xs font-semibold text-black hover:bg-yellow-300 disabled:opacity-50">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} {editing ? "Save Changes" : "Create Warehouse"}
             </Button>
             <Button onClick={() => setFormOpen(false)} variant="outline" className="h-11 border-gray-700 bg-transparent text-xs font-bold text-gray-300 hover:bg-gray-900 hover:text-white">
@@ -277,7 +277,7 @@ export function WarehousesModule({ token }: { token: string }) {
       <Dialog open={!!viewing} onOpenChange={(o) => { if (!o) { setViewing(null); setDetail(null); setQ(""); } }}>
         <DialogContent className={`max-h-[92vh] w-full max-w-3xl overflow-y-auto border-gray-800 bg-gray-950 p-5 text-white sm:rounded-2xl ${slimScroll}`}>
           <DialogHeader>
-            <DialogTitle className="flex flex-wrap items-center gap-2 text-base font-black text-white">
+            <DialogTitle className="flex flex-wrap items-center gap-2 text-base font-semibold text-white">
               <Package className="h-4 w-4 text-yellow-400" /> {viewing?.name} — product stock
             </DialogTitle>
             <DialogDescription className="text-[11px] text-gray-400">
@@ -299,7 +299,7 @@ export function WarehousesModule({ token }: { token: string }) {
           ) : (
             <div className={`max-h-96 overflow-y-auto rounded-lg border border-gray-800 ${slimScroll}`}>
               <table className="w-full text-left text-xs">
-                <thead className="sticky top-0 bg-gray-900 text-[10px] uppercase tracking-wide text-gray-400">
+                <thead className="sticky top-0 bg-gray-900 text-[10px]  text-gray-400">
                   <tr>
                     <th className="px-3 py-2.5 font-bold">Product</th>
                     <th className="px-3 py-2.5 font-bold">SKU</th>
@@ -321,7 +321,7 @@ export function WarehousesModule({ token }: { token: string }) {
                         </div>
                       </td>
                       <td className="px-3 py-2 font-mono text-[10px] text-gray-400">{p.sku}</td>
-                      <td className={`px-3 py-2 text-right font-black tabular-nums ${p.qty > 0 ? "text-emerald-400" : "text-red-400"}`}>{p.qty}</td>
+                      <td className={`px-3 py-2 text-right font-semibold tabular-nums ${p.qty > 0 ? "text-emerald-400" : "text-red-400"}`}>{p.qty}</td>
                       <td className="px-3 py-2 text-gray-400">{p.unit || "—"}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-gray-200">{formatINR(p.dealerPrice)}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-gray-400">{formatINR(p.mrp)}</td>

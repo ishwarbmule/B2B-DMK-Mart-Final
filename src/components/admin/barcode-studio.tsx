@@ -89,7 +89,7 @@ export function BarcodeStudio({ token }: { token: string }) {
             <span className="ml-auto text-[11px] text-gray-500">{selCount} selected · labels per product</span>
             <div className="flex items-center rounded-lg border">
               <button onClick={() => setLabelsPerProduct((n) => Math.max(1, n - 1))} className="flex h-7 w-7 items-center justify-center"><Minus className="h-3 w-3" /></button>
-              <span className="w-8 text-center text-xs font-black">{labelsPerProduct}</span>
+              <span className="w-8 text-center text-xs font-semibold">{labelsPerProduct}</span>
               <button onClick={() => setLabelsPerProduct((n) => Math.min(24, n + 1))} className="flex h-7 w-7 items-center justify-center"><Plus className="h-3 w-3" /></button>
             </div>
           </div>
@@ -155,7 +155,7 @@ export function BarcodeStudio({ token }: { token: string }) {
             <button
               onClick={() => window.print()}
               disabled={selCount === 0}
-              className="no-print mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-black py-2.5 text-xs font-bold uppercase text-yellow-400 hover:bg-gray-800 disabled:opacity-40"
+              className="no-print mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-black py-2.5 text-xs font-bold uppercase text-yellow-400 hover:bg-gray-800 disabled:opacity-40"
             >
               <Printer className="h-4 w-4" /> Print {selCount * labelsPerProduct} Labels
             </button>

@@ -261,7 +261,7 @@ export function StoreMapModule({ token }: { token: string }) {
   return (
     <div>
       <ModuleHeader title="Store Map" sub="Every customer store on one live map — pins captured at signup, refreshed in realtime">
-        <span className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black ${live ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
+        <span className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold ${live ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
           <span className={`h-1.5 w-1.5 rounded-full ${live ? "animate-pulse bg-emerald-500" : "bg-gray-400"}`} />
           {live ? `LIVE · ${secsAgo}s ago` : "PAUSED"}
         </span>
@@ -283,8 +283,8 @@ export function StoreMapModule({ token }: { token: string }) {
           ["Pending approval", String(stats?.pending ?? "—"), "text-orange-600"],
         ].map(([label, value, cls]) => (
           <div key={label} className="rounded-xl border bg-white p-3">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{label}</p>
-            <p className={`mt-0.5 text-lg font-black ${cls}`}>{value}</p>
+            <p className="text-[12px] font-medium text-gray-500">{label}</p>
+            <p className={`mt-0.5 text-lg font-semibold ${cls}`}>{value}</p>
           </div>
         ))}
       </div>
@@ -333,14 +333,14 @@ export function StoreMapModule({ token }: { token: string }) {
         </div>
 
         <div id="storemap-list" className="max-h-[520px] overflow-y-auto rounded-xl border bg-white">
-          <p className="sticky top-0 z-10 border-b bg-white px-3 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400">
+          <p className="sticky top-0 z-10 border-b bg-white px-3 py-2 text-[10px] font-medium text-gray-400">
             Stores ({filteredRows().length})
           </p>
           {filteredRows().map((r) => (
             <button
               key={r.id}
               onClick={() => focusCustomer(r)}
-              className={`flex w-full items-center gap-2.5 border-b px-3 py-2.5 text-left transition hover:bg-yellow-50 ${r.lat == null ? "opacity-70" : ""}`}
+              className={`flex w-full items-center gap-2.5 border-b px-3 py-2.5 text-left transition-colors hover:bg-yellow-50 ${r.lat == null ? "opacity-70" : ""}`}
             >
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px]" style={{ background: `${STATUS_COLOR[r.status] || "#888"}22`, color: STATUS_COLOR[r.status] || "#555" }}>
                 {r.lat != null ? <MapPin className="h-3.5 w-3.5" /> : <Store className="h-3.5 w-3.5" />}
@@ -360,7 +360,7 @@ export function StoreMapModule({ token }: { token: string }) {
       {/* waiting for pin */}
       {unpinnedList.length > 0 && (
         <div className="mt-4 rounded-xl border bg-white">
-          <p className="border-b px-3 py-2.5 text-xs font-black text-gray-900">
+          <p className="border-b px-3 py-2.5 text-xs font-semibold text-gray-900">
             Waiting for store pin <span className="ml-1 rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-bold text-orange-600">{unpinnedList.length}</span>
           </p>
           <div className="max-h-56 overflow-y-auto">
@@ -385,7 +385,7 @@ export function StoreMapModule({ token }: { token: string }) {
           <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3 flex items-start justify-between">
               <div>
-                <h3 className="text-sm font-black text-gray-900">Store pin — {editing.shopName || editing.name}</h3>
+                <h3 className="text-sm font-semibold text-gray-900">Store pin — {editing.shopName || editing.name}</h3>
                 <p className="text-[11px] text-gray-500">{editing.phone} · {[editing.city, editing.pincode].filter(Boolean).join(" - ") || "no address"}</p>
               </div>
               <button onClick={() => setEditing(null)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100" aria-label="Close"><X className="h-4 w-4" /></button>
@@ -407,7 +407,7 @@ export function StoreMapModule({ token }: { token: string }) {
                 <button
                   onClick={savePin}
                   disabled={!pendingLoc || saving}
-                  className="flex items-center gap-1.5 rounded-lg bg-black px-4 py-2 text-xs font-black text-yellow-400 disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-lg bg-black px-4 py-2 text-xs font-semibold text-yellow-400 disabled:opacity-50"
                 >
                   {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save pin
                 </button>

@@ -126,7 +126,7 @@ export function PosModule({ token }: { token: string }) {
                       <p className="truncate text-xs font-bold">{r.name}</p>
                       <p className="text-[10px] text-gray-400">{r.brand?.name ?? ""} · {r.sku} · Pack {r.packQty} · Stock {r.stock}</p>
                     </div>
-                    <span className="text-xs font-black">{formatINR(r.dealerPrice)}</span>
+                    <span className="text-xs font-semibold">{formatINR(r.dealerPrice)}</span>
                   </button>
                 ))}
               </div>
@@ -163,7 +163,7 @@ export function PosModule({ token }: { token: string }) {
                         <button onClick={() => setLines((ls) => ls.map((x) => (x.id === l.id ? { ...x, qty: x.qty + 1 } : x)))} className="h-7 w-7 font-bold hover:bg-gray-50">+</button>
                       </div>
                     </td>
-                    <td className="px-3 py-2 font-black">{formatINR(lineTotal(l))}</td>
+                    <td className="px-3 py-2 font-semibold">{formatINR(lineTotal(l))}</td>
                     <td className="px-3 py-2">
                       <button onClick={() => setLines((ls) => ls.filter((x) => x.id !== l.id))} className="rounded-md bg-red-50 p-1.5 text-red-500" aria-label={`Remove ${l.name}`}><Trash2 className="h-3.5 w-3.5" /></button>
                     </td>
@@ -200,22 +200,22 @@ export function PosModule({ token }: { token: string }) {
             </div>
           </div>
 
-          <div className="rounded-xl bg-black p-4 text-white">
-            <p className="text-sm font-black">Order Summary</p>
+          <div className="rounded-lg bg-black p-4 text-white">
+            <p className="text-sm font-semibold">Order Summary</p>
             <div className="mt-2 space-y-1 text-xs text-gray-300">
               <div className="flex justify-between"><span>Subtotal:</span><span>{formatINR(itemTotal)}</span></div>
               <div className="flex justify-between"><span>Tax (GST 18%):</span><span>{formatINR(gst)}</span></div>
               <div className="flex justify-between"><span>Discount:</span><span>− {formatINR(disc)}</span></div>
             </div>
             <div className="mt-2 flex justify-between border-t border-gray-800 pt-2">
-              <span className="text-lg font-black text-yellow-400">Total:</span>
-              <span className="text-lg font-black text-emerald-400">{formatINR(total)}</span>
+              <span className="text-lg font-semibold text-yellow-400">Total:</span>
+              <span className="text-lg font-semibold text-emerald-400">{formatINR(total)}</span>
             </div>
           </div>
 
           <div className="grid grid-cols-3 gap-2">
             {(["CASH", "UPI", "CARD"] as const).map((p) => (
-              <button key={p} onClick={() => setPay(p)} className={`rounded-xl py-3 text-xs font-black transition ${pay === p ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+              <button key={p} onClick={() => setPay(p)} className={`rounded-xl py-3 text-xs font-semibold transition ${pay === p ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
                 {p === "CASH" ? "💵 " : p === "UPI" ? "📱 " : "💳 "}{p}
               </button>
             ))}
@@ -224,16 +224,16 @@ export function PosModule({ token }: { token: string }) {
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => { if (lines.length) { setHeld((h) => [...h, lines]); setLines([]); toast.success("Cart held"); } }}
-              className="flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-3 text-xs font-black text-white hover:bg-amber-600"
+              className="flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-3 text-xs font-semibold text-white hover:bg-amber-600"
             >
               <PauseCircle className="h-4 w-4" /> Hold
             </button>
-            <button onClick={() => setLines([])} className="flex items-center justify-center gap-1.5 rounded-xl bg-gray-100 py-3 text-xs font-black text-gray-600 hover:bg-gray-200">
+            <button onClick={() => setLines([])} className="flex items-center justify-center gap-1.5 rounded-xl bg-gray-100 py-3 text-xs font-semibold text-gray-600 hover:bg-gray-200">
               <Trash2 className="h-4 w-4" /> Clear Cart
             </button>
           </div>
 
-          <button onClick={checkout} disabled={busy || !lines.length} className="flex w-full items-center justify-center gap-2 rounded-xl bg-black py-3.5 text-sm font-black uppercase tracking-wide text-yellow-400 hover:bg-gray-800 disabled:opacity-50">
+          <button onClick={checkout} disabled={busy || !lines.length} className="flex w-full items-center justify-center gap-2 rounded-lg bg-black py-3.5 text-sm font-semibold text-yellow-400 hover:bg-gray-800 disabled:opacity-50">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
             Print {docType} · {formatINR(total)}
           </button>

@@ -93,7 +93,7 @@ export function LiveEditorModule({ token }: { token: string }) {
           {pages.map((page) => (
             <div key={page} className="rounded-xl border bg-white">
               <div className="flex items-center justify-between border-b px-4 py-2.5">
-                <p className="text-xs font-black uppercase tracking-wide text-gray-500">Page: {page}</p>
+                <p className="text-[12px] font-medium text-gray-500">Page: {page}</p>
                 <span className="text-[10px] font-semibold text-gray-400">{rows.filter((r) => r.page === page).length} texts</span>
               </div>
               <div className="divide-y">
@@ -106,8 +106,8 @@ export function LiveEditorModule({ token }: { token: string }) {
                       <div className="min-w-0 md:w-72">
                         <p className="flex items-center gap-1.5 text-xs font-bold text-gray-900">
                           {r.label}
-                          {isOverridden && <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-black text-emerald-600">CUSTOM</span>}
-                          {r.dbRow && <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-black text-blue-600">HERO SLIDE</span>}
+                          {isOverridden && <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-600">CUSTOM</span>}
+                          {r.dbRow && <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-semibold text-blue-600">HERO SLIDE</span>}
                         </p>
                         <code className="text-[9px] text-gray-400">{r.key}</code>
                         {!r.multiline && isOverridden && <p className="text-[9px] text-gray-400">default: &quot;{r.defaultValue}&quot;</p>}
@@ -156,8 +156,8 @@ export function LiveEditorModule({ token }: { token: string }) {
 
           {changed > 0 && (
             <div className="sticky bottom-4 flex items-center justify-between rounded-xl border border-yellow-300 bg-yellow-400 px-4 py-3 shadow-lg">
-              <p className="text-xs font-black text-black">{changed} unsaved change{changed === 1 ? "" : "s"}</p>
-              <button onClick={() => save()} disabled={saving} className="rounded-lg bg-black px-4 py-2 text-xs font-black text-yellow-400 hover:bg-gray-900 disabled:opacity-50">
+              <p className="text-xs font-semibold text-black">{changed} unsaved change{changed === 1 ? "" : "s"}</p>
+              <button onClick={() => save()} disabled={saving} className="rounded-lg bg-black px-4 py-2 text-xs font-semibold text-yellow-400 hover:bg-gray-900 disabled:opacity-50">
                 {saving ? "Saving…" : "Save all & publish"}
               </button>
             </div>

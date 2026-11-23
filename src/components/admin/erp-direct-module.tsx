@@ -236,8 +236,8 @@ export function ErpDirectModule({ token }: { token: string }) {
           { label: "Brands (=companies)", value: status?.counts.brands ?? "—", sub: "auto-upserted from ERP" },
         ].map((s) => (
           <div key={s.label} className="rounded-xl border bg-white p-3">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">{s.label}</p>
-            <p className="text-2xl font-black">{s.value}</p>
+            <p className="text-[12px] font-medium text-gray-500">{s.label}</p>
+            <p className="text-2xl font-semibold">{s.value}</p>
             <p className="text-[11px] text-gray-400">{s.sub}</p>
           </div>
         ))}
@@ -270,7 +270,7 @@ export function ErpDirectModule({ token }: { token: string }) {
       <div className="mb-4 rounded-xl border bg-white p-4">
         <div className="mb-3 flex flex-wrap items-end gap-3">
           <div className="min-w-56">
-            <Label className="text-[11px] font-bold uppercase tracking-wide text-gray-400">ERP table</Label>
+            <Label className="text-[12px] font-medium text-gray-500">ERP table</Label>
             <select
               className="mt-1 w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-sm"
               value={mapping?.table ?? ""}
@@ -297,7 +297,7 @@ export function ErpDirectModule({ token }: { token: string }) {
             <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               {MAPPING_FIELDS[entity].map((f) => (
                 <div key={f.key}>
-                  <Label className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
+                  <Label className="text-[12px] font-medium text-gray-500">
                     {f.label}{f.required && <span className="text-red-500"> *</span>}
                   </Label>
                   <select
@@ -314,7 +314,7 @@ export function ErpDirectModule({ token }: { token: string }) {
               ))}
             </div>
 
-            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400">
+            <p className="mb-1.5 text-[12px] font-medium text-gray-500">
               Tick columns to share ({mapping.columns?.length ?? 0} ticked) — ticked columns appear in the Data tab and flow to the website
             </p>
             <div className={`grid max-h-40 gap-1 overflow-y-auto rounded-lg border p-2 sm:grid-cols-3 lg:grid-cols-5 ${slimScroll}`}>

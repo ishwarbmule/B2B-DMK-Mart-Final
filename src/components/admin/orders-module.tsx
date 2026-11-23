@@ -228,7 +228,7 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
 
       <div className="overflow-x-auto rounded-xl border bg-white">
         <table className="w-full text-xs">
-          <thead className="bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-500">
+          <thead className="bg-gray-50 text-left text-[12px] font-medium text-gray-500">
             <tr>
               <th className="px-3 py-2.5">Invoice</th>
               <th className="px-3 py-2.5">Customer</th>
@@ -277,9 +277,9 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
                   </td>
                   <td className="px-3 py-2.5">{o.items?.length ?? 0} lines</td>
                   <td className="px-3 py-2.5">
-                    <span className="rounded-md bg-yellow-100 px-2 py-0.5 font-mono text-[11px] font-black tracking-widest text-black">{o.otp || "—"}</span>
+                    <span className="rounded-md bg-yellow-100 px-2 py-0.5 font-mono text-[11px] font-semibold tracking-widest text-black">{o.otp || "—"}</span>
                   </td>
-                  <td className="px-3 py-2.5 text-right font-black">{formatINR(o.grandTotal)}</td>
+                  <td className="px-3 py-2.5 text-right font-semibold">{formatINR(o.grandTotal)}</td>
                   <td className="px-3 py-2.5">
                     <p>{o.paymentMethod}</p>
                     <StatusBadge status={o.paymentStatus} />
@@ -334,7 +334,7 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
                   <tr key={`${o.id}-wa`} className="bg-emerald-50/50">
                     <td colSpan={8} className="px-4 pb-4 pt-1">
                       <div className="rounded-xl border border-emerald-200 bg-white p-3">
-                        <p className="mb-2 flex items-center gap-2 text-xs font-black text-gray-900">
+                        <p className="mb-2 flex items-center gap-2 text-xs font-semibold text-gray-900">
                           <MessageCircle className="h-4 w-4 text-emerald-600" /> WhatsApp message — pick the status, edit if needed, send
                           <span className="ml-auto rounded-full bg-gray-100 px-2 py-0.5 text-[9px] font-bold text-gray-500">to {o.phone}</span>
                         </p>
@@ -400,7 +400,7 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
                       {(o.status === "PENDING" || o.status === "CONFIRMED") && stockFor === o.id && stock && (
                         <div className={`mt-2 rounded-xl border-2 p-3 ${o.status === "PENDING" ? "border-amber-300 bg-amber-50/60" : "border-sky-300 bg-sky-50/60"}`}>
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="flex items-center gap-1.5 text-xs font-black text-gray-900">
+                            <p className="flex items-center gap-1.5 text-xs font-semibold text-gray-900">
                               <PackageCheck className={`h-4 w-4 ${o.status === "PENDING" ? "text-amber-600" : "text-sky-600"}`} />
                               {o.status === "PENDING" ? "Automatic stock check" : "Confirmed order — stock & credit status"}
                             </p>
@@ -411,11 +411,11 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
                               </span>
                             )}
                             <div className="ml-auto flex gap-1.5">
-                              <button onClick={startEdit} className="flex items-center gap-1 rounded-lg border-2 border-gray-800 bg-white px-3 py-1.5 text-[11px] font-black hover:bg-gray-50">
+                              <button onClick={startEdit} className="flex items-center gap-1 rounded-lg border-2 border-gray-800 bg-white px-3 py-1.5 text-[11px] font-semibold hover:bg-gray-50">
                                 <PencilLine className="h-3.5 w-3.5" /> Edit Order
                               </button>
                               {o.status === "PENDING" && (
-                                <button onClick={() => { setNextDate(""); setConfirmOpen(true); }} className="flex items-center gap-1 rounded-lg bg-black px-3 py-1.5 text-[11px] font-black text-yellow-400 hover:bg-gray-800">
+                                <button onClick={() => { setNextDate(""); setConfirmOpen(true); }} className="flex items-center gap-1 rounded-lg bg-black px-3 py-1.5 text-[11px] font-semibold text-yellow-400 hover:bg-gray-800">
                                   <CheckCheck className="h-3.5 w-3.5" /> Confirm Order
                                 </button>
                               )}
@@ -473,14 +473,14 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
                                   <td className="px-2 py-1.5">
                                     {o.status === "PENDING" ? (
                                       ok === null ? <span className="text-gray-300">…</span> : ok ? (
-                                        <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-black text-emerald-700">IN STOCK · {sl?.available}</span>
+                                        <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">IN STOCK · {sl?.available}</span>
                                       ) : (
-                                        <span className="rounded bg-red-100 px-1.5 py-0.5 text-[9px] font-black text-red-700">OOS · {sl?.available} left</span>
+                                        <span className="rounded bg-red-100 px-1.5 py-0.5 text-[9px] font-semibold text-red-700">OOS · {sl?.available} left</span>
                                       )
                                     ) : ext.lineStatus === "NEXT_PLAN" ? (
-                                      <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-black text-blue-700">NEXT PLAN</span>
+                                      <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-semibold text-blue-700">NEXT PLAN</span>
                                     ) : (
-                                      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[9px] font-black text-gray-600">SHIPS NOW</span>
+                                      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[9px] font-semibold text-gray-600">SHIPS NOW</span>
                                     )}
                                   </td>
                                   <td className="px-2 py-1.5"><Code39Svg value={it.barcode || it.sku} height={26} moduleWidth={1.1} /></td>
@@ -494,7 +494,7 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
                       {/* next-delivery plan note for confirmed orders */}
                       {o.status !== "PENDING" && o.items?.some((i) => (i as OrderItemRow & { lineStatus?: string }).lineStatus === "NEXT_PLAN") && (
                         <div className="mt-2 rounded-lg border-2 border-dashed border-blue-300 bg-blue-50/70 p-3 text-[11px] text-blue-900">
-                          <p className="flex items-center gap-1.5 font-black"><Clock3 className="h-3.5 w-3.5" /> Next Delivery Plan{o.nextDeliveryAt ? ` — ${o.nextDeliveryAt}` : ""}</p>
+                          <p className="flex items-center gap-1.5 font-semibold"><Clock3 className="h-3.5 w-3.5" /> Next Delivery Plan{o.nextDeliveryAt ? ` — ${o.nextDeliveryAt}` : ""}</p>
                           <ul className="mt-1 list-inside list-disc">
                             {(o.items as Array<OrderItemRow & { lineStatus?: string; plannedNote?: string }>).filter((i) => i.lineStatus === "NEXT_PLAN").map((i) => (
                               <li key={i.id}><b>{i.name}</b> ×{i.qty} — {formatINR(i.total)} credited to buyer credit</li>
@@ -524,7 +524,7 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
       {editOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setEditOpen(false)}>
           <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <p className="flex items-center gap-2 text-sm font-black text-gray-900"><PencilLine className="h-4 w-4 text-yellow-600" /> Edit Order — pricing, quantity, remove lines</p>
+            <p className="flex items-center gap-2 text-sm font-semibold text-gray-900"><PencilLine className="h-4 w-4 text-yellow-600" /> Edit Order — pricing, quantity, remove lines</p>
             <p className="mt-1 text-[11px] text-gray-500">
               Change qty and rate per line, or remove lines. Totals, slabs and delivery fee recalculate automatically.
               {stock.order.status === "CONFIRMED" && " This order is confirmed — stock changes and buyer credit adjustments reconcile automatically."}
@@ -557,7 +557,7 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
             </div>
             <div className="mt-4 flex justify-end gap-2">
               <button onClick={() => setEditOpen(false)} className="rounded-lg border px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50">Cancel</button>
-              <button onClick={saveEdit} disabled={busy} className="rounded-lg bg-black px-4 py-2 text-xs font-black text-yellow-400 hover:bg-gray-800 disabled:opacity-50">
+              <button onClick={saveEdit} disabled={busy} className="rounded-lg bg-black px-4 py-2 text-xs font-semibold text-yellow-400 hover:bg-gray-800 disabled:opacity-50">
                 {busy ? "Saving…" : "Save Changes"}
               </button>
             </div>
@@ -569,10 +569,10 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
       {confirmOpen && stock && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setConfirmOpen(false)}>
           <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <p className="flex items-center gap-2 text-sm font-black text-gray-900"><CheckCheck className="h-4 w-4 text-emerald-600" /> Confirm Order — final check</p>
+            <p className="flex items-center gap-2 text-sm font-semibold text-gray-900"><CheckCheck className="h-4 w-4 text-emerald-600" /> Confirm Order — final check</p>
             <div className="mt-3 space-y-1.5 rounded-xl border bg-gray-50 p-3 text-xs">
-              <p className="flex justify-between"><span className="font-semibold text-emerald-700">Ship now (in stock)</span><span className="font-black">{stock.summary.okCount} lines</span></p>
-              <p className="flex justify-between"><span className="font-semibold text-blue-700">Next delivery plan (out of stock)</span><span className="font-black">{stock.summary.oosCount} lines · {formatINR(stock.summary.oosAmount)}</span></p>
+              <p className="flex justify-between"><span className="font-semibold text-emerald-700">Ship now (in stock)</span><span className="font-semibold">{stock.summary.okCount} lines</span></p>
+              <p className="flex justify-between"><span className="font-semibold text-blue-700">Next delivery plan (out of stock)</span><span className="font-semibold">{stock.summary.oosCount} lines · {formatINR(stock.summary.oosAmount)}</span></p>
               {stock.summary.oosCount > 0 && (
                 <>
                   <label className="mt-2 block text-[11px] font-bold text-gray-600">Next delivery date (prints on invoice & credited note)</label>
@@ -593,7 +593,7 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
             </div>
             <div className="mt-4 flex justify-end gap-2">
               <button onClick={() => setConfirmOpen(false)} className="rounded-lg border px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50">Cancel</button>
-              <button onClick={confirmOrder} disabled={busy} className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-700 disabled:opacity-50">
+              <button onClick={confirmOrder} disabled={busy} className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
                 {busy ? "Confirming…" : "Confirm & Assign Serials"}
               </button>
             </div>

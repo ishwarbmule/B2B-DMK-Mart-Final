@@ -90,7 +90,7 @@ export function WarehousePanel() {
         <div className="w-full max-w-sm rounded-3xl border border-gray-800 bg-gray-950 p-8">
           <div className="mb-6 flex flex-col items-center gap-2 text-center">
             <Image src="/dmk-logo.png" alt="DMK Mart" width={56} height={56} className="h-14 w-14 rounded-full" unoptimized />
-            <h1 className="text-lg font-black text-white">DMK Mart <span className="text-yellow-400">Warehouse</span></h1>
+            <h1 className="text-lg font-semibold text-white">DMK Mart <span className="text-yellow-400">Warehouse</span></h1>
             <p className="text-[11px] text-gray-500">Godown manager portal · orders &amp; stock for your warehouse</p>
           </div>
           <form onSubmit={signIn} className="space-y-3">
@@ -112,7 +112,7 @@ export function WarehousePanel() {
             <button
               type="submit"
               disabled={signing}
-              className="h-11 w-full rounded-xl bg-yellow-400 text-sm font-black uppercase tracking-wide text-black transition hover:bg-yellow-300 disabled:opacity-60"
+              className="h-11 w-full rounded-lg bg-yellow-400 text-sm font-semibold text-black transition-colors hover:bg-yellow-300 disabled:opacity-60"
             >
               {signing ? "Signing in…" : "Sign In"}
             </button>
@@ -150,11 +150,11 @@ export function WarehousePanel() {
           </button>
           <Image src="/dmk-logo.png" alt="DMK" width={30} height={30} className="h-[30px] w-[30px] rounded-full" unoptimized />
           <div className="min-w-0">
-            <p className="truncate text-sm font-black text-white">{profile.name} <span className="hidden text-yellow-400 sm:inline">· Warehouse Manager</span></p>
+            <p className="truncate text-sm font-semibold text-white">{profile.name} <span className="hidden text-yellow-400 sm:inline">· Warehouse Manager</span></p>
             <p className="truncate text-[10px] text-yellow-400">🏭 {profile.warehouseName}{profile.warehouseCity ? ` — ${profile.warehouseCity}` : ""}</p>
           </div>
         </div>
-        <button onClick={signOut} className="flex shrink-0 items-center gap-1.5 rounded-lg bg-yellow-400 px-3 py-1.5 text-xs font-black text-black hover:bg-yellow-300">
+        <button onClick={signOut} className="flex shrink-0 items-center gap-1.5 rounded-lg bg-yellow-400 px-3 py-1.5 text-xs font-semibold text-black hover:bg-yellow-300">
           <LogOut className="h-3.5 w-3.5" /> Logout
         </button>
       </div>
@@ -164,7 +164,7 @@ export function WarehousePanel() {
           className={`fixed inset-y-14 left-0 z-30 w-60 overflow-y-auto border-r border-gray-800 bg-gray-950 pb-8 transition-transform lg:sticky lg:top-14 lg:h-[calc(100vh-3.5rem)] lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
         >
           <nav className="px-2 py-3">
-            <p className="px-3 pb-1 pt-2 text-[9px] font-black uppercase tracking-widest text-gray-600">My Sections</p>
+            <p className="px-3 pb-1 pt-2 text-[12px] font-medium text-gray-500">My Sections</p>
             {sections.map((s) => (
               <button
                 key={s.id}
@@ -187,7 +187,7 @@ export function WarehousePanel() {
         {sidebarOpen && <div className="fixed inset-0 z-20 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
         <main className="min-w-0 flex-1 p-4 md:p-6">
-          <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-gray-400">
+          <p className="mb-3 text-[11px] font-semibold st text-gray-400">
             Warehouse <span className="text-gray-300">/ {activeLabel}</span>
           </p>
           {renderSection()}

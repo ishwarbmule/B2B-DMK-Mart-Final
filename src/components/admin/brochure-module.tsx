@@ -36,7 +36,7 @@ const Switch = ({ on, onChange, label, hint }: { on: boolean; onChange: (v: bool
       <span className={`h-3.5 w-3.5 rounded-full bg-white transition-transform ${on ? "translate-x-3.5" : ""}`} style={{ height: 14, width: 14 }} />
     </span>
     <span>
-      <span className="block text-xs font-black text-gray-900">{label}</span>
+      <span className="block text-xs font-semibold text-gray-900">{label}</span>
       <span className="block text-[10px] leading-tight text-gray-500">{hint}</span>
     </span>
   </button>
@@ -138,7 +138,7 @@ export function BrochureModule({ token }: { token: string }) {
   return (
     <div>
       <ModuleHeader title="Download Brochure" sub="Generate a realtime, company-wise product catalog PDF — fresh stock & prices every time">
-        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700">⚡ LIVE DATA</span>
+        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">⚡ LIVE DATA</span>
       </ModuleHeader>
 
       <div className="grid gap-3 lg:grid-cols-[340px_1fr]">
@@ -147,7 +147,7 @@ export function BrochureModule({ token }: { token: string }) {
           {/* companies */}
           <div className="rounded-xl border bg-white p-3">
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs font-black text-gray-900">1 · Companies</p>
+              <p className="text-xs font-semibold text-gray-900">1 · Companies</p>
               {selected.size > 0 && (
                 <button onClick={() => setSelected(new Set())} className="flex items-center gap-1 text-[10px] font-bold text-gray-400 hover:text-red-500"><X className="h-3 w-3" /> Clear ({selected.size})</button>
               )}
@@ -181,7 +181,7 @@ export function BrochureModule({ token }: { token: string }) {
 
           {/* categories */}
           <div className="rounded-xl border bg-white p-3">
-            <p className="mb-2 text-xs font-black text-gray-900">2 · Category (optional)</p>
+            <p className="mb-2 text-xs font-semibold text-gray-900">2 · Category (optional)</p>
             <div className="space-y-2">
               <select value={topId} onChange={(e) => { setTopId(e.target.value); setMidId(""); setEndId(""); }} className="h-9 w-full rounded-lg border border-gray-200 px-2 text-xs" aria-label="Top category">
                 <option value="">All top categories</option>
@@ -208,7 +208,7 @@ export function BrochureModule({ token }: { token: string }) {
           {/* price tier + limit */}
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-xl border bg-white p-3">
-              <p className="mb-1.5 text-[10px] font-black uppercase tracking-wide text-gray-400">Price tier</p>
+              <p className="mb-1.5 text-[12px] font-medium text-gray-500">Price tier</p>
               <select value={tier} onChange={(e) => setTier(e.target.value)} className="h-8 w-full rounded-lg border border-gray-200 px-2 text-xs" aria-label="Price tier">
                 <option value="dealer">Dealer (default)</option>
                 <option value="tier1">Tier 1</option>
@@ -219,7 +219,7 @@ export function BrochureModule({ token }: { token: string }) {
               </select>
             </div>
             <div className="rounded-xl border bg-white p-3">
-              <p className="mb-1.5 text-[10px] font-black uppercase tracking-wide text-gray-400">Max products</p>
+              <p className="mb-1.5 text-[12px] font-medium text-gray-500">Max products</p>
               <input
                 type="number"
                 min={10}
@@ -235,7 +235,7 @@ export function BrochureModule({ token }: { token: string }) {
           <button
             onClick={generate}
             disabled={generating || !meta}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-black text-sm font-black uppercase tracking-wide text-yellow-400 transition hover:bg-gray-900 disabled:opacity-60"
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-black text-sm font-semibold text-yellow-400 transition-colors hover:bg-gray-900 disabled:opacity-60"
           >
             {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4" />}
             {generating ? "Generating PDF…" : "Generate & Download PDF"}
@@ -250,19 +250,19 @@ export function BrochureModule({ token }: { token: string }) {
               <div className="rounded-xl border-2 border-black bg-white p-4">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <p className="flex items-center gap-1.5 text-sm font-black text-gray-900"><Check className="h-4 w-4 text-emerald-600" /> Catalog {last.id} generated</p>
+                    <p className="flex items-center gap-1.5 text-sm font-semibold text-gray-900"><Check className="h-4 w-4 text-emerald-600" /> Catalog {last.id} generated</p>
                     <p className="mt-0.5 text-[11px] text-gray-500">
                       {last.count} products · {last.companies.length} compan{last.companies.length === 1 ? "y" : "ies"} · {last.sections.length} sections · generated {last.generatedAtIST}
                     </p>
                     <p className="text-[11px] text-gray-500">Prices valid till <b>{last.validTillIST}</b> · {last.filename}</p>
                   </div>
-                  <span className="rounded-lg bg-yellow-100 px-2.5 py-1 text-[10px] font-black text-gray-900">v{last.id}</span>
+                  <span className="rounded-lg bg-yellow-100 px-2.5 py-1 text-[10px] font-semibold text-gray-900">v{last.id}</span>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <button onClick={waShare} disabled={!last.shareUrl} title={last.shareUrl ? "Send via WhatsApp" : "Share link unavailable (Cloudinary not configured)"} className="flex items-center gap-1.5 rounded-lg bg-[#16a34a] px-3.5 py-2 text-xs font-black text-white disabled:opacity-40">
+                  <button onClick={waShare} disabled={!last.shareUrl} title={last.shareUrl ? "Send via WhatsApp" : "Share link unavailable (Cloudinary not configured)"} className="flex items-center gap-1.5 rounded-lg bg-[#16a34a] px-3.5 py-2 text-xs font-semibold text-white disabled:opacity-40">
                     <MessageCircle className="h-3.5 w-3.5" /> WhatsApp Share
                   </button>
-                  <button onClick={mailShare} disabled={!last.shareUrl} className="flex items-center gap-1.5 rounded-lg bg-black px-3.5 py-2 text-xs font-black text-yellow-400 disabled:opacity-40">
+                  <button onClick={mailShare} disabled={!last.shareUrl} className="flex items-center gap-1.5 rounded-lg bg-black px-3.5 py-2 text-xs font-semibold text-yellow-400 disabled:opacity-40">
                     <Mail className="h-3.5 w-3.5" /> Email
                   </button>
                   <button
@@ -283,7 +283,7 @@ export function BrochureModule({ token }: { token: string }) {
                 </div>
               </div>
               <div className="rounded-xl border bg-white p-3">
-                <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Sections in this catalog</p>
+                <p className="mb-2 text-[10px] font-medium text-gray-400">Sections in this catalog</p>
                 <div className="flex flex-wrap gap-1.5">
                   {last.sections.map((s) => (
                     <span key={s.name} className="rounded-full bg-gray-100 px-2.5 py-1 text-[10.5px] font-bold text-gray-700">{s.name} · {s.count}</span>
@@ -294,7 +294,7 @@ export function BrochureModule({ token }: { token: string }) {
           ) : (
             <div className="flex h-full min-h-[280px] flex-col items-center justify-center rounded-xl border border-dashed bg-white p-8 text-center">
               <BookOpen className="mb-3 h-10 w-10 text-gray-200" />
-              <p className="text-sm font-black text-gray-700">Your generated catalog appears here</p>
+              <p className="text-sm font-semibold text-gray-700">Your generated catalog appears here</p>
               <p className="mt-1 max-w-sm text-[11px] leading-relaxed text-gray-400">
                 Pick companies / a category, choose stock & price options, then hit <b>Generate</b>. The PDF pulls live stock, live pricing, latest product details and images straight from the inventory — every file carries a unique version ID so clients never see stale rates.
               </p>

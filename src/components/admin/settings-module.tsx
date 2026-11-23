@@ -120,7 +120,7 @@ export function SettingsModule({ token }: { token: string }) {
 
       {/* WHATSAPP — FREE-FIRST CHANNEL */}
       <div className="mb-4 rounded-xl border-2 border-emerald-300 bg-gradient-to-r from-emerald-50 to-white p-4">
-        <p className="mb-1 flex items-center gap-2 text-sm font-black"><MessageCircle className="h-4 w-4 text-emerald-600" /> WhatsApp Notifications <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-white">Free-first · OTP · Orders · Care</span></p>
+        <p className="mb-1 flex items-center gap-2 text-sm font-semibold"><MessageCircle className="h-4 w-4 text-emerald-600" /> WhatsApp Notifications <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-medium text-white">Free-first · OTP · Orders · Care</span></p>
         <p className="mb-3 text-[11px] leading-relaxed text-gray-500">
           Delivers login &amp; forgot-password OTPs, order confirmations and status updates over WhatsApp instead of paid SMS.
           Delivery chain: <b>WhatsApp → SMS gateway → demo log</b>. Customers reach you free via the green Chat button on the website (uses the Support phone below).
@@ -207,7 +207,7 @@ export function SettingsModule({ token }: { token: string }) {
 
       {/* SMS GATEWAY */}
       <div className="mb-4 rounded-xl border bg-white p-4">
-        <p className="mb-1 flex items-center gap-2 text-sm font-black"><MessageSquareText className="h-4 w-4 text-yellow-600" /> SMS Gateway <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-gray-500">OTP · Order Status · Customer Care</span></p>
+        <p className="mb-1 flex items-center gap-2 text-sm font-semibold"><MessageSquareText className="h-4 w-4 text-yellow-600" /> SMS Gateway <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[9px] font-medium text-gray-500">OTP · Order Status · Customer Care</span></p>
         <p className="mb-3 text-[11px] leading-relaxed text-gray-500">
           Powers: forgot-password &amp; login OTP codes, order-placed confirmation with delivery OTP, order status updates, and the support line shown in every message.
           <b> Save All</b> first to persist changes, then send a test SMS. WhatsApp is tried first when enabled above — SMS is the fallback.

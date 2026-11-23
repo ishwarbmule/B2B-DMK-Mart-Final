@@ -87,7 +87,7 @@ export function SalesteamPanel() {
         <div className="w-full max-w-sm rounded-3xl border border-gray-800 bg-gray-950 p-8">
           <div className="mb-6 flex flex-col items-center gap-2 text-center">
             <Image src="/dmk-logo.png" alt="DMK Mart" width={56} height={56} className="h-14 w-14 rounded-full" unoptimized />
-            <h1 className="text-lg font-black text-white">DMK Mart <span className="text-yellow-400">Sales Team</span></h1>
+            <h1 className="text-lg font-semibold text-white">DMK Mart <span className="text-yellow-400">Sales Team</span></h1>
             <p className="text-[11px] text-gray-500">Field ordering portal · retailer visits &amp; bookings</p>
           </div>
           <form onSubmit={signIn} className="space-y-3">
@@ -109,7 +109,7 @@ export function SalesteamPanel() {
             <button
               type="submit"
               disabled={signing}
-              className="h-11 w-full rounded-xl bg-yellow-400 text-sm font-black uppercase tracking-wide text-black transition hover:bg-yellow-300 disabled:opacity-60"
+              className="h-11 w-full rounded-lg bg-yellow-400 text-sm font-semibold text-black transition-colors hover:bg-yellow-300 disabled:opacity-60"
             >
               {signing ? "Signing in…" : "Sign In"}
             </button>
@@ -126,11 +126,11 @@ export function SalesteamPanel() {
         <div className="flex min-w-0 items-center gap-2.5">
           <Image src="/dmk-logo.png" alt="DMK" width={30} height={30} className="h-[30px] w-[30px] rounded-full" unoptimized />
           <div className="min-w-0">
-            <p className="truncate text-sm font-black text-white">{profile.name}</p>
+            <p className="truncate text-sm font-semibold text-white">{profile.name}</p>
             <p className="truncate text-[10px] text-yellow-400">{profile.area ? `Area: ${profile.area}` : "Sales Team"} · {profile.mobile}</p>
           </div>
         </div>
-        <button onClick={signOut} className="flex shrink-0 items-center gap-1.5 rounded-lg bg-yellow-400 px-3 py-1.5 text-xs font-black text-black hover:bg-yellow-300">
+        <button onClick={signOut} className="flex shrink-0 items-center gap-1.5 rounded-lg bg-yellow-400 px-3 py-1.5 text-xs font-semibold text-black hover:bg-yellow-300">
           <LogOut className="h-3.5 w-3.5" /> Logout
         </button>
       </div>
@@ -261,11 +261,11 @@ function NewOrder({ token }: { token: string }) {
     return (
       <div className="rounded-2xl border bg-white p-8 text-center">
         <BadgeCheck className="mx-auto h-12 w-12 text-emerald-500" />
-        <h2 className="mt-3 text-lg font-black text-gray-900">Order {placed.invoiceNo} confirmed</h2>
+        <h2 className="mt-3 text-lg font-semibold text-gray-900">Order {placed.invoiceNo} confirmed</h2>
         <p className="mt-1 text-xs text-gray-500">
           ₹{placed.total.toLocaleString("en-IN")} · routed to {placed.warehouseName || "the nearest warehouse"} · the admin panel now shows this order with your name.
         </p>
-        <button onClick={() => setPlaced(null)} className="mt-5 rounded-xl bg-black px-5 py-2.5 text-xs font-bold text-yellow-400 hover:bg-gray-800">
+        <button onClick={() => setPlaced(null)} className="mt-5 rounded-lg bg-black px-5 py-2.5 text-xs font-bold text-yellow-400 hover:bg-gray-800">
           Start next order
         </button>
       </div>
@@ -276,7 +276,7 @@ function NewOrder({ token }: { token: string }) {
     <div className="space-y-4">
       {/* customer details */}
       <div className="rounded-2xl border bg-white p-4">
-        <p className="mb-2 flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-gray-700"><Store className="h-4 w-4 text-yellow-600" /> Shop / Customer details</p>
+        <p className="mb-2 flex items-center gap-1.5 text-[12px] font-medium text-gray-600"><Store className="h-4 w-4 text-yellow-600" /> Shop / Customer details</p>
         <div className="mb-3 flex gap-2">
           <input
             value={lookup}
@@ -335,7 +335,7 @@ function NewOrder({ token }: { token: string }) {
 
       {/* products */}
       <div className="rounded-2xl border bg-white p-4">
-        <p className="mb-2 text-xs font-black uppercase tracking-wide text-gray-700">Products required by the shop</p>
+        <p className="mb-2 text-[12px] font-medium text-gray-600">Products required by the shop</p>
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search products by name / SKU…" className="h-10 w-full rounded-lg border border-gray-200 pl-8 pr-3 text-sm outline-none focus:border-yellow-400" />
@@ -368,7 +368,7 @@ function NewOrder({ token }: { token: string }) {
                   min={1}
                   value={l.qty}
                   onChange={(e) => setLines((ls) => ls.map((x) => (x.productId === l.productId ? { ...x, qty: Math.max(1, Number(e.target.value) || 1) } : x)))}
-                  className="h-8 w-16 rounded-lg border border-gray-200 text-center text-xs font-black outline-none focus:border-yellow-400"
+                  className="h-8 w-16 rounded-lg border border-gray-200 text-center text-xs font-semibold outline-none focus:border-yellow-400"
                   aria-label={`Quantity for ${l.name}`}
                 />
                 <button onClick={() => setLines((ls) => ls.filter((x) => x.productId !== l.productId))} className="rounded-md bg-red-50 p-1.5 text-red-600 hover:bg-red-100" aria-label="Remove line">
@@ -383,13 +383,13 @@ function NewOrder({ token }: { token: string }) {
       {/* verify + confirm */}
       <div className="sticky bottom-3 rounded-2xl border bg-white p-4 shadow-lg">
         <div className="flex items-center justify-between text-sm">
-          <span className="font-black text-gray-900">{lines.length} line{lines.length !== 1 ? "s" : ""}</span>
-          <span className="font-black tabular-nums text-gray-900">≈ {formatINR(itemTotal)} <span className="text-[10px] font-semibold text-gray-400">(slab & delivery apply on invoice)</span></span>
+          <span className="font-semibold text-gray-900">{lines.length} line{lines.length !== 1 ? "s" : ""}</span>
+          <span className="font-semibold tabular-nums text-gray-900">≈ {formatINR(itemTotal)} <span className="text-[10px] font-semibold text-gray-400">(slab & delivery apply on invoice)</span></span>
         </div>
         <button
           onClick={placeOrder}
           disabled={busy}
-          className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-xl bg-black py-3 text-sm font-bold uppercase tracking-wide text-yellow-400 hover:bg-gray-800 disabled:opacity-60"
+          className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-lg bg-black py-3 text-sm font-semibold text-yellow-400 hover:bg-gray-800 disabled:opacity-60"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardList className="h-4 w-4" />}
           Verify Order List &amp; Confirm Order
@@ -417,12 +417,12 @@ function MyOrders({ token }: { token: string }) {
     <div>
       <div className="mb-3 grid grid-cols-2 gap-3">
         <div className="rounded-2xl border bg-white p-4">
-          <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">Orders brought</p>
-          <p className="text-2xl font-black text-gray-900">{data?.summary.count ?? "—"}</p>
+          <p className="text-[12px] font-medium text-gray-500">Orders brought</p>
+          <p className="text-2xl font-semibold text-gray-900">{data?.summary.count ?? "—"}</p>
         </div>
         <div className="rounded-2xl border bg-white p-4">
-          <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">Business brought</p>
-          <p className="text-2xl font-black text-gray-900">{data ? formatINR(data.summary.brought) : "—"}</p>
+          <p className="text-[12px] font-medium text-gray-500">Business brought</p>
+          <p className="text-2xl font-semibold text-gray-900">{data ? formatINR(data.summary.brought) : "—"}</p>
         </div>
       </div>
       {!data ? (
@@ -435,11 +435,11 @@ function MyOrders({ token }: { token: string }) {
             <div key={o.id} className="rounded-2xl border bg-white p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-sm font-black text-gray-900">{o.invoiceNo}</p>
+                  <p className="text-sm font-semibold text-gray-900">{o.invoiceNo}</p>
                   <p className="text-[11px] text-gray-500">{o.customerName} · {o.phone} · {o.city || "—"} · {new Date(o.createdAt).toLocaleDateString("en-IN")}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-base font-black text-gray-900">{formatINR(o.grandTotal)}</p>
+                  <p className="text-base font-semibold text-gray-900">{formatINR(o.grandTotal)}</p>
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                     o.status === "DELIVERED" ? "bg-emerald-50 text-emerald-700"
                     : o.status === "CANCELLED" ? "bg-red-50 text-red-600"
@@ -513,7 +513,7 @@ function MyCustomers({ token }: { token: string }) {
 
       {adding && (
         <div className="mb-4 rounded-2xl border bg-white p-4">
-          <p className="mb-2 text-xs font-black uppercase tracking-wide text-gray-700">New customer — all shop details &amp; location</p>
+          <p className="mb-2 text-[12px] font-medium text-gray-600">New customer — all shop details &amp; location</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="text-xs font-semibold text-gray-700">Contact name *</label>
@@ -554,7 +554,7 @@ function MyCustomers({ token }: { token: string }) {
               <input value={form.pincode} onChange={(e) => setForm({ ...form, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) })} className={input} inputMode="numeric" />
             </div>
           </div>
-          <button onClick={create} disabled={busy} className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-black py-2.5 text-xs font-bold uppercase tracking-wide text-yellow-400 hover:bg-gray-800 disabled:opacity-60">
+          <button onClick={create} disabled={busy} className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-black py-2.5 text-xs font-semibold text-yellow-400 hover:bg-gray-800 disabled:opacity-60">
             {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />} Create Customer Account
           </button>
         </div>
@@ -570,7 +570,7 @@ function MyCustomers({ token }: { token: string }) {
             <div key={c.id} className="rounded-2xl border bg-white p-3.5">
               <div className="flex items-center justify-between gap-2">
                 <p className="min-w-0 truncate text-sm font-bold text-gray-900">{c.shopName || c.name}</p>
-                {c.mine && <span className="shrink-0 rounded-full bg-yellow-100 px-2 py-0.5 text-[9px] font-black text-yellow-700">ADDED BY YOU</span>}
+                {c.mine && <span className="shrink-0 rounded-full bg-yellow-100 px-2 py-0.5 text-[9px] font-semibold text-yellow-700">ADDED BY YOU</span>}
               </div>
               <p className="text-[11px] text-gray-500">{c.name} · {c.phone}</p>
               <p className="mt-0.5 line-clamp-2 text-[10px] text-gray-400">{[c.address, c.city, c.pincode].filter(Boolean).join(", ")}</p>

@@ -59,7 +59,7 @@ export function SalesTeamModule({ token }: { token: string }) {
       <div className="mb-6 overflow-x-auto rounded-xl border bg-white">
         <table className="w-full text-left text-xs">
           <thead>
-            <tr className="border-b bg-gray-50 text-[10px] uppercase tracking-wide text-gray-500">
+            <tr className="border-b bg-gray-50 text-[12px] font-medium text-gray-500">
               <th className="px-3 py-2.5 font-bold">Salesperson</th>
               <th className="px-3 py-2.5 font-bold">Area</th>
               <th className="px-3 py-2.5 text-right font-bold">Orders</th>
@@ -85,7 +85,7 @@ export function SalesTeamModule({ token }: { token: string }) {
                   </td>
                   <td className="px-3 py-2.5">{r.area || "—"}</td>
                   <td className="px-3 py-2.5 text-right font-bold tabular-nums">{r.orders}</td>
-                  <td className="px-3 py-2.5 text-right font-black tabular-nums">{formatINR(r.revenue)}</td>
+                  <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{formatINR(r.revenue)}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums">{r.orders30d}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums">{formatINR(r.revenue30d)}</td>
                   <td className="px-3 py-2.5">{r.lastOrderAt ? <span title={r.lastInvoice}>{new Date(r.lastOrderAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span> : "—"}</td>
@@ -218,10 +218,10 @@ export function WarehouseManagersModule({ token }: { token: string }) {
               <div key={w.id} className="rounded-xl border bg-white p-4">
                 <div className="mb-2 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-black text-gray-900">{w.name}{w.city ? <span className="ml-1 text-[10px] font-semibold text-gray-400">· {w.city}</span> : null}</p>
+                    <p className="text-sm font-semibold text-gray-900">{w.name}{w.city ? <span className="ml-1 text-[10px] font-semibold text-gray-400">· {w.city}</span> : null}</p>
                     <p className="text-[10px] text-gray-400">{whManagers.length} manager{whManagers.length !== 1 ? "s" : ""}</p>
                   </div>
-                  <button onClick={() => openAdd(w.id)} className="flex items-center gap-1 rounded-lg bg-yellow-400 px-2.5 py-1.5 text-[10px] font-black text-black hover:bg-yellow-300">
+                  <button onClick={() => openAdd(w.id)} className="flex items-center gap-1 rounded-lg bg-yellow-400 px-2.5 py-1.5 text-[10px] font-semibold text-black hover:bg-yellow-300">
                     <Plus className="h-3 w-3" /> Manager
                   </button>
                 </div>
@@ -260,7 +260,7 @@ export function WarehouseManagersModule({ token }: { token: string }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEditing(null)}>
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-base font-black">{editing.id ? "Edit Warehouse Manager" : "New Warehouse Manager"}</h3>
+              <h3 className="text-base font-semibold">{editing.id ? "Edit Warehouse Manager" : "New Warehouse Manager"}</h3>
               <button onClick={() => setEditing(null)} aria-label="Close"><X className="h-5 w-5 text-gray-400" /></button>
             </div>
             <div className="space-y-3">

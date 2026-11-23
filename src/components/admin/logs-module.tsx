@@ -35,7 +35,7 @@ export function LogsModule({ token }: { token: string }) {
       <div className="space-y-1.5">
         {rows.map((r) => (
           <div key={r.id} className="flex items-center gap-3 rounded-xl border bg-white px-3 py-2.5 text-xs">
-            <span className={`w-16 shrink-0 rounded-md px-1.5 py-1 text-center text-[10px] font-black ${color(r.action)}`}>{r.action}</span>
+            <span className={`w-16 shrink-0 rounded-md px-1.5 py-1 text-center text-[10px] font-semibold ${color(r.action)}`}>{r.action}</span>
             <span className="w-20 shrink-0 font-semibold uppercase text-gray-400">{r.entity}</span>
             <span className="min-w-0 flex-1 truncate text-gray-700">{r.detail}</span>
             <span className="hidden shrink-0 text-[10px] text-gray-400 md:block">{r.user}</span>

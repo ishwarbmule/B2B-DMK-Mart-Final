@@ -185,7 +185,7 @@ export function AdminPortal() {
   if (booting) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black">
-        <p className="animate-pulse text-xs font-bold uppercase tracking-widest text-gray-500">Checking session…</p>
+        <p className="animate-pulse text-xs font-semiboldst text-gray-500">Checking session…</p>
       </div>
     );
   }
@@ -196,7 +196,7 @@ export function AdminPortal() {
         <div className="w-full max-w-sm rounded-3xl border border-gray-800 bg-gray-950 p-8">
           <div className="mb-6 flex flex-col items-center gap-2 text-center">
             <Image src="/dmk-logo.png" alt="DMK Mart" width={56} height={56} className="h-14 w-14 rounded-full" unoptimized />
-            <h1 className="text-lg font-black text-white">DMK Mart <span className="text-yellow-400">Super Admin</span></h1>
+            <h1 className="text-lg font-semibold text-white">DMK Mart <span className="text-yellow-400">Super Admin</span></h1>
             <p className="text-[11px] text-gray-500">B2B Administration Portal · secure sign-in</p>
           </div>
           {bootMsg && (
@@ -221,7 +221,7 @@ export function AdminPortal() {
             <button
               type="submit"
               disabled={signing}
-              className="h-11 w-full rounded-xl bg-yellow-400 text-sm font-black uppercase tracking-wide text-black transition hover:bg-yellow-300 disabled:opacity-60"
+              className="h-11 w-full rounded-lg bg-yellow-400 text-sm font-semibold text-black transition-colors hover:bg-yellow-300 disabled:opacity-60"
             >
               {signing ? "Signing in…" : "Sign In to Portal"}
             </button>
@@ -282,22 +282,19 @@ export function AdminPortal() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* top bar */}
-      <div className="sticky top-0 z-40 flex h-14 items-center justify-between border-b bg-black px-4">
+      <div className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-black bg-black px-4">
         <div className="flex items-center gap-3">
-          <button onClick={() => setSidebarOpen((s) => !s)} className="text-gray-400 hover:text-white lg:hidden" aria-label="Toggle sidebar">
+          <button onClick={() => setSidebarOpen((s) => !s)} className="text-gray-400 transition-colors hover:text-white lg:hidden" aria-label="Toggle sidebar">
             {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
           <Image src="/dmk-logo.png" alt="DMK" width={30} height={30} className="h-[30px] w-[30px] rounded-full" unoptimized />
-          <p className="text-sm font-black text-white">DMK Mart <span className="hidden text-yellow-400 sm:inline">Super Admin</span></p>
-          <span className="rounded-md bg-yellow-400 px-2 py-0.5 text-[10px] font-black uppercase text-black">
-            {NAV.flatMap((g) => g.items).reduce((n, it) => n + (it.sub ? it.sub.length : 1), 0)} Modules
-          </span>
+          <p className="text-[14px] font-semibold text-white">DMK Mart <span className="hidden text-yellow-400 sm:inline">Super Admin</span></p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => router.push("/")} className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-1.5 text-xs font-semibold text-gray-300 hover:bg-gray-900">
-            <Eye className="h-3.5 w-3.5" /> View Store
+          <button onClick={() => router.push("/")} className="flex h-8 items-center gap-1.5 rounded-lg border border-gray-700 px-3 text-[12px] font-medium text-gray-300 transition-colors hover:bg-gray-900">
+            <Eye className="h-3.5 w-3.5" /> View store
           </button>
-          <button onClick={signOut} className="flex items-center gap-1.5 rounded-lg bg-yellow-400 px-3 py-1.5 text-xs font-black text-black hover:bg-yellow-300">
+          <button onClick={signOut} className="flex h-8 items-center gap-1.5 rounded-lg bg-yellow-400 px-3 text-[12px] font-semibold text-black transition-colors hover:bg-yellow-300">
             <LogOut className="h-3.5 w-3.5" /> Logout
           </button>
         </div>
@@ -310,8 +307,8 @@ export function AdminPortal() {
         >
           <nav className="px-2 py-3">
             {NAV.map((g) => (
-              <div key={g.group} className="mb-2">
-                <p className="px-3 pb-1 pt-2 text-[9px] font-black uppercase tracking-widest text-gray-600">{g.group}</p>
+              <div key={g.group} className="mb-1">
+                <p className="px-3 pb-2 pt-5 text-[11px] font-medium text-gray-500">{g.group}</p>
                 {g.items.map((it) => {
                   const isOpen = openGroup === it.id;
                   const isActive = active === it.id || it.sub?.some((s) => s.id === active);
@@ -323,11 +320,11 @@ export function AdminPortal() {
                           if (it.sub) setOpenGroup(isOpen ? null : it.id);
                           else { setActive(it.id); setSidebarOpen(false); }
                         }}
-                        className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-semibold transition ${isActive ? "bg-yellow-400 text-black" : "text-gray-400 hover:bg-gray-900 hover:text-white"}`}
+                        className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-3 text-left text-[13px] transition-colors ${isActive ? "bg-yellow-400 font-medium text-black" : "font-normal text-gray-400 hover:bg-gray-900 hover:text-white"}`}
                       >
                         <Icon className="h-4 w-4 shrink-0" />
                         <span className="flex-1">{it.label}</span>
-                        {it.sub && <ChevronRight className={`h-3 w-3 transition ${isOpen ? "rotate-90" : ""}`} />}
+                        {it.sub && <ChevronRight className={`h-3 w-3 transition-transform ${isOpen ? "rotate-90" : ""}`} />}
                       </button>
                       {it.sub && isOpen && (
                         <div className="ml-4 mt-0.5 space-y-0.5 border-l border-gray-800 pl-2">
@@ -335,7 +332,7 @@ export function AdminPortal() {
                             <button
                               key={s.id}
                               onClick={() => { setActive(s.id); setSidebarOpen(false); }}
-                              className={`block w-full rounded-md px-2.5 py-1.5 text-left text-[11px] font-medium ${active === s.id ? "bg-gray-800 text-yellow-400" : "text-gray-500 hover:text-white"}`}
+                              className={`block w-full rounded-md px-2.5 py-1.5 text-left text-[12px] transition-colors ${active === s.id ? "bg-gray-800 text-yellow-400" : "text-gray-500 hover:text-white"}`}
                             >
                               {s.label}
                             </button>
@@ -354,9 +351,7 @@ export function AdminPortal() {
 
         {/* main */}
         <main className="min-w-0 flex-1 p-4 md:p-6">
-          <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-gray-400">
-            Super Admin <span className="text-gray-300">/ {activeLabel}</span>
-          </p>
+          <p className="mb-4 text-[12px] text-gray-400">{activeLabel}</p>
           {renderModule()}
         </main>
       </div>

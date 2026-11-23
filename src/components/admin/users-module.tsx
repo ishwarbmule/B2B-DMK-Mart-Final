@@ -97,7 +97,7 @@ export function RolesModule({ token }: { token: string }) {
       </ModuleHeader>
       <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
         <div className="rounded-xl border bg-white p-2">
-          <p className="px-2 pb-2 pt-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">Select User</p>
+          <p className="px-2 pb-2 pt-1 text-[12px] font-medium text-gray-500">Select User</p>
           {users.map((u) => (
             <button
               key={u.id}
@@ -111,7 +111,7 @@ export function RolesModule({ token }: { token: string }) {
           ))}
         </div>
         <div className="rounded-xl border bg-white p-4">
-          <h3 className="mb-3 text-sm font-black flex items-center gap-1.5">
+          <h3 className="mb-3 text-sm font-semibold flex items-center gap-1.5">
             <UsersIcon className="h-4 w-4" /> Permissions for {user?.fullName || "—"}
           </h3>
           {isSuper ? (

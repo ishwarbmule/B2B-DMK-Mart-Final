@@ -51,7 +51,7 @@ export function DashboardModule({ token }: { token: string }) {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-xl border bg-white p-4 lg:col-span-2">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-black">Revenue — Last 14 Days</h3>
+            <h3 className="text-sm font-semibold">Revenue — Last 14 Days</h3>
             <span className="text-[10px] font-semibold text-gray-400">cancelled orders excluded</span>
           </div>
           <ResponsiveContainer width="100%" height={220}>
@@ -66,16 +66,16 @@ export function DashboardModule({ token }: { token: string }) {
         </div>
 
         <div className="rounded-xl border bg-white p-4">
-          <h3 className="mb-3 text-sm font-black">Top Companies by Revenue</h3>
+          <h3 className="mb-3 text-sm font-semibold">Top Companies by Revenue</h3>
           <div className="space-y-2">
             {s.topCompanies.slice(0, 6).map((c, i) => (
               <div key={c.name} className="flex items-center gap-2">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-yellow-400 text-[10px] font-black">{i + 1}</span>
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-yellow-400 text-[10px] font-semibold">{i + 1}</span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-bold">{c.name}</p>
                   <p className="text-[10px] text-gray-400">{c.items} units sold</p>
                 </div>
-                <span className="text-xs font-black">{formatINR(c.revenue)}</span>
+                <span className="text-xs font-semibold">{formatINR(c.revenue)}</span>
               </div>
             ))}
             {!s.topCompanies.length && <p className="text-xs text-gray-400">No sales data yet.</p>}
@@ -95,7 +95,7 @@ export function DashboardModule({ token }: { token: string }) {
       </div>
 
       <div className="rounded-xl border bg-white p-4">
-        <h3 className="mb-3 text-sm font-black">Department Size Distribution</h3>
+        <h3 className="mb-3 text-sm font-semibold">Department Size Distribution</h3>
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={s.departments} layout="vertical">
             <XAxis type="number" tick={{ fontSize: 9 }} />

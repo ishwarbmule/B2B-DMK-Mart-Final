@@ -42,7 +42,7 @@ export function AdminLoginDialog({ open, onOpenChange }: { open: boolean; onOpen
       <DialogContent className="max-w-sm">
         <div className="mb-1 flex items-center gap-2">
           <ShieldCheck className="h-5 w-5 text-yellow-500" />
-          <h3 className="text-base font-black">Super Admin Portal</h3>
+          <h3 className="text-base font-semibold">Super Admin Portal</h3>
         </div>
         <p className="mb-4 text-xs text-gray-500">Restricted access · DMK Mart B2B administration</p>
         <form onSubmit={submit} className="space-y-3">
@@ -70,7 +70,7 @@ export function AdminLoginDialog({ open, onOpenChange }: { open: boolean; onOpen
           <button
             type="submit"
             disabled={busy}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-black py-2.5 text-sm font-bold uppercase tracking-wide text-yellow-400 hover:bg-gray-800 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-black py-2.5 text-sm font-semibold text-yellow-400 hover:bg-gray-800 disabled:opacity-50"
           >
             <LogIn className="h-4 w-4" /> {busy ? "Signing in…" : "Sign In"}
           </button>

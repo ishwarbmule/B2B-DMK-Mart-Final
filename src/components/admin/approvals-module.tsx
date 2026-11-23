@@ -87,7 +87,7 @@ export function ApprovalsModule({ token }: { token: string }) {
             <div key={c.id} className="rounded-xl border bg-white p-4">
               <div className="flex flex-wrap items-start gap-3">
                 <div className="min-w-[220px] flex-1">
-                  <p className="text-sm font-black text-gray-900">{c.shopName || c.name}</p>
+                  <p className="text-sm font-semibold text-gray-900">{c.shopName || c.name}</p>
                   <p className="text-xs text-gray-500">{c.name} · <Phone className="inline h-3 w-3" /> {c.phone}{c.email ? ` · ${c.email}` : ""}</p>
                   <p className="mt-1 flex items-start gap-1 text-[11px] text-gray-500">
                     <MapPin className="mt-0.5 h-3 w-3 shrink-0" /> {[c.address, c.city, c.pincode].filter(Boolean).join(", ") || "—"}
@@ -124,7 +124,7 @@ export function ApprovalsModule({ token }: { token: string }) {
                   <button
                     onClick={() => act(c, "APPROVE")}
                     disabled={busy === c.id + "APPROVE"}
-                    className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-black text-white hover:bg-emerald-700 disabled:opacity-50"
+                    className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
                   >
                     <UserCheck className="h-4 w-4" /> {busy === c.id + "APPROVE" ? "…" : "Approve"}
                   </button>
@@ -146,7 +146,7 @@ export function ApprovalsModule({ token }: { token: string }) {
       {waFor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setWaFor(null)}>
           <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <p className="flex items-center gap-2 text-sm font-black text-gray-900">
+            <p className="flex items-center gap-2 text-sm font-semibold text-gray-900">
               <MessageCircle className="h-4 w-4 text-emerald-600" /> Account approved — send the welcome message
             </p>
             <p className="mt-1 text-[11px] text-gray-500">Pre-filled for {waFor.name} ({waFor.phone}) — edit if needed, then open WhatsApp and press send.</p>

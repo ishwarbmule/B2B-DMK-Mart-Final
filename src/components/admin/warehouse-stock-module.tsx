@@ -170,10 +170,10 @@ function BulkAssign({ token, warehouses }: { token: string; warehouses: Wh[] }) 
         </div>
 
         <div className="mt-4 flex gap-2">
-          <button onClick={() => run("bulkAdd")} disabled={busy} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-black py-2.5 text-xs font-black uppercase tracking-wide text-yellow-400 hover:bg-gray-800 disabled:opacity-40">
+          <button onClick={() => run("bulkAdd")} disabled={busy} className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-black py-2.5 text-xs font-semibold text-yellow-400 hover:bg-gray-800 disabled:opacity-40">
             <Plus className="h-4 w-4" /> Add to warehouse
           </button>
-          <button onClick={() => run("bulkRemove")} disabled={busy} className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-red-600 hover:bg-red-100 disabled:opacity-40">
+          <button onClick={() => run("bulkRemove")} disabled={busy} className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-semibold text-red-600 hover:bg-red-100 disabled:opacity-40">
             <Trash2 className="h-4 w-4" /> Remove
           </button>
         </div>
@@ -265,7 +265,7 @@ function StockLevels({ token, warehouses }: { token: string; warehouses: Wh[] })
         <button onClick={seed} disabled={busy || !wh} className="flex h-9 items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-bold text-blue-700 hover:bg-blue-100 disabled:opacity-50" title="Create missing rows from live product stock">
           <Database className="h-3.5 w-3.5" /> Seed from stock
         </button>
-        <button onClick={save} disabled={busy || !wh || Object.keys(edits).length === 0} className="flex h-9 items-center gap-1.5 rounded-lg bg-black px-3 text-xs font-black text-yellow-400 hover:bg-gray-800 disabled:opacity-40">
+        <button onClick={save} disabled={busy || !wh || Object.keys(edits).length === 0} className="flex h-9 items-center gap-1.5 rounded-lg bg-black px-3 text-xs font-semibold text-yellow-400 hover:bg-gray-800 disabled:opacity-40">
           <Save className="h-3.5 w-3.5" /> Save changes
         </button>
       </ModuleHeader>
@@ -281,7 +281,7 @@ function StockLevels({ token, warehouses }: { token: string; warehouses: Wh[] })
       {wh && (
         <div className="overflow-x-auto rounded-xl border bg-white">
           <table className="w-full text-xs">
-            <thead className="bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-500">
+            <thead className="bg-gray-50 text-left text-[12px] font-medium text-gray-500">
               <tr>
                 <th className="px-3 py-2.5">Product</th>
                 <th className="px-3 py-2.5">SKU</th>
@@ -406,7 +406,7 @@ function TransferStock({ token, warehouses }: { token: string; warehouses: Wh[] 
       {/* picker */}
       <div className="space-y-3">
         <div className="rounded-xl border bg-white p-4">
-          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-gray-600">Move stock — single product or bulk list</p>
+          <p className="mb-3 text-xs font-semibold text-gray-600">Move stock — single product or bulk list</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-[11px] font-semibold text-gray-600">From warehouse *</label>
@@ -454,7 +454,7 @@ function TransferStock({ token, warehouses }: { token: string; warehouses: Wh[] 
 
           {/* picked rows */}
           <div className="mt-3">
-            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-500">Transfer list ({Object.keys(picked).length})</p>
+            <p className="mb-1.5 text-[11px] font-semibold text-gray-500">Transfer list ({Object.keys(picked).length})</p>
             {Object.keys(picked).length === 0 ? (
               <p className="rounded-lg border border-dashed p-4 text-center text-xs text-gray-400">Search and add products — set the quantity to move.</p>
             ) : (
@@ -484,7 +484,7 @@ function TransferStock({ token, warehouses }: { token: string; warehouses: Wh[] 
             <button
               onClick={execute}
               disabled={busy || !Object.keys(picked).length}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-black py-2.5 text-xs font-black uppercase tracking-wide text-yellow-400 hover:bg-gray-800 disabled:opacity-40"
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-black py-2.5 text-xs font-semibold text-yellow-400 hover:bg-gray-800 disabled:opacity-40"
             >
               <ArrowRightLeft className="h-4 w-4" /> Execute transfer
             </button>
@@ -494,7 +494,7 @@ function TransferStock({ token, warehouses }: { token: string; warehouses: Wh[] 
 
       {/* history */}
       <div className="rounded-xl border bg-white">
-        <p className="flex items-center gap-1.5 border-b bg-gray-50 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-gray-600">
+        <p className="flex items-center gap-1.5 border-b bg-gray-50 px-4 py-2.5 text-xs font-semibold text-gray-600">
           <History className="h-3.5 w-3.5" /> Transfer history
         </p>
         <div className="max-h-[64vh] overflow-y-auto">
@@ -504,7 +504,7 @@ function TransferStock({ token, warehouses }: { token: string; warehouses: Wh[] 
             history.map((tr) => (
               <div key={tr.id} className="border-b px-4 py-3 text-xs last:border-0">
                 <div className="flex items-center justify-between">
-                  <p className="font-black text-gray-900">{tr.code}</p>
+                  <p className="font-semibold text-gray-900">{tr.code}</p>
                   <p className="text-[10px] text-gray-400">{new Date(tr.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</p>
                 </div>
                 <p className="mt-0.5 flex items-center gap-1 text-[11px] font-semibold text-gray-700">

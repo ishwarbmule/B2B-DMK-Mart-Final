@@ -117,10 +117,10 @@ export function api(token: string) {
 
 export function ModuleHeader({ title, sub, children }: { title: string; sub?: string; children?: React.ReactNode }) {
   return (
-    <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+    <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 className="text-lg font-black text-gray-900">{title}</h1>
-        {sub && <p className="text-xs text-gray-500">{sub}</p>}
+        <h1 className="text-[20px] font-semibold leading-tight tracking-[-0.01em] text-gray-900">{title}</h1>
+        {sub && <p className="mt-1 text-[13px] text-gray-500">{sub}</p>}
       </div>
       <div className="flex flex-wrap items-center gap-2">{children}</div>
     </div>
@@ -133,17 +133,15 @@ export function StatCard({ icon: Icon, label, value, sub, color = "#111", extra 
   extra?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border bg-white p-4">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${color}18`, color }}>
+    <div className="rounded-xl border border-gray-200 bg-white p-5">
+      <div className="flex items-start justify-between gap-2">
+        <p className="truncate text-[12px] text-gray-500">{label}</p>
         {/* icon is optional — a null icon must never crash the module (financial section outage) */}
-        {Icon ? <Icon className="h-5 w-5" /> : <span className="text-sm font-black">₹</span>}
+        {Icon ? <Icon className="h-4 w-4 shrink-0 text-gray-400" /> : null}
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-gray-500">{label}</p>
-        <p className="text-lg font-black leading-tight text-gray-900">{value}</p>
-        {sub && <p className="truncate text-[10px] text-gray-400">{sub}</p>}
-      </div>
-      {extra != null && <div className="shrink-0 self-start">{extra}</div>}
+      <p className="mt-2 text-[26px] font-semibold leading-none tracking-[-0.01em] tabular-nums text-gray-900">{value}</p>
+      {sub && <p className="mt-2 truncate text-[12px] text-gray-400">{sub}</p>}
+      {extra != null && <div className="mt-2">{extra}</div>}
     </div>
   );
 }
@@ -165,17 +163,17 @@ export function Toggle({ checked, onChange, disabled }: { checked: boolean; onCh
 
 export function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    APPROVED: "bg-emerald-50 text-emerald-700", PENDING: "bg-orange-50 text-orange-600",
-    REJECTED: "bg-red-50 text-red-600", COMPLETED: "bg-emerald-50 text-emerald-700",
-    CANCELLED: "bg-red-50 text-red-600", PAID: "bg-emerald-50 text-emerald-700",
-    DELIVERED: "bg-emerald-50 text-emerald-700", PACKED: "bg-blue-50 text-blue-600",
-    DISPATCHED: "bg-indigo-50 text-indigo-600", REQUESTED: "bg-orange-50 text-orange-600",
+    APPROVED: "bg-emerald-50 text-emerald-700", PENDING: "bg-orange-50 text-orange-700",
+    REJECTED: "bg-red-50 text-red-700", COMPLETED: "bg-emerald-50 text-emerald-700",
+    CANCELLED: "bg-red-50 text-red-700", PAID: "bg-emerald-50 text-emerald-700",
+    DELIVERED: "bg-emerald-50 text-emerald-700", PACKED: "bg-blue-50 text-blue-700",
+    DISPATCHED: "bg-indigo-50 text-indigo-700", REQUESTED: "bg-orange-50 text-orange-700",
     REFUNDED: "bg-emerald-50 text-emerald-700", ACTIVE: "bg-emerald-50 text-emerald-700",
     INACTIVE: "bg-gray-100 text-gray-500",
   };
   return (
-    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${map[status] || "bg-gray-100 text-gray-600"}`}>
-      {status.replace(/_/g, " ")}
+    <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${map[status] || "bg-gray-100 text-gray-600"}`}>
+      {status.replace(/_/g, " ").toLowerCase()}
     </span>
   );
 }
@@ -448,30 +446,30 @@ export function CrudModule({
   return (
     <div>
       <ModuleHeader title={title} sub={sub}>
-        <button onClick={load} className="flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-xs font-semibold hover:bg-gray-50">
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
+        <button onClick={load} className="flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-[13px] font-medium text-gray-700 transition-colors hover:bg-gray-50">
+          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
         </button>
-        <button onClick={openAdd} className="flex items-center gap-1.5 rounded-lg bg-black px-3 py-2 text-xs font-bold text-yellow-400 hover:bg-gray-800">
-          <Plus className="h-4 w-4" /> Add New
+        <button onClick={openAdd} className="flex h-9 items-center gap-1.5 rounded-lg bg-black px-4 text-[13px] font-semibold text-yellow-400 transition-colors hover:bg-gray-900">
+          <Plus className="h-4 w-4" /> Add
         </button>
       </ModuleHeader>
 
-      <div className="mb-3 flex items-center gap-2">
+      <div className="mb-3 flex items-center gap-3">
         <div className="relative w-full max-w-xs">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" className="h-9 w-full rounded-lg border border-gray-200 pl-8 pr-3 text-xs outline-none focus:border-yellow-400" />
+          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search" className="h-9 w-full rounded-lg border border-gray-200 pl-8 pr-3 text-[13px] outline-none transition-colors focus:border-gray-400" />
         </div>
-        <span className="text-[11px] text-gray-400">{filtered.length} records</span>
+        <span className="text-[12px] tabular-nums text-gray-400">{filtered.length} records</span>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border bg-white">
-        <table className="w-full text-left text-xs">
+      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+        <table className="w-full text-left text-[13px] tabular-nums">
           <thead>
-            <tr className="border-b bg-gray-50 text-[10px] uppercase tracking-wide text-gray-500">
-              <th className="px-3 py-2.5 font-bold">#</th>
-              {tableImage && <th className="px-3 py-2.5 font-bold">Image</th>}
-              {columns.map((c) => <th key={c.key} className="px-3 py-2.5 font-bold">{c.label}</th>)}
-              <th className="px-3 py-2.5 text-right font-bold">Actions</th>
+            <tr className="border-b border-gray-200 bg-gray-50 text-[12px] font-medium text-gray-500">
+              <th className="px-3 py-2.5">#</th>
+              {tableImage && <th className="px-3 py-2.5">Image</th>}
+              {columns.map((c) => <th key={c.key} className="px-3 py-2.5">{c.label}</th>)}
+              <th className="px-3 py-2.5 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -481,7 +479,7 @@ export function CrudModule({
               <tr><td colSpan={columns.length + 3} className="px-3 py-10 text-center text-gray-400">No records found</td></tr>
             ) : (
               pageRows.map((row, i) => (
-                <tr key={String(row.id)} className="border-b last:border-0 hover:bg-yellow-50/40">
+                <tr key={String(row.id)} className="border-b border-gray-100 last:border-0 transition-colors hover:bg-gray-50">
                   <td className="px-3 py-2.5 text-gray-400">{(page - 1) * perPage + i + 1}</td>
                   {tableImage && (
                     <td className="px-3 py-2.5">
@@ -494,8 +492,8 @@ export function CrudModule({
                   <td className="px-3 py-2.5">
                     <div className="flex items-center justify-end gap-1.5">
                       {extraActions?.(row, load)}
-                      <button onClick={() => openEdit(row)} className="rounded-md bg-blue-50 p-1.5 text-blue-600 hover:bg-blue-100" aria-label="Edit"><Pencil className="h-3.5 w-3.5" /></button>
-                      <button onClick={() => remove(row)} className="rounded-md bg-red-50 p-1.5 text-red-600 hover:bg-red-100" aria-label="Delete"><Trash2 className="h-3.5 w-3.5" /></button>
+                      <button onClick={() => openEdit(row)} className="rounded-md border border-gray-200 p-1.5 text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-800" aria-label="Edit"><Pencil className="h-3.5 w-3.5" /></button>
+                      <button onClick={() => remove(row)} className="rounded-md border border-red-100 p-1.5 text-red-500 transition-colors hover:bg-red-50" aria-label="Delete"><Trash2 className="h-3.5 w-3.5" /></button>
                     </div>
                   </td>
                 </tr>
@@ -517,8 +515,8 @@ export function CrudModule({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEditing(null)}>
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-base font-black">{editing.id ? `Edit ${title.replace(/Management|s$/g, "")}` : `Add ${title.replace(/Management|s$/g, "")}`}</h3>
-              <button onClick={() => setEditing(null)} aria-label="Close"><X className="h-5 w-5 text-gray-400" /></button>
+              <h3 className="text-[15px] font-semibold text-gray-900">{editing.id ? `Edit ${title.replace(/Management|s$/g, "")}` : `Add ${title.replace(/Management|s$/g, "")}`}</h3>
+              <button onClick={() => setEditing(null)} aria-label="Close"><X className="h-4 w-4 text-gray-400 transition-colors hover:text-gray-700" /></button>
             </div>
             <div className="space-y-3">
               {fields.map((f) => (
@@ -558,9 +556,9 @@ export function CrudModule({
               ))}
             </div>
             <div className="mt-5 flex justify-end gap-2">
-              <button onClick={() => setEditing(null)} className="rounded-lg border px-4 py-2 text-xs font-semibold">Cancel</button>
-              <button onClick={save} disabled={saving} className="flex items-center gap-1.5 rounded-lg bg-black px-4 py-2 text-xs font-bold text-yellow-400 disabled:opacity-50">
-                {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />} {editing.id ? "Save Changes" : "Create"}
+              <button onClick={() => setEditing(null)} className="h-9 rounded-lg border border-gray-200 px-4 text-[13px] font-medium text-gray-700 transition-colors hover:bg-gray-50">Cancel</button>
+              <button onClick={save} disabled={saving} className="flex h-9 items-center gap-1.5 rounded-lg bg-black px-4 text-[13px] font-semibold text-yellow-400 transition-colors hover:bg-gray-900 disabled:opacity-50">
+                {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />} {editing.id ? "Save changes" : "Create"}
               </button>
             </div>
           </div>

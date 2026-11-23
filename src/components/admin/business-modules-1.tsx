@@ -38,7 +38,7 @@ function DeltaBadge({ value }: { value: number }) {
   if (!value) return null;
   const up = value > 0;
   return (
-    <span className={`rounded-md px-1.5 py-0.5 text-[9px] font-black ${up ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}`}>
+    <span className={`rounded-md px-1.5 py-0.5 text-[9px] font-semibold ${up ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}`}>
       {up ? "▲" : "▼"} {Math.abs(value)}%
     </span>
   );
@@ -91,7 +91,7 @@ export function DashboardModule({ token }: { token: string }) {
       <ModuleHeader title="Dashboard" sub={`${data.window.label} · sales, pipeline, payments & ERP sync — everything at a glance`}>
         <div className="flex overflow-hidden rounded-lg border">
           {[7, 30, 90].map((d) => (
-            <button key={d} onClick={() => setWin(d)} className={`px-3 py-1.5 text-[10px] font-black uppercase ${win === d ? "bg-black text-yellow-400" : "bg-white text-gray-500 hover:bg-gray-50"}`}>
+            <button key={d} onClick={() => setWin(d)} className={`px-3 py-1.5 text-[10px] font-semibold uppercase ${win === d ? "bg-black text-yellow-400" : "bg-white text-gray-500 hover:bg-gray-50"}`}>
               {d}d
             </button>
           ))}
@@ -167,7 +167,7 @@ export function DashboardModule({ token }: { token: string }) {
           <div className="grid grid-cols-3 gap-1.5 md:grid-cols-6">
             {PIPELINE.map(([id, label, color]) => (
               <div key={id} className="rounded-lg border p-2 text-center">
-                <p className="text-sm font-black" style={{ color }}>{data.statusCounts[id] ?? 0}</p>
+                <p className="text-sm font-semibold" style={{ color }}>{data.statusCounts[id] ?? 0}</p>
                 <p className="text-[9px] font-semibold uppercase text-gray-400">{label}</p>
               </div>
             ))}
@@ -184,8 +184,8 @@ export function DashboardModule({ token }: { token: string }) {
                   <p className="text-[10px] text-gray-400">{o.invoiceNo || "—"} · {new Date(o.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} · {o.source === "WEB" ? "Website" : o.source === "SALESTEAM" ? "Sales team" : o.source}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-black ${o.status === "DELIVERED" ? "bg-emerald-50 text-emerald-600" : o.status === "CANCELLED" ? "bg-gray-100 text-gray-500" : o.status === "PENDING" ? "bg-red-50 text-red-600" : "bg-blue-50 text-blue-600"}`}>{o.status}</span>
-                  <span className="font-black">{formatINR(o.grandTotal)}</span>
+                  <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${o.status === "DELIVERED" ? "bg-emerald-50 text-emerald-600" : o.status === "CANCELLED" ? "bg-gray-100 text-gray-500" : o.status === "PENDING" ? "bg-red-50 text-red-600" : "bg-blue-50 text-blue-600"}`}>{o.status}</span>
+                  <span className="font-semibold">{formatINR(o.grandTotal)}</span>
                 </div>
               </div>
             ))}
@@ -201,13 +201,13 @@ export function DashboardModule({ token }: { token: string }) {
           <div className="space-y-2">
             {data.topProducts.map((p, i) => (
               <div key={p.id} className="flex items-center gap-2.5 rounded-lg border p-2">
-                <span className="w-5 text-center text-xs font-black text-gray-300">{i + 1}</span>
+                <span className="w-5 text-center text-xs font-semibold text-gray-300">{i + 1}</span>
                 {p.image && <Image src={p.image} alt="" width={32} height={32} className="h-8 w-8 rounded object-cover" unoptimized />}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-bold">{p.name}</p>
                   <p className="text-[10px] text-gray-400">{p.sku} · {p.brand} · {p.pieces} pcs in {p.orders} orders</p>
                 </div>
-                <p className="text-xs font-black">{formatINR(p.revenue)}</p>
+                <p className="text-xs font-semibold">{formatINR(p.revenue)}</p>
               </div>
             ))}
             {!data.topProducts.length && <p className="py-6 text-center text-xs text-gray-400">No sales data yet.</p>}
@@ -224,7 +224,7 @@ export function DashboardModule({ token }: { token: string }) {
                     <p className="text-[10px] text-gray-400">{o.type} · {o.headline}</p>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    {o.heroSlot && <span className="rounded bg-yellow-100 px-1.5 py-0.5 text-[9px] font-black text-yellow-800">HERO</span>}
+                    {o.heroSlot && <span className="rounded bg-yellow-100 px-1.5 py-0.5 text-[9px] font-semibold text-yellow-800">HERO</span>}
                     <StatusBadge status={o.active ? "ACTIVE" : "INACTIVE"} />
                   </div>
                 </div>
@@ -382,7 +382,7 @@ export function CustomersModule({ token }: { token: string }) {
 
       <div className="overflow-x-auto rounded-xl border bg-white">
         <table className="w-full text-xs">
-          <thead className="bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-500">
+          <thead className="bg-gray-50 text-left text-[12px] font-medium text-gray-500">
             <tr>
               <th className="px-3 py-2.5">Business</th>
               <th className="px-3 py-2.5">Type / Tier</th>
@@ -405,7 +405,7 @@ export function CustomersModule({ token }: { token: string }) {
                 </td>
                 <td className="px-3 py-2.5">
                   <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold">{String(c.customerType)}</span>
-                  <span className="ml-1 rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-black text-yellow-800">{String(c.tier).toUpperCase()}</span>
+                  <span className="ml-1 rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-semibold text-yellow-800">{String(c.tier).toUpperCase()}</span>
                 </td>
                 <td className="px-3 py-2.5">
                   <p>{String(c.phone)}</p>
@@ -440,7 +440,7 @@ export function CustomersModule({ token }: { token: string }) {
                 <tr className="bg-emerald-50/50">
                   <td colSpan={7} className="px-4 pb-4 pt-1">
                     <div className="rounded-xl border border-emerald-200 bg-white p-3">
-                      <p className="mb-2 flex items-center gap-2 text-xs font-black text-gray-900">
+                      <p className="mb-2 flex items-center gap-2 text-xs font-semibold text-gray-900">
                         <MessageCircle className="h-4 w-4 text-emerald-600" /> Send WhatsApp to {String(c.shopName || c.name)}
                         <span className="ml-auto rounded-full bg-gray-100 px-2 py-0.5 text-[9px] font-bold text-gray-500">{String(c.phone)}</span>
                       </p>
@@ -451,7 +451,7 @@ export function CustomersModule({ token }: { token: string }) {
                         <button onClick={() => sendCustomerOtp(c, "LOGIN")} disabled={waBusy} className="rounded-lg border px-3 py-1.5 text-[10px] font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50">
                           Login OTP
                         </button>
-                        {waCode && <span className="rounded-md bg-yellow-100 px-2 py-1 font-mono text-[11px] font-black tracking-widest text-black">CODE {waCode}</span>}
+                        {waCode && <span className="rounded-md bg-yellow-100 px-2 py-1 font-mono text-[11px] font-semibold tracking-widest text-black">CODE {waCode}</span>}
                         {waNote && <span className="text-[10px] font-semibold text-emerald-700">{waNote}</span>}
                       </div>
                       <textarea
@@ -622,7 +622,7 @@ export function PricingModule({ token }: { token: string }) {
           </div>
           <div className="flex gap-2">
             <button onClick={doPreview} disabled={busy} className="flex-1 rounded-xl border py-2.5 text-xs font-bold hover:bg-gray-50 disabled:opacity-50">Preview</button>
-            <button onClick={doApply} disabled={busy || !preview} className="flex-1 rounded-xl bg-black py-2.5 text-xs font-bold text-yellow-400 disabled:opacity-50">Apply</button>
+            <button onClick={doApply} disabled={busy || !preview} className="flex-1 rounded-lg bg-black py-2.5 text-xs font-bold text-yellow-400 disabled:opacity-50">Apply</button>
           </div>
         </div>
 
@@ -749,7 +749,7 @@ export function CompanyProductsModule({ token }: { token: string }) {
       ) : (
         <div className="overflow-x-auto rounded-xl border bg-white">
           <table className="w-full text-xs">
-            <thead className="bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-500">
+            <thead className="bg-gray-50 text-left text-[12px] font-medium text-gray-500">
               <tr>
                 <th className="px-3 py-2.5">Product</th>
                 <th className="px-3 py-2.5 text-right">Price</th>
@@ -777,7 +777,7 @@ export function CompanyProductsModule({ token }: { token: string }) {
                   <td className="px-3 py-2 text-right text-gray-500">{formatINR(r.mrp)}</td>
                   <td className={`px-3 py-2 text-right ${r.stock <= 10 ? "font-semibold text-red-500" : ""}`}>{r.stock}</td>
                   <td className="px-3 py-2">
-                    <div className="flex gap-1 text-[9px] font-black">
+                    <div className="flex gap-1 text-[9px] font-semibold">
                       {r.isTop && <span className="rounded bg-emerald-600 px-1.5 py-0.5 text-white">TOP</span>}
                       {r.isFeatured && <span className="rounded bg-yellow-400 px-1.5 py-0.5 text-black">FEAT</span>}
                       {r.isHot && <span className="rounded bg-orange-500 px-1.5 py-0.5 text-white">HOT</span>}

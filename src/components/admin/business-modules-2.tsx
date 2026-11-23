@@ -136,7 +136,7 @@ export function FinancialModule({ token }: { token: string }) {
                 <tr key={r.source} className="border-t">
                   <td className="px-2 py-2 font-bold">{r.source === "WEB" ? "Website" : r.source === "SALESTEAM" ? "Sales Team" : r.source === "ERP" ? "ERP Sync" : "POS Counter"}</td>
                   <td className="px-2 py-2 text-right">{r.count} orders</td>
-                  <td className="px-2 py-2 text-right font-black">{formatINR(r.amount)}</td>
+                  <td className="px-2 py-2 text-right font-semibold">{formatINR(r.amount)}</td>
                 </tr>
               ))}
             </tbody>
@@ -275,7 +275,7 @@ export function ReportsModule({ token }: { token: string }) {
           <p className="px-4 py-10 text-center text-sm text-gray-400">No data for this range.</p>
         ) : (
           <table className="w-full text-[11px]">
-            <thead className="bg-gray-50 text-left text-[9px] uppercase tracking-wide text-gray-500">
+            <thead className="bg-gray-50 text-left text-[12px] font-medium text-gray-500">
               <tr>{data.columns.map((c) => <th key={c} className="whitespace-nowrap px-2.5 py-2">{c}</th>)}</tr>
             </thead>
             <tbody>
@@ -429,7 +429,7 @@ export function WebsiteModule({ token }: { token: string }) {
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setEditing(null)}>
           <div className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5" onClick={(e) => e.stopPropagation()}>
-            <p className="text-base font-black">Edit Canvas — {String(editing.title)}</p>
+            <p className="text-base font-semibold">Edit Canvas — {String(editing.title)}</p>
             <p className="mb-3 text-[11px] text-gray-500">Page blocks (JSON). Each block: {"{ id, type, visible, headline, sub, text, bg, textColor }"}</p>
             <textarea value={blocksText} onChange={(e) => setBlocksText(e.target.value)} className="h-80 w-full rounded-xl border p-3 font-mono text-[11px]" spellCheck={false} />
             <div className="mt-3 flex justify-end gap-2">
@@ -533,7 +533,7 @@ export function StorefrontsModule({ token }: { token: string }) {
                   onClick={() => setLayout(l.id)}
                   className={`rounded-xl border-2 p-3 text-left transition ${layout === l.id ? "border-yellow-400 bg-yellow-50" : "border-gray-100 hover:border-gray-300"}`}
                 >
-                  <p className="text-[11px] font-black">{l.id}. {l.name}</p>
+                  <p className="text-[11px] font-semibold">{l.id}. {l.name}</p>
                   <p className="mt-0.5 text-[9px] leading-tight text-gray-400">{l.desc}</p>
                 </button>
               ))}
@@ -568,7 +568,7 @@ export function StorefrontsModule({ token }: { token: string }) {
               ))}
             </div>
             <div className="mt-3 flex gap-2">
-              <button onClick={save} disabled={saving || !activeSlug} className="rounded-xl bg-black px-5 py-2.5 text-xs font-bold text-yellow-400 disabled:opacity-50">{saving ? "Saving…" : "Save & Publish Storefront"}</button>
+              <button onClick={save} disabled={saving || !activeSlug} className="rounded-lg bg-black px-5 py-2.5 text-xs font-bold text-yellow-400 disabled:opacity-50">{saving ? "Saving…" : "Save & Publish Storefront"}</button>
               {activeSlug && (
                 <a href={`/brand/${activeSlug}`} target="_blank" rel="noopener noreferrer" className="rounded-xl border px-5 py-2.5 text-xs font-bold hover:bg-gray-50">Preview Live →</a>
               )}
@@ -667,7 +667,7 @@ export function HomeEditorModule({ token }: { token: string }) {
       <ModuleHeader title="Homepage Editor" sub="Visual canvas — reorder, hide/show and retitle every homepage section, with live preview">
         <div className="flex overflow-hidden rounded-lg border">
           {(["desktop", "mobile"] as const).map((d) => (
-            <button key={d} onClick={() => setDevice(d)} className={`px-3 py-1.5 text-[10px] font-black uppercase ${device === d ? "bg-black text-yellow-400" : "bg-white text-gray-500 hover:bg-gray-50"}`}>{d}</button>
+            <button key={d} onClick={() => setDevice(d)} className={`px-3 py-1.5 text-[10px] font-semibold uppercase ${device === d ? "bg-black text-yellow-400" : "bg-white text-gray-500 hover:bg-gray-50"}`}>{d}</button>
           ))}
         </div>
         <button onClick={() => setPreviewKey((k) => k + 1)} className="flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold hover:bg-gray-50">
@@ -688,12 +688,12 @@ export function HomeEditorModule({ token }: { token: string }) {
             return (
               <div key={s.id} className={`rounded-xl border bg-white p-3 transition ${hidden ? "opacity-55" : ""}`}>
                 <div className="flex items-center gap-2">
-                  <span className="rounded-md bg-gray-100 px-1.5 py-0.5 text-[9px] font-black text-gray-400">{i + 1}</span>
-                  <p className="text-xs font-black text-gray-900">{def.label}</p>
+                  <span className="rounded-md bg-gray-100 px-1.5 py-0.5 text-[9px] font-semibold text-gray-400">{i + 1}</span>
+                  <p className="text-xs font-semibold text-gray-900">{def.label}</p>
                   <div className="ml-auto flex items-center gap-1">
                     <button onClick={() => move(i, -1)} disabled={i === 0} title="Move up" className="rounded border px-1.5 py-0.5 text-[10px] font-bold disabled:opacity-30 hover:bg-gray-50">↑</button>
                     <button onClick={() => move(i, 1)} disabled={i === sections.length - 1} title="Move down" className="rounded border px-1.5 py-0.5 text-[10px] font-bold disabled:opacity-30 hover:bg-gray-50">↓</button>
-                    <button onClick={() => toggle(i)} title={hidden ? "Show section" : "Hide section"} className={`rounded-md border px-2 py-0.5 text-[9px] font-black uppercase ${hidden ? "border-red-200 bg-red-50 text-red-600" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
+                    <button onClick={() => toggle(i)} title={hidden ? "Show section" : "Hide section"} className={`rounded-md border px-2 py-0.5 text-[9px] font-semibold uppercase ${hidden ? "border-red-200 bg-red-50 text-red-600" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
                       {hidden ? "Hidden" : "Visible"}
                     </button>
                   </div>

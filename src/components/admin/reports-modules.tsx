@@ -63,14 +63,14 @@ export function MonitoringModule({ token }: { token: string }) {
           ["Company Share Leaders", s.topCompanies[0]?.name ?? "—"],
         ].map(([label, value]) => (
           <div key={label} className="rounded-xl border bg-white p-3">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{label}</p>
-            <p className="mt-0.5 truncate text-sm font-black">{value}</p>
+            <p className="text-[12px] font-medium text-gray-500">{label}</p>
+            <p className="mt-0.5 truncate text-sm font-semibold">{value}</p>
           </div>
         ))}
       </div>
 
       <div className="rounded-xl border bg-white p-4">
-        <h3 className="mb-3 text-sm font-black">Revenue Trend (14 days)</h3>
+        <h3 className="mb-3 text-sm font-semibold">Revenue Trend (14 days)</h3>
         <ResponsiveContainer width="100%" height={240}>
           <LineChart data={s.revenueSeries}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
@@ -84,7 +84,7 @@ export function MonitoringModule({ token }: { token: string }) {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border bg-white p-4">
-          <h3 className="mb-3 text-sm font-black">Revenue by Company</h3>
+          <h3 className="mb-3 text-sm font-semibold">Revenue by Company</h3>
           <ResponsiveContainer width="100%" height={260}>
             <PieChart>
               <Pie data={s.topCompanies.slice(0, 8)} dataKey="revenue" nameKey="name" innerRadius={55} outerRadius={90} paddingAngle={2}>
@@ -96,7 +96,7 @@ export function MonitoringModule({ token }: { token: string }) {
           </ResponsiveContainer>
         </div>
         <div className="rounded-xl border bg-white p-4">
-          <h3 className="mb-3 text-sm font-black">Order Channel Mix</h3>
+          <h3 className="mb-3 text-sm font-semibold">Order Channel Mix</h3>
           <ResponsiveContainer width="100%" height={260}>
             <PieChart>
               <Pie data={sourceMap} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90}>
@@ -180,7 +180,7 @@ export function CompanyOrdersModule({ token }: { token: string }) {
                 <td className="px-3 py-2 font-semibold">{r.name}</td>
                 <td className="px-3 py-2">{r.orders}</td>
                 <td className="px-3 py-2">{r.items}</td>
-                <td className="px-3 py-2 font-black">{formatINR(r.revenue)}</td>
+                <td className="px-3 py-2 font-semibold">{formatINR(r.revenue)}</td>
               </tr>
             ))}
             {!loading && !rows.length && <tr><td colSpan={5} className="py-10 text-center text-gray-400">No order data in range</td></tr>}
@@ -221,7 +221,7 @@ export function ReferOrdersModule({ token }: { token: string }) {
                 <td className="px-3 py-2 font-mono">{o.invoiceNo}</td>
                 <td className="px-3 py-2 font-semibold">{o.customerName}</td>
                 <td className="px-3 py-2">{o.salesPerson || <span className="text-gray-300">— unassigned —</span>}</td>
-                <td className="px-3 py-2 font-black">{formatINR(o.grandTotal)}</td>
+                <td className="px-3 py-2 font-semibold">{formatINR(o.grandTotal)}</td>
                 <td className="px-3 py-2"><StatusBadge status={o.status} /></td>
               </tr>
             ))}
@@ -262,7 +262,7 @@ export function TripPlannerModule({ token }: { token: string }) {
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {Array.from(byCity.entries()).map(([city, list]) => (
             <div key={city} className="rounded-xl border bg-white p-4">
-              <p className="flex items-center gap-1.5 text-sm font-black"><MapPin className="h-4 w-4 text-yellow-600" /> {city}</p>
+              <p className="flex items-center gap-1.5 text-sm font-semibold"><MapPin className="h-4 w-4 text-yellow-600" /> {city}</p>
               <p className="text-[11px] text-gray-400">{list.length} orders · {formatINR(list.reduce((s, o) => s + o.grandTotal, 0))}</p>
               <div className="mt-2 space-y-1.5">
                 {list.map((o) => (

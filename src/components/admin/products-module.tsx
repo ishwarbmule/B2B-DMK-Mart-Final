@@ -49,7 +49,7 @@ function Field({ label, hint, children, span }: { label: string; hint?: string; 
   return (
     <label className={`block ${span ? "col-span-2" : ""}`}>
       <span className="mb-1 flex items-baseline gap-1.5">
-        <span className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{label}</span>
+        <span className="text-[12px] font-medium text-gray-500">{label}</span>
         {hint && <span className="text-[9px] text-gray-400">{hint}</span>}
       </span>
       {children}
@@ -62,8 +62,8 @@ function Section({ n, title, sub, children }: { n: number; title: string; sub?: 
   return (
     <div className="rounded-xl border border-gray-100 p-3">
       <p className="mb-2.5 flex items-center gap-2">
-        <span className="flex h-[18px] w-[18px] items-center justify-center rounded bg-black text-[10px] font-black text-yellow-400">{n}</span>
-        <span className="text-[11px] font-black uppercase tracking-wide text-gray-700">{title}</span>
+        <span className="flex h-[18px] w-[18px] items-center justify-center rounded bg-black text-[10px] font-semibold text-yellow-400">{n}</span>
+        <span className="text-[12px] font-medium text-gray-600">{title}</span>
         {sub && <span className="text-[9px] font-semibold text-gray-400">{sub}</span>}
       </p>
       {children}
@@ -435,13 +435,13 @@ export function ProductsModule({ token }: { token: string }) {
 
       {/* bulk toolbar */}
       <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-yellow-300 bg-yellow-50 p-2.5">
-        <span className="text-[11px] font-black uppercase tracking-wide text-gray-600">Bulk set {selIds.length > 0 ? `(${selIds.length} selected)` : "(select rows below)"} →</span>
+        <span className="text-[12px] font-medium text-gray-500">Bulk set {selIds.length > 0 ? `(${selIds.length} selected)` : "(select rows below)"} →</span>
         {FLAGS.map((f) => (
           <div key={f.key} className="flex items-center gap-1 rounded-lg border bg-white px-2 py-1">
             <f.icon className="h-3.5 w-3.5 text-yellow-600" />
             <span className="text-[11px] font-bold">{f.label}</span>
-            <button onClick={() => bulkFlag(f.key, true)} className="rounded bg-emerald-500 px-1.5 py-0.5 text-[10px] font-black text-white">ON</button>
-            <button onClick={() => bulkFlag(f.key, false)} className="rounded bg-gray-200 px-1.5 py-0.5 text-[10px] font-black text-gray-600">OFF</button>
+            <button onClick={() => bulkFlag(f.key, true)} className="rounded bg-emerald-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">ON</button>
+            <button onClick={() => bulkFlag(f.key, false)} className="rounded bg-gray-200 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600">OFF</button>
           </div>
         ))}
         <button onClick={bulkDelete} className="ml-auto flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2 py-1 text-[11px] font-bold text-red-600 hover:bg-red-50">
@@ -452,7 +452,7 @@ export function ProductsModule({ token }: { token: string }) {
       {/* table */}
       <div className="overflow-x-auto rounded-xl border bg-white">
         <table className="w-full text-xs">
-          <thead className="bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-500">
+          <thead className="bg-gray-50 text-left text-[12px] font-medium text-gray-500">
             <tr>
               <th className="px-2 py-2.5"><input type="checkbox" checked={rows.length > 0 && selIds.length === rows.length} onChange={(e) => setSel(Object.fromEntries(rows.map((r) => [r.id, e.target.checked])))} /></th>
               <th className="px-2 py-2.5">Product</th>
@@ -502,7 +502,7 @@ export function ProductsModule({ token }: { token: string }) {
                           fetch("/api/admin/products/flags", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ ids: [r.id], flag: f.key, value: !r[f.key] }) })
                             .then(() => { toast.success(`${r.sku} ${f.label} ${r[f.key] ? "off" : "on"}`); load(); })
                         }
-                        className={`flex h-6 w-6 items-center justify-center rounded-md text-[9px] font-black ${r[f.key] ? `${f.cls} text-white` : "bg-gray-100 text-gray-300"}`}
+                        className={`flex h-6 w-6 items-center justify-center rounded-md text-[9px] font-semibold ${r[f.key] ? `${f.cls} text-white` : "bg-gray-100 text-gray-300"}`}
                       >
                         <f.icon className="h-3 w-3" />
                       </button>
@@ -541,7 +541,7 @@ export function ProductsModule({ token }: { token: string }) {
           <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-5" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <p className="text-base font-black">Add Products</p>
+                <p className="text-base font-semibold">Add Products</p>
                 <p className="text-[11px] text-gray-400">All required details · images stored on Cloudinary · organised as per categories</p>
               </div>
               <button onClick={() => setAddOpen(false)}><X className="h-5 w-5" /></button>
@@ -755,7 +755,7 @@ export function ProductsModule({ token }: { token: string }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setEditRow(null)}>
           <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3 flex items-center justify-between">
-              <p className="text-base font-black">Edit — {String(editRow.sku)}</p>
+              <p className="text-base font-semibold">Edit — {String(editRow.sku)}</p>
               <button onClick={() => setEditRow(null)}><X className="h-5 w-5" /></button>
             </div>
             <div className="mb-3 grid grid-cols-3 gap-2">
@@ -839,7 +839,7 @@ export function ProductsModule({ token }: { token: string }) {
             {/* gallery editor */}
             <div className="mt-2 rounded-xl border border-gray-100 p-2.5">
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Gallery ({editGallery.length}/10)</p>
+                <p className="text-[12px] font-medium text-gray-500">Gallery ({editGallery.length}/10)</p>
                 <label className={`flex h-7 cursor-pointer items-center gap-1 rounded-lg border px-2 text-[11px] font-bold ${uploading ? "opacity-50" : ""}`}>
                   <Images className="h-3 w-3 text-yellow-600" /> Add images
                   <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { if (e.target.files?.length) uploadGalleryFiles(e.target.files, "edit"); e.target.value = ""; }} />
@@ -884,7 +884,7 @@ export function ProductsModule({ token }: { token: string }) {
           <div className="w-full max-w-lg rounded-2xl bg-white p-5" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <p className="text-base font-black">Import Excel — update by SKU</p>
+                <p className="text-base font-semibold">Import Excel — update by SKU</p>
                 <p className="text-[11px] text-gray-500">Same SKU → product details updated · new SKU → added as new product</p>
               </div>
               <button onClick={() => { if (!importBusy) setImportOpen(false); }}><X className="h-5 w-5" /></button>
