@@ -95,6 +95,12 @@ export function ErpDirectModule({ token }: { token: string }) {
   const [browser, setBrowser] = useState<{ columns: string[]; rows: Record<string, unknown>[]; total: number; page: number; table: string } | null>(null);
   const [bq, setBq] = useState("");
 
+  // godown scope — WHICH ERP warehouses feed the site (products + stock)
+  const [whSel, setWhSel] = useState<{ id: string; code: string; name: string; active: boolean; stockRows: number }[]>([]);
+  const [whCodes, setWhCodes] = useState<string[]>([]);
+  const [whPick, setWhPick] = useState<Set<string>>(new Set());
+  const [savingWh, setSavingWh] = useState(false);
+
   // ── loaders ──
   const loadStatus = useCallback(() => {
     call("/api/admin/erp-direct/status").then(setStatus).catch((e) => toast.error(e instanceof Error ? e.message : "Status failed"));
@@ -104,8 +110,17 @@ export function ErpDirectModule({ token }: { token: string }) {
       .then((d) => setTables(d.tables ?? []))
       .catch((e) => toast.error(e instanceof Error ? e.message : "Could not list ERP tables"));
   }, [call]);
+  const loadSelection = useCallback(() => {
+    call("/api/admin/erp-direct/selection")
+      .then((d) => {
+        setWhSel(d.warehouses ?? []);
+        setWhCodes(d.codes ?? []);
+        setWhPick(new Set(d.codes ?? []));
+      })
+      .catch(() => {});
+  }, [call]);
 
-  useEffect(() => { loadStatus(); loadTables(); }, [loadStatus, loadTables]);
+  useEffect(() => { loadStatus(); loadTables(); loadSelection(); }, [loadStatus, loadTables, loadSelection]);
 
   const loadEntityMapping = useCallback((ent: EntityId, suggestTable?: string) => {
     const qs = suggestTable ? `&suggestTable=${encodeURIComponent(suggestTable)}` : "";
@@ -167,6 +182,18 @@ export function ErpDirectModule({ token }: { token: string }) {
     const cur = new Set(mapping.columns ?? []);
     if (cur.has(col)) cur.delete(col); else cur.add(col);
     setMapping({ ...mapping, columns: [...cur] });
+  };
+
+  const saveSelection = async () => {
+    setSavingWh(true);
+    try {
+      await call("/api/admin/erp-direct/selection", { method: "POST", body: JSON.stringify({ codes: [...whPick] }) });
+      setWhCodes([...whPick]);
+      toast.success(whPick.size ? `Sync scope saved — ${whPick.size} godown${whPick.size > 1 ? "s" : ""}` : "Scope cleared — all godowns will sync");
+      loadStatus();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Save failed");
+    } finally { setSavingWh(false); }
   };
 
   const resyncNow = async () => {
@@ -248,6 +275,49 @@ export function ErpDirectModule({ token }: { token: string }) {
           Last full product pull: {new Date(status.cursor.lastFullAt).toLocaleString()} · last tick: {status.cursor.lastTickAt ? new Date(status.cursor.lastTickAt).toLocaleString() : "—"}
         </p>
       )}
+
+      {/* step 1 — godown scope: WHICH warehouses feed the site */}
+      <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4">
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-[15px] font-semibold text-gray-900">Step 1 — Pick the warehouses to sync</h2>
+            <p className="mt-0.5 text-[13px] text-gray-500">Products and stock are pulled only for the godowns you tick. Nothing selected means all godowns sync.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[12px] tabular-nums text-gray-400">
+              {whCodes.length ? `${whCodes.length} of ${whSel.length} selected` : "all godowns (no filter)"}
+            </span>
+            <Button size="sm" onClick={saveSelection} disabled={savingWh || !whSel.length}>
+              {savingWh ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save scope
+            </Button>
+          </div>
+        </div>
+        {whSel.length ? (
+          <div className={`mt-3 grid max-h-44 gap-1 overflow-y-auto rounded-lg border border-gray-200 p-2 sm:grid-cols-2 lg:grid-cols-4 ${slimScroll}`}>
+            {whSel.map((w) => (
+              <label key={w.id} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[13px] transition-colors hover:bg-gray-50">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-black"
+                  checked={whPick.has(w.code)}
+                  onChange={() => {
+                    const next = new Set(whPick);
+                    if (next.has(w.code)) next.delete(w.code); else next.add(w.code);
+                    setWhPick(next);
+                  }}
+                />
+                <span className="min-w-0 flex-1 truncate" title={`${w.name} (${w.code})`}>{w.name}</span>
+                <span className="shrink-0 text-[11px] tabular-nums text-gray-400">{w.stockRows}</span>
+                {!w.active && <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">off</span>}
+              </label>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-3 rounded-lg bg-gray-50 p-3 text-[13px] text-gray-500">
+            No ERP godowns mirrored yet — map the Warehouses table below and run a sync once; the godown list will appear here.
+          </p>
+        )}
+      </div>
 
       {/* entity tabs */}
       <div className="mb-3 flex flex-wrap gap-2">

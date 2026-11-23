@@ -17,6 +17,7 @@ type Row = Record<string, unknown> & {
   syncSource: string;
   top: { id: string; name: string }; mid: { id: string; name: string }; end: { id: string; name: string };
   unit: string; gst: number; weightGrams: number; lowStockThreshold: number; damagedStock: number; gallery: string;
+  warehouseStocks?: { qty: number; updatedAt: string }[];
 };
 
 type CompanyOpt = { name: string; count: number };
@@ -103,6 +104,9 @@ export function ProductsModule({ token }: { token: string }) {
   const [editTopId, setEditTopId] = useState("");
   const [editMidId, setEditMidId] = useState("");
   const [editEndId, setEditEndId] = useState("");
+  // warehouse-oriented management: manage products per godown
+  const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>([]);
+  const [whFilter, setWhFilter] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -114,6 +118,7 @@ export function ProductsModule({ token }: { token: string }) {
       if (status) params.set("status", status);
       if (catTop) params.set("top", catTop);
       if (catEnd) params.set("end", catEnd);
+      if (whFilter) params.set("warehouseId", whFilter);
       const d = await call(`/api/admin/products?${params}`);
       setRows(d.rows ?? []);
       setTotal(d.total ?? 0);
@@ -125,11 +130,12 @@ export function ProductsModule({ token }: { token: string }) {
       setLoading(false);
     }
 
-  }, [token, page, q, company, flag, status, catTop, catEnd]);
+  }, [token, page, q, company, flag, status, catTop, catEnd, whFilter]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
     call("/api/admin/products/companies").then((d) => setCompanies(d.companies ?? [])).catch(() => {});
+    call("/api/admin/crud/warehouses").then((d) => setWarehouses((d.rows ?? []).map((r: Record<string, unknown>) => ({ id: String(r.id), name: String(r.name) })))).catch(() => {});
     call("/api/admin/crud/tops").then((d) => setTops((d.rows ?? []).map((r: Record<string, unknown>) => ({ id: String(r.id), name: String(r.name) })))).catch(() => {});
     // all end categories (with their department) — powers the category filter in the toolbar
     call("/api/admin/crud/ends").then((d) =>
@@ -410,6 +416,10 @@ export function ProductsModule({ token }: { token: string }) {
           <option value="">All Companies</option>
           {companies.map((c) => <option key={c.name} value={c.name}>{c.name} ({c.count})</option>)}
         </select>
+        <select value={whFilter} onChange={(e) => { setWhFilter(e.target.value); setPage(1); }} className="h-9 max-w-[200px] rounded-lg border text-xs">
+          <option value="">All Warehouses</option>
+          {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+        </select>
         <select value={catTop} onChange={(e) => { setCatTop(e.target.value); setCatEnd(""); setPage(1); }} className="h-9 rounded-lg border text-xs">
           <option value="">All Departments</option>
           {tops.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -461,7 +471,7 @@ export function ProductsModule({ token }: { token: string }) {
               <th className="px-2 py-2.5 text-right">Cost</th>
               <th className="px-2 py-2.5 text-right">Price</th>
               <th className="px-2 py-2.5 text-right">MRP</th>
-              <th className="px-2 py-2.5 text-right">Stock</th>
+              <th className="px-2 py-2.5 text-right">{whFilter ? "Godown qty" : "Stock"}</th>
               <th className="px-2 py-2.5">Sections</th>
               <th className="px-2 py-2.5">Live</th>
               <th className="px-2 py-2.5"></th>
@@ -491,7 +501,9 @@ export function ProductsModule({ token }: { token: string }) {
                 <td className="px-2 py-2 text-right text-gray-500">{formatINR(r.purchaseCost)}</td>
                 <td className="px-2 py-2 text-right font-bold">{formatINR(r.dealerPrice)}</td>
                 <td className="px-2 py-2 text-right text-gray-500">{formatINR(r.mrp)}</td>
-                <td className={`px-2 py-2 text-right font-semibold ${r.stock <= 10 ? "text-red-500" : ""}`}>{r.stock}</td>
+                <td className={`px-2 py-2 text-right font-semibold ${r.stock <= 10 ? "text-red-500" : ""}`}>
+                  {whFilter ? (r.warehouseStocks?.[0]?.qty ?? 0) : r.stock}
+                </td>
                 <td className="px-2 py-2">
                   <div className="flex gap-1">
                     {FLAGS.map((f) => (

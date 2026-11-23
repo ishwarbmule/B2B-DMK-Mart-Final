@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
   const top = sp.get("top") || "";
   const mid = sp.get("mid") || "";
   const end = sp.get("end") || "";
+  const warehouseId = sp.get("warehouseId") || ""; // warehouse-oriented management: only products stocked at this godown
   const page = Math.max(1, parseInt(sp.get("page") || "1"));
   const limit = Math.min(100, Math.max(5, parseInt(sp.get("limit") || "20")));
 
@@ -41,6 +42,7 @@ export async function GET(req: NextRequest) {
   if (status === "active") where.active = true;
   if (status === "inactive") where.active = false;
   if (status === "lowstock") where.stock = { lte: 10 };
+  if (warehouseId) where.warehouseStocks = { some: { warehouseId } };
 
   const [total, rows] = await Promise.all([
     db.product.count({ where }),
@@ -54,6 +56,7 @@ export async function GET(req: NextRequest) {
         top: { select: { id: true, name: true } },
         mid: { select: { id: true, name: true } },
         end: { select: { id: true, name: true } },
+        ...(warehouseId ? { warehouseStocks: { where: { warehouseId }, select: { qty: true, updatedAt: true } } } : {}),
       },
     }),
   ]);

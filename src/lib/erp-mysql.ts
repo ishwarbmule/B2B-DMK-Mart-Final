@@ -183,7 +183,7 @@ export async function countErpTable(table: string): Promise<number> {
 export async function fetchErpPage(
   table: string,
   columns: string[],
-  opts: { limit?: number; offset?: number; orderBy?: string; searchCol?: string; search?: string } = {}
+  opts: { limit?: number; offset?: number; orderBy?: string; searchCol?: string; search?: string; extraWhere?: string; extraParams?: unknown[] } = {}
 ): Promise<Record<string, unknown>[]> {
   const t = assertIdentifier(table);
   const cols = columns.length ? columns.map(assertIdentifier) : ["*"];
@@ -193,11 +193,17 @@ export async function fetchErpPage(
   const colList = cols.includes("*") ? "*" : cols.map((c) => "`" + c + "`").join(", ");
   let sql = `SELECT ${colList} FROM \`${t}\``;
   const params: unknown[] = [];
+  const wheres: string[] = [];
   if (opts.searchCol && opts.search) {
     const sc = assertIdentifier(opts.searchCol);
-    sql += ` WHERE CAST(\`${sc}\` AS CHAR) LIKE ?`;
+    wheres.push(`CAST(\`${sc}\` AS CHAR) LIKE ?`);
     params.push(`%${opts.search}%`);
   }
+  // extraWhere is generated internally (assertIdentifier-checked columns only)
+  // with bound params — the ERP stays strictly read-only
+  if (opts.extraWhere) wheres.push(opts.extraWhere);
+  if (wheres.length) sql += ` WHERE ${wheres.join(" AND ")}`;
+  if (opts.extraParams?.length) params.push(...opts.extraParams);
   if (opts.orderBy) sql += ` ORDER BY \`${assertIdentifier(opts.orderBy)}\``;
   sql += ` LIMIT ${limit} OFFSET ${offset}`;
   const [rows] = await p.query<mysql.RowDataPacket[]>(sql, params);

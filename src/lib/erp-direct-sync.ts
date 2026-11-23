@@ -58,6 +58,7 @@ export type StockMapping = {
 
 const KEY_PRODUCTS = "erp_map_products";
 const KEY_WAREHOUSES = "erp_map_warehouses";
+const KEY_SELECTED_WAREHOUSES = "erp_sync_selected_warehouses";
 const KEY_STOCK = "erp_map_stock";
 
 export async function getProductsMapping(): Promise<ProductMapping | null> {
@@ -74,6 +75,46 @@ export async function getStockMapping(): Promise<StockMapping | null> {
   const raw = await getSetting(KEY_STOCK, "");
   if (!raw) return null;
   try { return JSON.parse(raw) as StockMapping; } catch { return null; }
+}
+
+/**
+ * Sync scope — which ERP godowns (warehouses) feed the website. Persisted as a
+ * Setting (NO new tables). Empty list / unset = ALL godowns (legacy behaviour).
+ * Products sync only pulls SKUs that have rows in the selected godowns' stock
+ * table; stock sync only pulls rows of the selected godowns. The ERP stays
+ * strictly read-only: bound-parameter WHERE on SELECTs only.
+ */
+export async function getSelectedWarehouseCodes(): Promise<string[]> {
+  try {
+    const raw = await getSetting(KEY_SELECTED_WAREHOUSES, "");
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.map(String).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveSelectedWarehouseCodes(codes: string[]): Promise<void> {
+  const clean = [...new Set((codes || []).map((c) => String(c).trim()).filter(Boolean))];
+  await setSetting(KEY_SELECTED_WAREHOUSES, JSON.stringify(clean));
+}
+
+/** WHERE fragment limiting an ERP read to the selected godowns; null = no filter. */
+async function selectedGodownWhere(
+  godownCol: string,
+  opts?: { viaStockTable?: { table: string; skuCol: string } }
+): Promise<{ whereSql: string; params: unknown[] } | null> {
+  const codes = await getSelectedWarehouseCodes();
+  if (!codes.length) return null;
+  const col = assertIdentifier(godownCol);
+  const marks = codes.map(() => "?").join(", ");
+  if (opts?.viaStockTable) {
+    const tbl = assertIdentifier(opts.viaStockTable.table);
+    const skuCol = assertIdentifier(opts.viaStockTable.skuCol);
+    return { whereSql: `\`${col}\` IN (SELECT \`${skuCol}\` FROM \`${tbl}\` WHERE \`${col}\` IN (${marks}))`, params: codes };
+  }
+  return { whereSql: `\`${col}\` IN (${marks})`, params: codes };
 }
 
 export async function saveProductsMapping(m: ProductMapping): Promise<void> {
@@ -293,7 +334,16 @@ export async function syncProductsPage(pageSize = 300, offsetOverride?: number):
   const allCols = [...new Set([m.skuCol, m.nameCol, m.companyCol, m.mrpCol, m.rateCol, m.costCol, m.deliveryRateCol,
     m.stockCol, m.imageCol, m.activeCol, m.unitCol, m.packQtyCol, m.hsnCol, m.gstCol, m.barcodeCol, m.weightCol,
     m.piecesPerBoxCol, m.tier1Col, m.tier2Col, m.tier3Col, m.tier4Col, m.tier5Col, ...(m.columns || [])].filter(Boolean) as string[])];
-  const rows = await fetchErpPage(m.table, allCols, { limit: pageSize, offset, orderBy: m.skuCol });
+  // godown scope: when the admin picked specific warehouses, only pull SKUs that
+  // exist in those godowns (read-only subquery through the stock mapping table)
+  const smForScope = await getStockMapping();
+  const scope = smForScope
+    ? await selectedGodownWhere(smForScope.warehouseCodeCol, { viaStockTable: { table: smForScope.table, skuCol: smForScope.skuCol } })
+    : null;
+  const rows = await fetchErpPage(m.table, allCols, {
+    limit: pageSize, offset, orderBy: m.skuCol,
+    ...(scope ? { extraWhere: scope.whereSql, extraParams: scope.params } : {}),
+  });
 
   const result: SyncPageResult = { seen: rows.length, created: 0, updated: 0, skipped: 0, offset, done: rows.length < pageSize, errors: [] };
 
@@ -532,9 +582,13 @@ async function fetchStockJoined(sm: StockMapping): Promise<Record<string, unknow
   let sql = `SELECT ${sel.join(", ")} FROM \`${sm.table}\` s`;
   if (sm.skuJoin) sql += ` JOIN \`${sm.skuJoin.table}\` j1 ON j1.\`${sm.skuJoin.idCol}\` = s.\`${sm.skuCol}\``;
   if (sm.warehouseJoin) sql += ` JOIN \`${sm.warehouseJoin.table}\` j2 ON j2.\`${sm.warehouseJoin.idCol}\` = s.\`${sm.warehouseCodeCol}\``;
+  // godown scope: only the selected godowns' stock rows
+  const scope = await selectedGodownWhere(sm.warehouseCodeCol);
+  const params: unknown[] = [];
+  if (scope) { sql += ` WHERE ${scope.whereSql}`; params.push(...scope.params); }
   sql += ` LIMIT 5000`;
   assertReadOnly(sql);
-  const [rows] = await p.query(sql);
+  const [rows] = await p.query(sql, params);
   return rows as Record<string, unknown>[];
 }
 
@@ -544,9 +598,14 @@ export async function syncStock(): Promise<{ rows: number; stocksUpserted: numbe
   const pm = await getProductsMapping();
   if (!sm) throw new Error("Stock mapping not configured — tick columns in Admin → ERP Data first");
   const allCols = [...new Set([sm.skuCol, sm.warehouseCodeCol, sm.qtyCol, ...(sm.columns || [])].filter(Boolean) as string[])];
+  // godown scope: only stock rows of the warehouses the admin picked
+  const scope = await selectedGodownWhere(sm.warehouseCodeCol);
   const rows = (sm.skuJoin || sm.warehouseJoin)
     ? await fetchStockJoined(sm)
-    : await fetchErpPage(sm.table, allCols, { limit: 5000, orderBy: sm.skuCol });
+    : await fetchErpPage(sm.table, allCols, {
+        limit: 5000, orderBy: sm.skuCol,
+        ...(scope ? { extraWhere: scope.whereSql, extraParams: scope.params } : {}),
+      });
   const result = { rows: rows.length, stocksUpserted: 0, productsUpdated: 0, missing: 0, errors: [] as string[] };
 
   const warehouses = await db.warehouse.findMany({ where: { source: "ERP" }, select: { id: true, code: true } });
