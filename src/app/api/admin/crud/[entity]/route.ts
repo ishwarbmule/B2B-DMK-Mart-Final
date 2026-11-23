@@ -13,6 +13,9 @@ interface EntityDef {
   nameField: string;
   include?: AnyRec;
   orderBy?: AnyRec;
+  /** Optional list filter — warehouses use it to hide godowns the admin
+   *  unticked in Data Sync (they must not appear anywhere in the panel). */
+  where?: AnyRec;
 }
 
 const ENTITIES: Record<string, EntityDef> = {
@@ -34,7 +37,12 @@ const ENTITIES: Record<string, EntityDef> = {
   users: { model: "adminUser", label: "User", nameField: "fullName", orderBy: { createdAt: "desc" } },
   brands: { model: "brand", label: "Brand", nameField: "name", include: { _count: { select: { products: true } } }, orderBy: [{ isFeatured: "desc" }, { sortOrder: "asc" }] },
   pages: { model: "page", label: "Page", nameField: "title", orderBy: { sortOrder: "asc" } },
-  warehouses: { model: "warehouse", label: "Warehouse", nameField: "name", orderBy: [{ isDefault: "desc" }, { sortOrder: "asc" }], include: { _count: { select: { stocks: true } } } },
+  warehouses: {
+    model: "warehouse", label: "Warehouse", nameField: "name",
+    orderBy: [{ isDefault: "desc" }, { sortOrder: "asc" }], include: { _count: { select: { stocks: true } } },
+    // only godowns the admin still shows: ticked ERP ones + every LOCAL one
+    where: { OR: [{ active: true }, { source: { not: "ERP" } }] },
+  },
   seoMeta: { model: "seoMeta", label: "SEO Meta", nameField: "path", orderBy: { path: "asc" } },
   purchases: { model: "purchase", label: "Purchase", nameField: "ref", orderBy: { createdAt: "desc" } },
   returns: { model: "returnRequest", label: "Return", nameField: "orderId", orderBy: { createdAt: "desc" } },
@@ -133,6 +141,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ entity: str
   try {
     const d = def(entity);
     const rows = await (db as never as AnyRec)[d.model].findMany({
+      where: d.where,
       include: d.include,
       orderBy: d.orderBy ?? { createdAt: "desc" },
     });

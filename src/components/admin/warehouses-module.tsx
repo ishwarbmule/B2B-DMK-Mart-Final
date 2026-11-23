@@ -2,10 +2,11 @@
 
 /**
  * Warehouses module — Super Admin CRUD for godowns.
- * ERP godowns mirror themselves on Inventory Sync → Re-sync now (source "ERP");
- * anything created here stays "LOCAL". "View Products" opens a read-only
- * snapshot of that warehouse's WarehouseStock ⋈ Product rows — quantities
- * themselves are edited in the Warehouse Stock module.
+ * Only in-scope godowns appear: ERP warehouses the admin ticked in Data Sync
+ * (unticked ones are hidden everywhere — the wizard owns their visibility) plus
+ * LOCAL godowns created here. "View Products" opens a read-only snapshot of
+ * that warehouse's WarehouseStock ⋈ Product rows — quantities themselves are
+ * edited in the Warehouse Stock module.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
@@ -128,7 +129,7 @@ export function WarehousesModule({ token }: { token: string }) {
 
   return (
     <div>
-      <ModuleHeader title="Warehouses" sub="ERP godowns mirror automatically on Inventory Sync → Re-sync now. LOCAL godowns are managed here.">
+      <ModuleHeader title="Warehouses" sub="Only the warehouses ticked in Data Sync are listed — unticked ones stay off the site. Godowns you add here are LOCAL.">
         <button onClick={load} className="flex h-11 items-center gap-1.5 rounded-lg border bg-white px-3 text-xs font-semibold hover:bg-gray-50">
           <RefreshCcw className={`h-3.5 w-3.5 ${whs === null ? "animate-spin" : ""}`} /> Refresh
         </button>
@@ -143,7 +144,7 @@ export function WarehousesModule({ token }: { token: string }) {
         </div>
       ) : whs.length === 0 ? (
         <div className="rounded-xl border border-dashed bg-white p-10 text-center text-sm text-gray-400">
-          No warehouses yet — press “Add Warehouse” for a LOCAL godown, or run Inventory Sync → Re-sync now to mirror ERP godowns.
+          No warehouses yet — tick warehouses in Data Sync → Update Products, or press “Add Warehouse” to create a LOCAL godown.
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -158,10 +159,10 @@ export function WarehousesModule({ token }: { token: string }) {
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                     {w.code && <span className="rounded bg-gray-900 px-1.5 py-0.5 font-mono text-[10px] font-bold text-yellow-400">{w.code}</span>}
                     {w.source === "ERP"
-                      ? <Badge className="border-transparent bg-black px-1.5 text-[10px] text-yellow-400">ERP</Badge>
+                      ? <Badge className="border-transparent bg-black px-1.5 text-[10px] text-yellow-400">SYNCED</Badge>
                       : <Badge variant="outline" className="border-gray-300 px-1.5 text-[10px] text-gray-500">LOCAL</Badge>}
                     {w.isDefault && <Badge className="border-transparent bg-yellow-400 px-1.5 text-[10px] text-black"><Star className="h-3 w-3" /> DEFAULT</Badge>}
-                    {!w.active && <Badge variant="outline" className="border-red-200 px-1.5 text-[10px] text-red-600">INACTIVE</Badge>}
+                    {!w.active && w.source !== "ERP" && <Badge variant="outline" className="border-red-200 px-1.5 text-[10px] text-red-600">INACTIVE</Badge>}
                   </div>
                 </div>
                 {w.source === "LOCAL" && w.productCount === 0 && (
@@ -195,15 +196,22 @@ export function WarehousesModule({ token }: { token: string }) {
                 </button>
               </div>
 
-              <label className="mt-1.5 flex min-h-[44px] cursor-pointer items-center justify-between rounded-lg px-1 text-[11px] font-bold text-gray-500">
-                <span>{w.active ? "Active" : "Inactive"}</span>
-                <Switch
-                  checked={w.active}
-                  onCheckedChange={() => toggleActive(w)}
-                  aria-label={`Toggle ${w.name}`}
-                  className="data-[state=checked]:bg-yellow-400 data-[state=unchecked]:bg-gray-300"
-                />
-              </label>
+              {w.source === "LOCAL" && (
+                <label className="mt-1.5 flex min-h-[44px] cursor-pointer items-center justify-between rounded-lg px-1 text-[11px] font-bold text-gray-500">
+                  <span>{w.active ? "Active" : "Inactive"}</span>
+                  <Switch
+                    checked={w.active}
+                    onCheckedChange={() => toggleActive(w)}
+                    aria-label={`Toggle ${w.name}`}
+                    className="data-[state=checked]:bg-yellow-400 data-[state=unchecked]:bg-gray-300"
+                  />
+                </label>
+              )}
+              {w.source === "ERP" && (
+                <p className="mt-1.5 flex min-h-[44px] items-center rounded-lg px-1 text-[11px] font-semibold text-gray-400">
+                  Showing on the site — manage in Data Sync
+                </p>
+              )}
             </div>
           ))}
         </div>
@@ -217,9 +225,9 @@ export function WarehousesModule({ token }: { token: string }) {
             <DialogDescription className="text-[11px] text-gray-400">
               {editing
                 ? editing.source === "ERP"
-                  ? "ERP godown — mirrored from the inventory server; local edits stay until the next sync."
+                  ? "Synced godown — shown because it is ticked in Data Sync. Show/hide is managed there; local edits stay until the next update."
                   : "LOCAL godown — managed entirely here."
-                : "Creates a LOCAL godown. ERP godowns arrive automatically on Inventory Sync."}
+                : "Creates a LOCAL godown. Other godowns arrive when you tick them in Data Sync."}
             </DialogDescription>
           </DialogHeader>
 

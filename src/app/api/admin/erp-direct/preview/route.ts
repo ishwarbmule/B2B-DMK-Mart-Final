@@ -46,7 +46,8 @@ export async function GET(req: Request) {
         select: productSelect,
       }),
       db.warehouse.findMany({
-        where: { source: "ERP" },
+        // only godowns currently shown — unticked ones never render anywhere
+        where: { source: "ERP", active: true },
         orderBy: [{ active: "desc" }, { name: "asc" }],
         select: { id: true, name: true, city: true, active: true, _count: { select: { stocks: true } } },
       }),

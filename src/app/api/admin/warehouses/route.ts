@@ -50,9 +50,15 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // list — counts via relation _count, totals via one groupBy aggregate
+  // list — only in-scope godowns. ERP rows the admin unticked in Data Sync are
+  // hidden entirely (never shown as "INACTIVE" — the wizard owns their visibility);
+  // admin-created LOCAL godowns always appear so they stay manageable.
   const [warehouses, totals] = await Promise.all([
-    db.warehouse.findMany({ orderBy: [{ isDefault: "desc" }, { name: "asc" }], include: { _count: { select: { stocks: true } } } }),
+    db.warehouse.findMany({
+      where: { OR: [{ active: true }, { source: { not: "ERP" } }] },
+      orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+      include: { _count: { select: { stocks: true } } },
+    }),
     db.warehouseStock.groupBy({ by: ["warehouseId"], _sum: { qty: true } }),
   ]);
   const totalMap = new Map(totals.map((t) => [t.warehouseId, t._sum.qty ?? 0]));
