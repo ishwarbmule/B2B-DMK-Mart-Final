@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { customerFromReq } from "@/lib/customer-auth";
 import { rankWarehouses } from "@/lib/geo";
-import { GUEST_TIER } from "@/lib/pricing";
+import { GUEST_TIER, locationPriceFor } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -63,10 +63,12 @@ export async function GET(req: NextRequest) {
   const customerId = customerFromReq(req);
   let buyerTier = GUEST_TIER; // logged-out visitors see wholesale (tier2) piece prices
   let buyerWarehouseName = "";
+  let buyerCity: string | null = null;
   if (customerId) {
     const cust = await db.customer.findUnique({ where: { id: customerId }, select: { city: true, pincode: true, tier: true } });
     if (cust) {
       buyerTier = /^tier[1-5]$/.test(cust.tier) ? cust.tier : GUEST_TIER;
+      buyerCity = cust.city?.trim() || null;
       if (!warehouseId && !allWarehouses && !includeInactive && (cust.city || cust.pincode)) {
         const whs = await db.warehouse.findMany({
           where: { active: true },
@@ -120,10 +122,13 @@ export async function GET(req: NextRequest) {
 
   // Buyer-safe payload whitelist: purchase cost and live stock NEVER leave the admin panel
   // (Task 12g + Task 15). Tiers + packPrice ride along for the client-side slab pricing engine.
+  // Location pricing: the logged-in buyer's city override rides as locPrice (all other
+  // cities' overrides stay server-side).
   const safe = products.map((p) => ({
     id: p.id, sku: p.sku, slug: p.slug, name: p.name,
     dealerPrice: p.dealerPrice, basePrice: p.basePrice, mrp: p.mrp,
     tier1: p.tier1, tier2: p.tier2, tier3: p.tier3, tier4: p.tier4, tier5: p.tier5,
+    ...(buyerCity ? { locPrice: locationPriceFor(p.locationPrices, buyerCity) } : {}),
     packPrice: p.packPrice, packQty: p.packQty, piecesPerBox: p.piecesPerBox, unit: p.unit,
     barcode: p.barcode, gst: p.gst, image: p.image,
     isHot: p.isHot, isTop: p.isTop, isFeatured: p.isFeatured, isDeal: p.isDeal, dealPrice: p.dealPrice,

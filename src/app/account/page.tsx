@@ -14,6 +14,7 @@ import { useHydrated } from "@/hooks/use-hydrated";
 import { formatINR } from "@/lib/store";
 import { clearCustomerToken, getCustomerToken, setCustomerToken } from "@/lib/customer-session";
 import { useCustomerSession } from "@/lib/customer-client";
+import { MAHARASHTRA_GROUPS } from "@/lib/maharashtra";
 import { Checkbox } from "@/components/ui/checkbox";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
@@ -517,7 +518,14 @@ function AccountInner() {
                     <div className="mb-2.5 grid grid-cols-2 gap-2">
                       <div>
                         <label className={LABEL} htmlFor="pf-city">City</label>
-                        <input id="pf-city" value={profile.city} onChange={(e) => setProfile((f) => ({ ...f, city: e.target.value }))} className={INPUT} />
+                        <select id="pf-city" value={profile.city} onChange={(e) => setProfile((f) => ({ ...f, city: e.target.value }))} className={INPUT}>
+                          <option value="">Select your city / town</option>
+                          {MAHARASHTRA_GROUPS.map((g) => (
+                            <optgroup key={g.label} label={g.label}>
+                              {g.locations.map((c) => <option key={c} value={c}>{c}</option>)}
+                            </optgroup>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <label className={LABEL} htmlFor="pf-pincode">Pincode</label>
@@ -716,7 +724,14 @@ function AccountInner() {
                   <div className="mb-2.5 grid grid-cols-2 gap-2">
                     <div>
                       <label className={LABEL} htmlFor="reg-city">City / Town *</label>
-                      <input id="reg-city" value={reg.city} onChange={(e) => setReg((f) => ({ ...f, city: e.target.value }))} placeholder="e.g. Shrirampur" className={regErrors.city ? INPUT.replace("border-gray-300", "border-red-400") : INPUT} />
+                      <select id="reg-city" value={reg.city} onChange={(e) => setReg((f) => ({ ...f, city: e.target.value }))} className={regErrors.city ? INPUT.replace("border-gray-300", "border-red-400") : INPUT}>
+                        <option value="">Select your city / town</option>
+                        {MAHARASHTRA_GROUPS.map((g) => (
+                          <optgroup key={g.label} label={`${g.label} — ${g.hint}`}>
+                            {g.locations.map((c) => <option key={c} value={c}>{c}</option>)}
+                          </optgroup>
+                        ))}
+                      </select>
                       {regErrors.city && <p className="mt-0.5 text-[11px] text-red-500">{regErrors.city}</p>}
                     </div>
                     <div>

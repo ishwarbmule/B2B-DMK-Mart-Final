@@ -121,6 +121,9 @@ model Product {
   gallery           String      @default("[]")
   description       String      @default("")
 
+  // location-wise pricing (city/town → override) — JSON {"City": {"d": dealerPrice, "m": mrp}}; admin-only bulk tool writes it
+  locationPrices  String      @default("{}")
+
   // SEO
   seoTitle          String      @default("")
   seoDesc           String      @default("")

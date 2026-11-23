@@ -12,7 +12,7 @@ import { db } from "@/lib/db";
 import { customerFromReq } from "@/lib/customer-auth";
 import { smsTemplates } from "@/lib/sms";
 import { notifyCustomer } from "@/lib/whatsapp";
-import { GUEST_TIER, piecesForUnit, unitPriceForLine, round2, isFulfillment, type Fulfillment } from "@/lib/pricing";
+import { GUEST_TIER, piecesForUnit, unitPriceForLine, round2, isFulfillment, locationPriceFor, type Fulfillment } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -137,7 +137,9 @@ export async function POST(req: NextRequest) {
       const p = map.get(it.id);
       if (!p) continue;
       const ppu = piecesForUnit(it.unitType, p.packQty, p.piecesPerBox);
-      let unitPrice = unitPriceForLine(p, priceTier, it.unitType, fulfillment);
+      // buyer-city location override (admin location pricing) — wins over slabs
+      const locPrice = locationPriceFor(p.locationPrices, cust.city);
+      let unitPrice = unitPriceForLine({ ...p, locPrice }, priceTier, it.unitType, fulfillment);
       // deal price override (single pieces only, both fulfillment modes)
       if (p.isDeal && p.dealPrice > 0 && it.unitType === "SINGLE") unitPrice = p.dealPrice;
       // mega offer discount on eligible scope

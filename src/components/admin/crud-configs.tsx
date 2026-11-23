@@ -1,4 +1,5 @@
 import type { FieldDef, ColumnDef } from "./ui-bits";
+import { MAHARASHTRA_LOCATIONS } from "@/lib/maharashtra";
 
 /* Field + column configs for every generic CRUD module in the Super Admin Portal */
 
@@ -365,7 +366,7 @@ export const CONFIGS: Record<
       { key: "name", label: "Name", type: "text" },
       { key: "phone", label: "Phone", type: "text" },
       { key: "email", label: "Email", type: "text", required: false },
-      { key: "city", label: "City", type: "text", required: false },
+      { key: "city", label: "City / Town (Maharashtra — drives location pricing)", type: "select", options: MAHARASHTRA_LOCATIONS, required: false },
       { key: "status", label: "Status (PENDING / APPROVED / SUSPENDED)", type: "text", required: false },
       { key: "tier", label: "Price Tier (tier1..tier4)", type: "text", required: false },
       { key: "creditBalance", label: "Credit Balance ₹ (out-of-stock credits)", type: "number", required: false },

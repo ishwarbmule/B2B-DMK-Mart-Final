@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { staffIdentity } from "@/lib/staff-auth";
-import { piecesForUnit, unitPriceForLine, round2, isFulfillment, type Fulfillment } from "@/lib/pricing";
+import { piecesForUnit, unitPriceForLine, round2, isFulfillment, locationPriceFor, type Fulfillment } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -106,7 +106,9 @@ export async function POST(req: NextRequest) {
       const p = map.get(it.id);
       if (!p) continue;
       const ppu = piecesForUnit(it.unitType, p.packQty, p.piecesPerBox);
-      const unitPrice = unitPriceForLine(p, priceTier, it.unitType, fulfillment);
+      // buyer-city location override (admin location pricing) — wins over slabs
+      const locPrice = locationPriceFor(p.locationPrices, cust.city);
+      const unitPrice = unitPriceForLine({ ...p, locPrice }, priceTier, it.unitType, fulfillment);
       lines.push({
         productId: p.id, sku: p.sku, name: p.name, image: p.image, unitType: it.unitType,
         packQty: ppu, qty: it.qty, pieces: it.qty * ppu, unitPrice, gst: p.gst, hsn: p.hsn,

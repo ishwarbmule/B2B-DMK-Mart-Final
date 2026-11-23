@@ -13,14 +13,15 @@ import { piecePriceOf } from "@/lib/pricing";
 
 export function toCartItem(p: DProduct, unitType: UnitType = "SINGLE"): CartItem {
   // Task 15: cart lines carry the BUYER'S slab price (guests → wholesale tier2).
-  // Server recomputes authoritative pricing at order time.
+  // Location pricing: server ships the buyer-city override as p.locPrice; server
+  // recomputes authoritative pricing (with the same override) at order time.
   const piece = piecePriceOf(p, currentTier());
   return {
     id: p.id, sku: p.sku, name: p.name, brand: p.brand?.name ?? "", image: p.image,
     slug: p.slug ?? "", packQty: p.packQty ?? 1, piecesPerBox: p.piecesPerBox ?? 0,
     price: p.dealPrice && p.dealPrice > 0 && p.isDeal ? p.dealPrice : piece,
     packPrice: p.packPrice ?? 0,
-    mrp: p.mrp, gst: p.gst, unitType, qty: 1,
+    mrp: p.locPrice?.mrp ?? p.mrp, gst: p.gst, unitType, qty: 1,
   };
 }
 
@@ -96,7 +97,7 @@ export function ProductCard({ p }: { p: DProduct }) {
   const packPerPc = p.packPrice && p.packPrice > 0 && (p.packQty ?? 0) > 0
     ? Math.round((p.packPrice / (p.packQty ?? 1)) * 100) / 100
     : Math.round(priceShown * 0.94 * 100) / 100;
-  const disc = discountPct(p.mrp, priceShown);
+  const disc = discountPct(p.locPrice?.mrp ?? p.mrp, priceShown);
   const href = p.slug ? `/product/${p.slug}` : "#";
 
   return (
@@ -162,7 +163,7 @@ export function ProductCard({ p }: { p: DProduct }) {
           <div className="flex items-baseline gap-1.5">
             <span className="text-lg font-extrabold tracking-tight text-gray-900 sm:text-xl">{formatINR(priceShown)}</span>
             <span className="text-[11px] font-semibold text-gray-400">/pc</span>
-            {p.mrp > priceShown && <span className="text-xs font-medium text-gray-400 line-through">{formatINR(p.mrp)}</span>}
+            {(p.locPrice?.mrp ?? p.mrp) > priceShown && <span className="text-xs font-medium text-gray-400 line-through">{formatINR(p.locPrice?.mrp ?? p.mrp)}</span>}
             {hydrated && loaded && sessionTier && sessionTier !== "tier2" && (
               <span className="ml-auto rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-700">Your slab</span>
             )}
@@ -235,7 +236,7 @@ export function ProductCardMini({ p }: { p: DProduct }) {
     const piece = piecePriceOf(p, currentTier());
     return p.isDeal && !!p.dealPrice && p.dealPrice > 0 ? p.dealPrice : piece;
   })();
-  const disc = discountPct(p.mrp, priceShown);
+  const disc = discountPct(p.locPrice?.mrp ?? p.mrp, priceShown);
   return (
     <div className="flex w-[240px] shrink-0 flex-col overflow-hidden rounded-xl border bg-white transition hover:shadow-md">
       <Link href={p.slug ? `/product/${p.slug}` : "#"} className="relative block aspect-square w-full overflow-hidden bg-gray-50">
@@ -254,7 +255,7 @@ export function ProductCardMini({ p }: { p: DProduct }) {
         <div className="mt-auto flex items-center justify-between pt-1.5">
           <div>
             <span className="text-base font-extrabold text-gray-900">{formatINR(priceShown)}</span>
-            {p.mrp > priceShown && <span className="ml-1 text-[11px] text-gray-400 line-through">{formatINR(p.mrp)}</span>}
+            {(p.locPrice?.mrp ?? p.mrp) > priceShown && <span className="ml-1 text-[11px] text-gray-400 line-through">{formatINR(p.locPrice?.mrp ?? p.mrp)}</span>}
           </div>
           <button
             onClick={() => {

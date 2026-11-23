@@ -26,6 +26,27 @@ export const TIER_LABEL: Record<string, string> = {
 
 export type Fulfillment = "PICKUP" | "DELIVERY";
 
+/** per-city price override stored on Product.locationPrices (JSON string) */
+export interface LocationPrice { dealerPrice?: number; mrp?: number }
+
+/** Parse a product's locationPrices JSON and return the override for a city/town
+ *  (case-insensitive). Undefined = no override for that location. */
+export function locationPriceFor(locationPrices: string | null | undefined, city?: string | null): LocationPrice | undefined {
+  if (!locationPrices || !city) return undefined;
+  try {
+    const map = JSON.parse(locationPrices) as Record<string, LocationPrice>;
+    if (!map || typeof map !== "object") return undefined;
+    const hit = map[city] ?? map[Object.keys(map).find((k) => k.toLowerCase() === city.trim().toLowerCase()) ?? ""];
+    if (!hit || typeof hit !== "object") return undefined;
+    const out: LocationPrice = {};
+    if (typeof hit.dealerPrice === "number" && hit.dealerPrice > 0) out.dealerPrice = hit.dealerPrice;
+    if (typeof hit.mrp === "number" && hit.mrp > 0) out.mrp = hit.mrp;
+    return Object.keys(out).length ? out : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export interface TieredProduct {
   tier1: number;
   tier2: number;
@@ -35,10 +56,13 @@ export interface TieredProduct {
   packPrice?: number;
   packQty?: number;
   piecesPerBox?: number;
+  /** buyer-city override resolved server-side (products/orders APIs) — wins over every slab */
+  locPrice?: LocationPrice;
 }
 
-/** per-piece price for a slab (falls back to dealerPrice → tier4) */
+/** per-piece price for a slab; a buyer-city override (locPrice) wins over every slab */
 export function piecePriceOf(p: TieredProduct, tier: string): number {
+  if (p.locPrice?.dealerPrice && p.locPrice.dealerPrice > 0) return p.locPrice.dealerPrice;
   if (tier === "tier1" && p.tier1 > 0) return p.tier1;
   if (tier === "tier2" && p.tier2 > 0) return p.tier2;
   if (tier === "tier3" && p.tier3 > 0) return p.tier3;

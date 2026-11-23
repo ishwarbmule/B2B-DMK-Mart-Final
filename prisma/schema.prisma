@@ -127,6 +127,9 @@ model Product {
   gallery           String      @default("[]") @db.Text // JSON array of Cloudinary URLs — TEXT, URLs overflow VARCHAR(191)
   description       String      @default("") @db.Text
 
+  // location-wise pricing (city/town → override) — JSON {"City": {"d": dealerPrice, "m": mrp}}; admin-only bulk tool writes it
+  locationPrices  String      @default("{}") @db.Text
+
   // SEO
   seoTitle          String      @default("")
   seoDesc           String      @default("") @db.Text

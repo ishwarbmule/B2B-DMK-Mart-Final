@@ -4,11 +4,12 @@ import { Fragment, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { BadgePercent, Boxes, CheckCircle2, IndianRupee, MessageCircle, RefreshCcw, ShieldCheck, ShoppingCart, Star, RefreshCw, Truck, Users, XCircle } from "lucide-react";
+import { BadgePercent, Boxes, CheckCircle2, IndianRupee, MapPin, MessageCircle, RefreshCcw, ShieldCheck, ShoppingCart, Star, RefreshCw, Truck, Users, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { api, ModuleHeader, StatCard, StatusBadge, Toggle } from "./ui-bits";
 import { Code39Svg } from "./barcode";
 import { formatINR } from "@/lib/store";
+import { nearbyLocationsForWarehouse } from "@/lib/maharashtra";
 
 /* ══════════════ DASHBOARD ══════════════ */
 type DashData = {
@@ -492,6 +493,30 @@ export function CustomersModule({ token }: { token: string }) {
 
 /* ══════════════ PRICING (bulk editor) ══════════════ */
 export function PricingModule({ token }: { token: string }) {
+  const [pricingTab, setPricingTab] = useState<"slab" | "location">("slab");
+  return (
+    <div>
+      <div className="mb-4 flex gap-1.5">
+        {(["slab", "location"] as const).map((k) => {
+          const meta = { slab: ["Slab / Bulk Pricing", BadgePercent], location: ["Location Pricing", MapPin] } as const;
+          const [label, Icon] = meta[k];
+          return (
+            <button
+              key={k}
+              onClick={() => setPricingTab(k)}
+              className={`flex h-9 items-center gap-1.5 rounded-lg px-4 text-[13px] transition-colors ${pricingTab === k ? "bg-black font-medium text-yellow-400" : "border border-gray-200 bg-white font-normal text-gray-600 hover:bg-gray-50"}`}
+            >
+              <Icon className="h-4 w-4" /> {label}
+            </button>
+          );
+        })}
+      </div>
+      {pricingTab === "location" ? <LocationPricing token={token} /> : <SlabPricing token={token} />}
+    </div>
+  );
+}
+
+function SlabPricing({ token }: { token: string }) {
   const call = api(token);
   const [companies, setCompanies] = useState<string[]>([]);
   const [tops, setTops] = useState<{ id: string; name: string }[]>([]);
@@ -676,6 +701,193 @@ export function PricingModule({ token }: { token: string }) {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════ LOCATION PRICING (city/town-wise overrides per warehouse) ══════════════
+ * Two main godowns: Kolhar (Ahmednagar belt) and Pune. Pick a warehouse → its nearby
+ * cities/towns appear for multi-select → set dealerPrice/MRP for that scope. Only
+ * buyers whose Customer.city matches see the override; everyone else keeps base
+ * prices. Stored on Product.locationPrices JSON in Neon — the ERP is never written. */
+function LocationPricing({ token }: { token: string }) {
+  const call = api(token);
+  const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>([]);
+  const [whId, setWhId] = useState("");
+  const [cities, setCities] = useState<Set<string>>(new Set());
+  const [scope, setScope] = useState<"warehouse" | "company">("warehouse");
+  const [companies, setCompanies] = useState<{ name: string; count: number }[]>([]);
+  const [companySel, setCompanySel] = useState<string[]>([]);
+  const [op, setOp] = useState<{ field: "dealerPrice" | "mrp"; mode: "percent" | "amount" | "set"; value: string }[]>([
+    { field: "dealerPrice", mode: "percent", value: "0" },
+  ]);
+  const [preview, setPreview] = useState<{ products: number; cities: string[]; sample: { sku: string; name: string; dealerPrice?: number; mrp?: number }[] } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    call("/api/admin/crud/warehouses").then((d) => {
+      const rows = (d.rows ?? []) as { id: string; name: string }[];
+      setWarehouses(rows);
+      if (rows.length) setWhId((cur) => cur || rows[0].id);
+    }).catch(() => {});
+    call("/api/admin/products/companies").then((d) => setCompanies(d.companies ?? [])).catch(() => {});
+  }, [call]);
+
+  const wh = warehouses.find((w) => w.id === whId);
+  const belt = wh ? nearbyLocationsForWarehouse(wh.name) : { group: "Pick a warehouse", locations: [] as string[] };
+  const allSelected = belt.locations.length > 0 && belt.locations.every((l) => cities.has(l));
+
+  const toggleCity = (c: string) => setCities((s) => {
+    const n = new Set(s);
+    if (n.has(c)) n.delete(c); else n.add(c);
+    return n;
+  });
+
+  const buildBody = (isPreview: boolean, clear = false) => ({
+    cities: [...cities],
+    warehouseId: whId || undefined,
+    target: scope === "company" ? "company" : "all",
+    companies: scope === "company" ? companySel : undefined,
+    clear,
+    preview: isPreview,
+    ops: clear ? undefined : op.map((o) => ({ field: o.field, mode: o.mode, value: Number(o.value) || 0 })).filter((o) => o.value !== 0 || o.mode === "set"),
+  });
+
+  const doPost = async (isPreview: boolean, clear = false) => {
+    if (!cities.size) return toast.error("Pick at least one city or town");
+    if (scope === "company" && !companySel.length) return toast.error("Pick at least one company");
+    setBusy(true);
+    try {
+      const res = await fetch("/api/admin/pricing/location", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify(buildBody(isPreview, clear)),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      if (isPreview) setPreview(d);
+      else {
+        toast.success(clear ? `Overrides cleared for ${d.changed} products` : `Location prices applied — ${d.changed} products × ${d.cities.length} cities`);
+        setPreview(null);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Location pricing failed");
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-gray-200 bg-white p-5">
+        <h2 className="text-[15px] font-semibold text-gray-900">City-wise price changes</h2>
+        <p className="mt-1 text-[13px] text-gray-500">
+          Pick a warehouse, tick the cities and towns it serves, set the new rate. Only buyers whose registered city matches see the new price — every other location keeps the current price.
+        </p>
+
+        {/* step 1 — warehouse */}
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <div>
+            <p className="mb-1.5 text-[12px] font-medium text-gray-500">Step 1 — Warehouse</p>
+            <select value={whId} onChange={(e) => { setWhId(e.target.value); setCities(new Set()); }} className="h-9 w-full rounded-lg border border-gray-200 px-2 text-[13px]">
+              <option value="">Pick a warehouse…</option>
+              {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+            {wh && <p className="mt-1.5 text-[12px] text-gray-400">{belt.group} — {belt.locations.length} cities and towns</p>}
+          </div>
+          <div>
+            <p className="mb-1.5 text-[12px] font-medium text-gray-500">Step 2 — Product scope</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button onClick={() => setScope("warehouse")} className={`h-9 rounded-lg border text-[12px] font-medium transition-colors ${scope === "warehouse" ? "border-black bg-black text-yellow-400" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>Whole warehouse</button>
+              <button onClick={() => setScope("company")} className={`h-9 rounded-lg border text-[12px] font-medium transition-colors ${scope === "company" ? "border-black bg-black text-yellow-400" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>By company</button>
+            </div>
+            {scope === "company" && (
+              <div className="mt-2 max-h-28 space-y-1 overflow-y-auto rounded-lg border border-gray-200 p-2">
+                {companies.map((c) => (
+                  <label key={c.name} className="flex items-center gap-2 text-[12px] text-gray-700">
+                    <input type="checkbox" className="h-3.5 w-3.5 accent-black" checked={companySel.includes(c.name)} onChange={(e) => setCompanySel((ids) => (e.target.checked ? [...ids, c.name] : ids.filter((x) => x !== c.name)))} />
+                    {c.name} <span className="text-gray-400">({c.count})</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* step 3 — cities */}
+        {wh && belt.locations.length > 0 && (
+          <div className="mt-4">
+            <div className="mb-1.5 flex items-center justify-between">
+              <p className="text-[12px] font-medium text-gray-500">Step 3 — Cities and towns ({cities.size} selected)</p>
+              <button onClick={() => setCities(allSelected ? new Set() : new Set(belt.locations))} className="text-[12px] font-medium text-gray-500 underline-offset-2 transition-colors hover:text-gray-800 hover:underline">
+                {allSelected ? "Clear all" : "Select all"}
+              </button>
+            </div>
+            <div className="grid max-h-44 grid-cols-2 gap-1 overflow-y-auto rounded-lg border border-gray-200 p-2 sm:grid-cols-3 lg:grid-cols-5">
+              {belt.locations.map((c) => (
+                <label key={c} className="flex cursor-pointer items-center gap-1.5 rounded px-1 py-0.5 text-[12px] text-gray-700 transition-colors hover:bg-gray-50">
+                  <input type="checkbox" className="h-3.5 w-3.5 accent-black" checked={cities.has(c)} onChange={() => toggleCity(c)} />
+                  <span className="truncate" title={c}>{c}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* step 4 — rates */}
+        <div className="mt-4">
+          <p className="mb-1.5 text-[12px] font-medium text-gray-500">Step 4 — New rate</p>
+          <div className="space-y-2">
+            {op.map((o, i) => (
+              <div key={i} className="flex flex-wrap items-center gap-1.5">
+                <select value={o.field} onChange={(e) => setOp((arr) => arr.map((x, j) => (j === i ? { ...x, field: e.target.value as "dealerPrice" | "mrp" } : x)))} className="h-9 rounded-lg border border-gray-200 px-2 text-[12px]">
+                  <option value="dealerPrice">Selling price (rate)</option>
+                  <option value="mrp">MRP</option>
+                </select>
+                <select value={o.mode} onChange={(e) => setOp((arr) => arr.map((x, j) => (j === i ? { ...x, mode: e.target.value as "percent" | "amount" | "set" } : x)))} className="h-9 w-28 rounded-lg border border-gray-200 px-2 text-[12px]">
+                  <option value="percent">% change</option>
+                  <option value="amount">₹ change</option>
+                  <option value="set">set exact</option>
+                </select>
+                <input value={o.value} onChange={(e) => setOp((arr) => arr.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))} inputMode="decimal" className="h-9 w-24 rounded-lg border border-gray-200 px-2 text-[12px]" />
+                {op.length > 1 && <button onClick={() => setOp((arr) => arr.filter((_, j) => j !== i))} aria-label="Remove"><XCircle className="h-4 w-4 text-gray-400 transition-colors hover:text-red-500" /></button>}
+              </div>
+            ))}
+            {op.length < 2 && (
+              <button onClick={() => setOp((arr) => [...arr, { field: "mrp", mode: "percent", value: "0" }])} className="rounded-lg border border-dashed border-gray-200 px-3 py-1.5 text-[12px] font-medium text-gray-500 transition-colors hover:border-gray-400">+ also change MRP</button>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          <button onClick={() => doPost(true)} disabled={busy} className="flex h-9 items-center rounded-lg border border-gray-200 bg-white px-4 text-[13px] font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50">Preview</button>
+          <button onClick={() => { if (confirm(`Apply new rates for ${cities.size} cities/towns? Only those buyers see the change.`)) doPost(false); }} disabled={busy || !preview} className="flex h-9 items-center rounded-lg bg-black px-4 text-[13px] font-semibold text-yellow-400 transition-colors hover:bg-gray-900 disabled:opacity-50">Apply</button>
+          <button onClick={() => { if (confirm(`Remove ALL overrides for the selected cities? Products go back to their base price.`)) doPost(false, true); }} disabled={busy} className="flex h-9 items-center rounded-lg border border-red-100 px-4 text-[13px] font-medium text-red-500 transition-colors hover:bg-red-50 disabled:opacity-50">Clear overrides</button>
+          <span className="text-[12px] text-gray-400">Nothing here ever touches the ERP — website database only</span>
+        </div>
+
+        {preview && (
+          <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3">
+            <p className="text-[13px] font-medium text-gray-700">Preview — {preview.products} products × {preview.cities.length} cities</p>
+            <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200 bg-white">
+              <table className="w-full text-left text-[12px] tabular-nums">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50 text-[12px] font-medium text-gray-500">
+                    <th className="px-3 py-2">SKU</th><th className="px-3 py-2">Product</th><th className="px-3 py-2 text-right">New rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {preview.sample.map((s) => (
+                    <tr key={s.sku} className="border-b border-gray-100 last:border-0">
+                      <td className="px-3 py-2 font-mono text-[11px] text-gray-500">{s.sku}</td>
+                      <td className="max-w-[260px] truncate px-3 py-2">{s.name}</td>
+                      <td className="px-3 py-2 text-right">{s.dealerPrice != null ? formatINR(s.dealerPrice) : ""}{s.mrp != null ? ` · MRP ${formatINR(s.mrp)}` : ""}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

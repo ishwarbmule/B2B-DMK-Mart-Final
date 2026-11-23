@@ -155,6 +155,9 @@ export interface DProduct {
   tier2?: number;
   tier3?: number;
   tier4?: number;
+  // Location pricing: the logged-in buyer's city override, resolved server-side
+  // from Product.locationPrices — wins over every slab (lib/pricing.ts piecePriceOf).
+  locPrice?: { dealerPrice?: number; mrp?: number };
   packPrice?: number;
   packQty: number;
   piecesPerBox?: number;
