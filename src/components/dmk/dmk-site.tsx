@@ -20,6 +20,7 @@ import { CartDrawer } from "./cart-drawer";
 import { CheckoutDialog } from "./checkout-dialog";
 import { AdminLoginDialog } from "@/components/admin/login-dialog";
 import type { CatalogPayload, DProduct } from "@/lib/types";
+import { customerAuthHeaders } from "@/lib/customer-session";
 
 type View = "home" | "catalog" | "brands" | "stores";
 
@@ -54,7 +55,7 @@ export function DmkSite() {
   const fetchPage = useCallback(
     async (params: Record<string, string>) => {
       const qs = new URLSearchParams(params).toString();
-      const res = await fetch(`/api/products?${qs}`);
+      const res = await fetch(`/api/products?${qs}`, { headers: customerAuthHeaders() });
       return res.json();
     },
     []
@@ -62,7 +63,7 @@ export function DmkSite() {
 
   const loadHomeRows = useCallback(async () => {
     const get = async (extra: string) => {
-      const res = await fetch(`/api/products?limit=12&${extra}`);
+      const res = await fetch(`/api/products?limit=12&${extra}`, { headers: customerAuthHeaders() });
       const d = await res.json();
       return d.products as DProduct[];
     };
@@ -87,7 +88,7 @@ export function DmkSite() {
     }
     setSearching(true);
     try {
-      const res = await fetch(`/api/products?q=${encodeURIComponent(q)}&limit=24`);
+      const res = await fetch(`/api/products?q=${encodeURIComponent(q)}&limit=24`, { headers: customerAuthHeaders() });
       const d = await res.json();
       setSearchResults(d);
       setView("catalog");

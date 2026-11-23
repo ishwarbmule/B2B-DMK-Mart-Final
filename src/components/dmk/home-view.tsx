@@ -13,6 +13,7 @@ import { ProductCard, ProductCardMini } from "./product-card";
 import { CatalogView } from "./catalog-view";
 import type { DProduct, OfferNode, CouponNode } from "@/lib/types";
 import { formatINR } from "@/lib/store";
+import { customerAuthHeaders } from "@/lib/customer-session";
 
 /* ─────────────── Homepage section config (Website Management → Homepage Editor) ─────────────── */
 export type HomeSectionCfg = { id: string; visible: boolean; title?: string; sub?: string; color?: string; size?: "S" | "M" | "L"; align?: "left" | "center" | "right" };
@@ -269,7 +270,7 @@ function CouponMarquee({ coupons }: { coupons: CouponNode[] }) {
 function CollageImg({ seed }: { seed: string }) {
   const [srcs, setSrcs] = useState<string[]>([]);
   useEffect(() => {
-    fetch(`/api/products?limit=6&flag=featured&page=${seed === "a" ? 1 : seed === "b" ? 2 : 3}`)
+    fetch(`/api/products?limit=6&flag=featured&page=${seed === "a" ? 1 : seed === "b" ? 2 : 3}`, { headers: customerAuthHeaders() })
       .then((r) => r.json())
       .then((d) => setSrcs((d.products ?? []).map((p: DProduct) => p.image).filter(Boolean)))
       .catch(() => {});
@@ -364,7 +365,7 @@ function CategoryGrid({ cfg, title, sub }: { cfg?: HomeSectionCfg; title?: strin
 function useDeals() {
   const [deals, setDeals] = useState<DProduct[]>([]);
   useEffect(() => {
-    fetch("/api/products?limit=12&flag=deal")
+    fetch("/api/products?limit=12&flag=deal", { headers: customerAuthHeaders() })
       .then((r) => r.json())
       .then((d) => setDeals((d.products ?? []) as DProduct[]))
       .catch(() => {});
@@ -418,7 +419,7 @@ function ReadyToDispatchGrid() {
     if (replace) setLoading(true);
     else setLoadingMore(true);
     try {
-      const r = await fetch(`/api/products?flag=top&limit=${DISPATCH_PAGE_SIZE}&page=${nextPage}`);
+      const r = await fetch(`/api/products?flag=top&limit=${DISPATCH_PAGE_SIZE}&page=${nextPage}`, { headers: customerAuthHeaders() });
       const d = await r.json();
       const fresh = (d.products ?? []) as DProduct[];
       setProducts((prev) => (replace ? fresh : [...prev, ...fresh]));

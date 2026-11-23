@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { customerFromReq } from "@/lib/customer-auth";
 import { rankWarehouses } from "@/lib/geo";
 import { GUEST_TIER, locationPriceFor } from "@/lib/pricing";
-import { beltOfLocation } from "@/lib/maharashtra";
+import { beltOfLocation, servingWarehouseFor } from "@/lib/maharashtra";
 
 export const dynamic = "force-dynamic";
 
@@ -70,26 +70,30 @@ export async function GET(req: NextRequest) {
     if (cust) {
       buyerTier = /^tier[1-5]$/.test(cust.tier) ? cust.tier : GUEST_TIER;
       buyerCity = cust.city?.trim() || null;
-      if (!warehouseId && !allWarehouses && !includeInactive && (cust.city || cust.pincode)) {
+      if (!includeInactive) {
+        // SITE-WIDE LOCATION LOCK: a signed-in buyer only ever sees the products
+        // stocked at THEIR location's warehouse — their shop's belt (Pune / Kolhar)
+        // decides the godown, falling back to nearest-warehouse ranking for towns
+        // outside both belts. Neither a hand-picked ?warehouseId= nor the
+        // ?allWarehouses=1 escape can bypass it (admin ?all=1 bypasses — POS/tools).
         const whs = await db.warehouse.findMany({
           where: { active: true },
           orderBy: [{ isDefault: "desc" }, { sortOrder: "asc" }],
           select: { id: true, name: true, city: true, isDefault: true, sortOrder: true },
         });
-        // location-based visibility: a buyer's belt (Pune / Ahmednagar-Kolhar)
-        // decides WHICH godown's products they see, falling back to the
-        // nearest-warehouse ranking for towns outside both belts
         const belt = beltOfLocation(cust.city);
-        const beltWh = belt ? whs.find((w) => beltOfLocation(w.name) === belt || w.name.toLowerCase().includes(belt === "PUNE" ? "pune" : "nagar")) : undefined;
-        const nearest = beltWh ?? rankWarehouses(whs, cust.city, cust.pincode)[0];
+        const beltWh = belt ? servingWarehouseFor(whs, belt) : undefined;
+        const nearest = beltWh ?? ((cust.city || cust.pincode) ? rankWarehouses(whs, cust.city, cust.pincode)[0] : undefined);
         if (nearest) {
           where.warehouseStocks = { some: { warehouseId: nearest.id, qty: { gt: 0 } } };
           buyerWarehouseName = nearest.name;
+        } else if (warehouseId) {
+          where.warehouseStocks = { some: { warehouseId, qty: { gt: 0 } } };
         }
       }
     }
   }
-  if (warehouseId) where.warehouseStocks = { some: { warehouseId, qty: { gt: 0 } } };
+  if (!buyerWarehouseName && warehouseId) where.warehouseStocks = { some: { warehouseId, qty: { gt: 0 } } };
   if (!Number.isNaN(minPrice) || !Number.isNaN(maxPrice)) {
     // ACCURATE price filter: match the piece price the buyer actually SEES on the card —
     // their own slab's rate, with the exact fallback the client pricing engine applies

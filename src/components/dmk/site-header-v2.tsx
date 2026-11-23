@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { useCartStore, formatINR } from "@/lib/store";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { useCustomerSession, customerTypeLabel } from "@/lib/customer-client";
-import { clearCustomerToken } from "@/lib/customer-session";
+import { clearCustomerToken, customerAuthHeaders } from "@/lib/customer-session";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { CatalogPayload } from "@/lib/types";
 
@@ -84,7 +84,7 @@ export function SiteHeaderV2() {
     }
     setSugLoading(true);
     timer.current = setTimeout(() => {
-      fetch(`/api/products?q=${encodeURIComponent(term)}&limit=6`)
+      fetch(`/api/products?q=${encodeURIComponent(term)}&limit=6`, { headers: customerAuthHeaders() })
         .then((r) => r.json())
         .then((d: { products?: { id: string; slug: string; name: string; image: string; dealerPrice: number; tier2: number; brand?: { name: string } | null }[] }) => {
           setSugs((d.products ?? []).map((p) => ({

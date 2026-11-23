@@ -13,6 +13,7 @@ import { customerFromReq } from "@/lib/customer-auth";
 import { smsTemplates } from "@/lib/sms";
 import { notifyCustomer } from "@/lib/whatsapp";
 import { GUEST_TIER, piecesForUnit, unitPriceForLine, round2, isFulfillment, locationPriceFor, type Fulfillment } from "@/lib/pricing";
+import { beltOfLocation, servingWarehouseFor } from "@/lib/maharashtra";
 
 export const dynamic = "force-dynamic";
 
@@ -78,15 +79,18 @@ export async function POST(req: NextRequest) {
 
     // serving warehouse — the godown that fulfils this order:
     //   PICKUP   → the chosen pickup warehouse
-    //   DELIVERY → nearest active warehouse to the buyer's city, else the default godown
+    //   DELIVERY → the buyer's belt godown (Pune / Kolhar — their shop location's
+    //              warehouse), else nearest by city, else the default godown
     // Order flows to admin AND this warehouse (manager panel at /warehouse).
     let servingWarehouseId = pickupWarehouseId;
     let servingWarehouseName = pickupWarehouseName;
     if (fulfillment === "DELIVERY") {
       const warehouses = await db.warehouse.findMany({ where: { active: true }, orderBy: [{ isDefault: "desc" }, { sortOrder: "asc" }] });
       const city = (d.city || "").trim().toLowerCase();
+      const belt = beltOfLocation(d.city);
+      const beltWh = belt ? servingWarehouseFor(warehouses, belt) : undefined;
       const byCity = city ? warehouses.find((w) => (w.city || "").trim().toLowerCase() === city) : undefined;
-      const chosen = byCity ?? warehouses.find((w) => w.isDefault) ?? warehouses[0];
+      const chosen = beltWh ?? byCity ?? warehouses.find((w) => w.isDefault) ?? warehouses[0];
       if (chosen) {
         servingWarehouseId = chosen.id;
         servingWarehouseName = chosen.name;

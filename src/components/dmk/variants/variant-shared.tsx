@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Palette, Search } from "lucide-react";
 import { toast } from "sonner";
 import { useCartStore, formatINR } from "@/lib/store";
+import { customerAuthHeaders } from "@/lib/customer-session";
 import { discountPct, type DProduct } from "@/lib/types";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { Button } from "@/components/ui/button";
@@ -159,7 +160,7 @@ export function VariantSearchDialog({ open, onClose }: { open: boolean; onClose:
     if (!q.trim()) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/products?q=${encodeURIComponent(q.trim())}&limit=24`);
+      const res = await fetch(`/api/products?q=${encodeURIComponent(q.trim())}&limit=24`, { headers: customerAuthHeaders() });
       const d = await res.json();
       setRows(d.products ?? []);
     } catch {

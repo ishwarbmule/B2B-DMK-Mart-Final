@@ -6,6 +6,7 @@ import type { DProduct, TopCategoryNode, BrandNode } from "@/lib/types";
 import { EndCategoryIconTile } from "@/lib/category-icons";
 import { useCartStore } from "@/lib/store";
 import { getCustomerToken } from "@/lib/customer-session";
+import { useCustomerSession } from "@/lib/customer-client";
 import { ProductCard } from "./product-card";
 import { useCatalog } from "./site-header-v2";
 
@@ -41,6 +42,8 @@ export function CatalogView({
   });
   const catalog = useCatalog();
   const warehouses = catalog?.warehouses ?? [];
+  const customer = useCustomerSession((s) => s.customer); // logged-in buyers are location-locked server-side
+  const [buyerWarehouse, setBuyerWarehouse] = useState(""); // API echoes the godown serving this buyer
   const [page, setPage] = useState(1);
   const [data, setData] = useState<{ products: DProduct[]; total: number; pages: number }>({ products: [], total: 0, pages: 1 });
   const [loading, setLoading] = useState(true);
@@ -84,16 +87,16 @@ export function CatalogView({
     if (filters.maxPrice) params.maxPrice = filters.maxPrice;
     if (filters.q) params.q = filters.q;
     if (filters.flag) params.flag = filters.flag;
-    if (filters.warehouse) params.warehouseId = filters.warehouse;
+    if (filters.warehouse && !customer) params.warehouseId = filters.warehouse; // guests only — buyers are locked to their godown
     // 300 ms debounce — price/keyword typing settles before the query fires
     const timer = setTimeout(() => {
       fetchPage(params)
-        .then((d) => { if (!cancelled) setData(d); })
+        .then((d) => { if (!cancelled) { setData(d); setBuyerWarehouse(d.buyerWarehouse || ""); } })
         .catch(() => {})
         .finally(() => { if (!cancelled) setLoading(false); });
     }, 300);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [filters, page, fetchPage]);
+  }, [filters, page, fetchPage, customer]);
 
   const activeTop = tops.find((t) => t.id === filters.top);
   const activeMid = activeTop?.mids.find((m) => m.id === filters.mid);
@@ -177,15 +180,24 @@ export function CatalogView({
           ))}
         </div>
       </div>
-      {/* WAREHOUSE — mandatory filter: stock location decides which SKUs actually ship */}
+      {/* WAREHOUSE — guests pick a godown; LOGGED-IN buyers are location-locked:
+          the API forces their own shop-location warehouse, so the picker is hidden */}
       <div>
         <p className="mb-1.5 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-gray-500">
           <Warehouse className="h-3 w-3 text-yellow-600" /> Warehouse
         </p>
-        <select value={filters.warehouse} onChange={(e) => setF({ warehouse: e.target.value })} className="h-9 w-full rounded-lg border border-gray-200 bg-white px-2 text-xs">
-          <option value="">All Warehouses</option>
-          {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}{w.city ? ` — ${w.city}` : ""}</option>)}
-        </select>
+        {customer ? (
+          <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-2.5 py-2 text-[11px] font-semibold text-gray-700">
+            {buyerWarehouse
+              ? <>Showing products stocked at <span className="font-black text-gray-900">{buyerWarehouse}</span> — your location&apos;s warehouse</>
+              : "Showing products for your location's warehouse"}
+          </div>
+        ) : (
+          <select value={filters.warehouse} onChange={(e) => setF({ warehouse: e.target.value })} className="h-9 w-full rounded-lg border border-gray-200 bg-white px-2 text-xs">
+            <option value="">All Warehouses</option>
+            {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}{w.city ? ` — ${w.city}` : ""}</option>)}
+          </select>
+        )}
       </div>
       <div>
         <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-500">Price / piece (₹)</p>

@@ -19,6 +19,7 @@ export const PUNE_NEARBY: string[] = [
   "Chakan", "Talegaon Dabhade", "Talegaon Chakan", "Lonavala", "Kamshet", "Vadgaon Maval", "Urse",
   "Rajgurunagar (Khed)", "Khed", "Chimbali", "Manchar", "Narayangaon", "Ghodegaon", "Pabal",
   "Shirur", "Sanaswadi", "Ranjangaon", "Kurkumbh", "Patas", "Daund", "Kedgaon (Daund)",
+  "Kesnand", "Dhanora", "Manjari", "Shukrawar Peth", "Wagholi Dhanora",
   "Baramati", "Indapur", "Loni Kalbhor", "Uruli Kanchan", "Yavat", "Saswad", "Jejuri", "Purandar",
   "Haveli", "Wadgaon Sheri", "Viman Nagar", "Chandan Nagar", "Kondhwa", "Undri", "NIBM Road",
   "Dhanori", "Lohegaon", "Dhanakwadi", "Katraj", "Ambegaon", "Bavdhan", "Sus", "Mulshi",
@@ -26,10 +27,10 @@ export const PUNE_NEARBY: string[] = [
 
 /** Kolhar warehouse belt — Ahmednagar district + Ahmednagar–Pune highway towns */
 export const KOLHAR_NEARBY: string[] = [
-  "Kolhar", "Ahmednagar", "Ahmednagar MIDC", "Shrirampur", "Loni (Ahmednagar)", "Ghulewadi",
+  "Kolhar", "Kolhar Budruk", "Ahmednagar", "Ahmednagar MIDC", "Shrirampur", "Loni (Ahmednagar)", "Ghulewadi",
   "Rahuri", "Sangamner", "Sangamner MIDC", "Kopargaon", "Rahata", "Shirdi", "Kakadi",
   "Nevasa", "Shevgaon", "Pathardi", "Jamkhed", "Karjat (Ahmednagar)", "Shrigonda",
-  "Shrigonde", "Parner", "Supa", "Takli Dhokeshwar", "Jeur", "Kedgaon (Ahmednagar)",
+  "Shrigonde", "Parner", "Supa", "Supe", "Takli Dhokeshwar", "Jeur", "Kedgaon (Ahmednagar)",
   "Bhandardarah", "Akola (Ahmednagar)", "Ralegan Siddhi", "Wadner Haveli", "Warur",
 ];
 
@@ -103,5 +104,30 @@ export function beltOfLocation(city?: string | null): "PUNE" | "KOLHAR" | null {
   const direct = tryLists(c);
   if (direct) return direct;
   // parens-stripped second ("loni" → "Loni (Ahmednagar)", "kedgaon (daund)" → "Kedgaon")
-  return tryLists(strip(c));
+  const stripped = tryLists(strip(c));
+  if (stripped) return stripped;
+  // token-wise third: real buyer profiles carry messy values like "Pune, Wagholi",
+  // "Pune City,Shrukwar Peth", "Kolhar Budruk" — check every comma/space-separated
+  // fragment against the belt lists so the shop's own area decides its godown
+  const tokens = c.split(/[,;/·]+|\s+/).map((t) => t.trim()).filter((t) => t.length > 2);
+  for (const t of tokens) {
+    const hit = tryLists(strip(t));
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/** The warehouse that serves a belt — matched on name/code/city so "KOLHAR WARE
+ *  HOUSE", "DMK MART PUNE" and friends resolve without exact naming. Used by the
+ *  catalog (location-locked browsing) and the order flow (serving godown). */
+export function servingWarehouseFor<T extends { name?: string | null; code?: string | null; city?: string | null }>(
+  whs: T[],
+  belt: "PUNE" | "KOLHAR",
+): T | undefined {
+  const byBelt = whs.find((w) => beltOfLocation(w.name) === belt || beltOfLocation(w.city) === belt);
+  if (byBelt) return byBelt;
+  const hay = (w: T) => `${w.name || ""} ${w.code || ""} ${w.city || ""}`.toLowerCase();
+  return belt === "PUNE"
+    ? whs.find((w) => hay(w).includes("pune"))
+    : whs.find((w) => /kolhar|nagar/.test(hay(w)));
 }

@@ -18,6 +18,7 @@ import { useCatalog } from "./site-header-v2";
 import { HeroBanner } from "./hero-banner";
 import { toCartItem } from "./product-card";
 import { useCartStore, formatINR, lineKey } from "@/lib/store";
+import { customerAuthHeaders } from "@/lib/customer-session";
 import { discountPct, type DProduct } from "@/lib/types";
 import { useHydrated } from "@/hooks/use-hydrated";
 
@@ -89,7 +90,7 @@ function ShopByPrice() {
       const q = new URLSearchParams({ limit: "3" });
       if (b.min) q.set("minPrice", b.min);
       if (b.max) q.set("maxPrice", b.max);
-      fetch(`/api/products?${q.toString()}`)
+      fetch(`/api/products?${q.toString()}`, { headers: customerAuthHeaders() })
         .then((r) => r.json())
         .then((d) => {
           const arr = (d.products ?? []) as DProduct[];
@@ -269,7 +270,7 @@ function TopSellingCard({ p }: { p: DProduct }) {
 function TopSelling() {
   const [rows, setRows] = useState<DProduct[]>([]);
   useEffect(() => {
-    fetch("/api/products?flag=top&limit=8")
+    fetch("/api/products?flag=top&limit=8", { headers: customerAuthHeaders() })
       .then((r) => r.json())
       .then((d) => setRows((d.products ?? []) as DProduct[]))
       .catch(() => {});
