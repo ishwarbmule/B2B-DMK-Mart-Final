@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
@@ -94,11 +94,42 @@ export function AdminPortal() {
   const [active, setActive] = useState<ModuleId>("dashboard");
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Boot diagnostics — a stale token used to let every module fire its own 401
+  // ("Unauthorized" toasts + empty panels) before the first one cleared it.
+  // Now the saved token is validated ONCE before anything renders.
+  const [booting, setBooting] = useState(true);
+  const [bootMsg, setBootMsg] = useState<string | null>(null);
+  const BUILD = process.env.NEXT_PUBLIC_PORTAL_BUILD || "dev";
+
+  /** Validate a token against a cheap admin endpoint; returns the HTTP status (0 = network error). */
+  const checkToken = useCallback(async (t: string): Promise<number> => {
+    try {
+      const res = await fetch("/api/admin/stats", { headers: { authorization: `Bearer ${t}` }, cache: "no-store" });
+      return res.status;
+    } catch {
+      return 0;
+    }
+  }, []);
 
   useEffect(() => {
     const t = localStorage.getItem("dmk-admin-token");
-    if (t) setToken(t);
-  }, []);
+    if (!t) { setBooting(false); return; }
+    checkToken(t).then((status) => {
+      if (status === 401) {
+        localStorage.removeItem("dmk-admin-token");
+        setBootMsg("Saved session expired — sign in again.");
+      } else if (status === 200) {
+        setToken(t);
+      } else if (status === 0) {
+        setToken(t); // network hiccup — keep token, modules will retry
+      } else {
+        // server error while validating — keep the token but tell the user
+        setToken(t);
+        setBootMsg(`Warning: server returned ${status} while checking the saved session.`);
+      }
+      setBooting(false);
+    });
+  }, [checkToken]);
 
   const call = useMemo(
     () => async (path: string, init?: RequestInit) => {
@@ -132,6 +163,12 @@ export function AdminPortal() {
       localStorage.setItem("dmk-admin-token", data.token);
       setToken(data.token);
       toast.success("Welcome back, Super Admin!");
+      // Verify the fresh session immediately — if the server somehow rejects
+      // its own brand-new token (env/deploy skew), say so exactly.
+      const status = await checkToken(data.token);
+      if (status !== 200 && status !== 0) {
+        toast.error(`Session check failed (HTTP ${status}) — hard refresh (Ctrl+Shift+R) and sign in again.`);
+      }
     } catch {
       toast.error("Network error");
     } finally {
@@ -145,6 +182,14 @@ export function AdminPortal() {
     router.push("/");
   };
 
+  if (booting) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black">
+        <p className="animate-pulse text-xs font-bold uppercase tracking-widest text-gray-500">Checking session…</p>
+      </div>
+    );
+  }
+
   if (!token) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black p-4">
@@ -154,6 +199,9 @@ export function AdminPortal() {
             <h1 className="text-lg font-black text-white">DMK Mart <span className="text-yellow-400">Super Admin</span></h1>
             <p className="text-[11px] text-gray-500">B2B Administration Portal · secure sign-in</p>
           </div>
+          {bootMsg && (
+            <div className="mb-3 rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-3 py-2 text-[11px] font-semibold text-yellow-300">{bootMsg}</div>
+          )}
           <form onSubmit={signIn} className="space-y-3">
             <input
               value={loginId}
@@ -179,6 +227,7 @@ export function AdminPortal() {
             </button>
           </form>
           <p className="mt-4 text-center text-[10px] text-gray-600">ID: <b className="text-gray-400">B2B DMK Mart</b> · Password: <b className="text-gray-400">1234</b></p>
+          <p className="mt-2 text-center text-[10px] text-gray-700">build <b className="text-gray-500">{BUILD}</b> · seeing “Unauthorized” in modules? Hard refresh (Ctrl+Shift+R), then sign in again.</p>
         </div>
       </div>
     );

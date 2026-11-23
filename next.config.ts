@@ -1,7 +1,20 @@
 import type { NextConfig } from "next";
+import { execSync } from "child_process";
+
+// Build stamp inlined into client bundles — shown on the admin login screen so
+// a stale browser tab / old cached bundle is instantly recognizable.
+let portalBuild = "unknown";
+try {
+  portalBuild = execSync("git rev-parse --short HEAD").toString().trim();
+} catch {
+  portalBuild = new Date().toISOString().slice(0, 16);
+}
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  env: {
+    NEXT_PUBLIC_PORTAL_BUILD: portalBuild,
+  },
   // pdfmake (brochure PDF engine) is a large CJS package — keep it external so
   // the server bundle never re-bundles its font/vfs assets.
   serverExternalPackages: ["pdfmake"],
