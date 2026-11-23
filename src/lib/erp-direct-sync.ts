@@ -439,14 +439,35 @@ export async function syncProductsPage(pageSize = 300, offsetOverride?: number):
   if (sel.configured) {
     if (!sel.ids.length) {
       scope = { whereSql: "1 = 0", params: [] }; // every godown unticked → pull nothing
-    } else if (smForScope?.skuJoin || smForScope?.warehouseJoin) {
+    } else if (smForScope?.skuJoin) {
+      // stock rows key products by row ID → translate through the same JOIN the
+      // stock pull uses, so the outer sku column compares against real SKUs
+      const sj = smForScope.skuJoin;
       const skuCol = assertIdentifier(m.skuCol);
-      const tbl = assertIdentifier(smForScope.table);
+      const jt = assertIdentifier(sj.table);
+      const jid = assertIdentifier(sj.idCol);
+      const jsel = assertIdentifier(sj.selectCol);
+      const st = assertIdentifier(smForScope.table);
       const pidCol = assertIdentifier(smForScope.skuCol);
       const gidCol = assertIdentifier(smForScope.warehouseCodeCol);
       const marks = sel.ids.map(() => "?").join(", ");
-      scope = { whereSql: `\`${skuCol}\` IN (SELECT \`${pidCol}\` FROM \`${tbl}\` WHERE \`${gidCol}\` IN (${marks}))`, params: sel.ids };
+      scope = {
+        whereSql: `\`${skuCol}\` IN (SELECT j.\`${jsel}\` FROM \`${jt}\` j JOIN \`${st}\` s ON s.\`${pidCol}\` = j.\`${jid}\` WHERE s.\`${gidCol}\` IN (${marks}))`,
+        params: sel.ids,
+      };
+    } else if (smForScope?.warehouseJoin) {
+      // godown keyed by row ID, stock rows carry the sku directly
+      const skuCol = assertIdentifier(m.skuCol);
+      const st = assertIdentifier(smForScope.table);
+      const pidCol = assertIdentifier(smForScope.skuCol);
+      const gidCol = assertIdentifier(smForScope.warehouseCodeCol);
+      const marks = sel.ids.map(() => "?").join(", ");
+      scope = {
+        whereSql: `\`${skuCol}\` IN (SELECT s.\`${pidCol}\` FROM \`${st}\` s WHERE s.\`${gidCol}\` IN (${marks}))`,
+        params: sel.ids,
+      };
     } else if (smForScope) {
+      // legacy code-keyed source — unchanged behaviour
       scope = await selectedGodownWhere(smForScope.warehouseCodeCol, { viaStockTable: { table: smForScope.table, skuCol: smForScope.skuCol } });
     }
   }
