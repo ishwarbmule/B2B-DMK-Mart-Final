@@ -49,6 +49,11 @@ export function SiteFooter() {
             <li><Link href="/catalog" className="text-gray-400 hover:text-yellow-400">All Products</Link></li>
             <li><Link href="/brands" className="text-gray-400 hover:text-yellow-400">Brand Portfolio</Link></li>
             <li><Link href="/catalog?flag=deal" className="text-gray-400 hover:text-yellow-400">Deals of the Day</Link></li>
+            <li>
+              <Link href="/admin" className="flex items-center gap-1 text-gray-600 hover:text-yellow-400">
+                <ShieldCheck className="h-3 w-3" /> Super Admin
+              </Link>
+            </li>
           </ul>
         </div>
 
