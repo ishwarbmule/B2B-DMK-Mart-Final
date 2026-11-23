@@ -72,8 +72,8 @@ export function DashboardModule({ token }: { token: string }) {
       const p = d.products;
       toast.success(
         p
-          ? `ERP pull: ${p.created} created, ${p.updated} updated of ${p.seen}${p.done ? " — full pull complete" : " (continues in ERP Data module / cron)"}`
-          : "ERP sync ran — configure mappings in ERP Data (MySQL) for product pulls"
+          ? `Catalog pull: ${p.created} created, ${p.updated} updated of ${p.seen}${p.done ? " — full pull complete" : " (continues in Data Sync / cron)"}`
+          : "Sync ran — pick warehouses in Data Sync to pull products"
       );
       window.location.reload();
     } catch (e) {
@@ -89,7 +89,7 @@ export function DashboardModule({ token }: { token: string }) {
 
   return (
     <div className="space-y-4">
-      <ModuleHeader title="Dashboard" sub={`${data.window.label} · sales, pipeline, payments & ERP sync — everything at a glance`}>
+      <ModuleHeader title="Dashboard" sub={`${data.window.label} · sales, pipeline, payments & sync — everything at a glance`}>
         <div className="flex overflow-hidden rounded-lg border">
           {[7, 30, 90].map((d) => (
             <button key={d} onClick={() => setWin(d)} className={`px-3 py-1.5 text-[10px] font-semibold uppercase ${win === d ? "bg-black text-yellow-400" : "bg-white text-gray-500 hover:bg-gray-50"}`}>
@@ -98,16 +98,16 @@ export function DashboardModule({ token }: { token: string }) {
           ))}
         </div>
         <button onClick={syncNow} disabled={syncing} className="flex h-9 items-center gap-1.5 rounded-lg bg-black px-3.5 text-xs font-bold text-yellow-400 hover:bg-gray-800 disabled:opacity-50">
-          <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} /> {syncing ? "Pulling…" : "Pull ERP Catalog"}
+          <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} /> {syncing ? "Pulling…" : "Sync catalog"}
         </button>
       </ModuleHeader>
 
       {/* ERP sync strip */}
       <div className={`flex flex-wrap items-center gap-3 rounded-xl border p-3 text-xs ${data.lastSync?.status === "OK" ? "border-emerald-200 bg-emerald-50" : "border-orange-200 bg-orange-50"}`}>
         <ShieldCheck className="h-4 w-4 shrink-0" />
-        <span className="font-bold">ERP Data (MySQL):</span>
+        <span className="font-bold">Data Sync:</span>
         <span className="text-gray-600">{data.lastSync ? `${data.lastSync.direction} · ${data.lastSync.status} · ${data.lastSync.message} · ${new Date(data.lastSync.createdAt).toLocaleString("en-IN")}` : "No sync yet"}</span>
-        <Link href="/admin" className="ml-auto text-[11px] font-bold text-gray-500 underline">Tick shared tables &amp; columns in ERP Data (MySQL) · read-only pull, daily cron</Link>
+        <Link href="/admin" className="ml-auto text-[11px] font-bold text-gray-500 underline">Pick warehouses &amp; product details in Data Sync · read-only pull, daily cron</Link>
       </div>
 
       {/* KPIs — window aware with deltas */}
