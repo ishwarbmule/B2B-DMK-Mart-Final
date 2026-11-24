@@ -2,9 +2,8 @@
 
 import { Fragment, useEffect, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { BadgePercent, Boxes, CheckCircle2, IndianRupee, MapPin, MessageCircle, RefreshCcw, ShieldCheck, ShoppingCart, Star, RefreshCw, Truck, Users, XCircle } from "lucide-react";
+import { BadgePercent, Boxes, CheckCircle2, IndianRupee, MapPin, MessageCircle, ShoppingCart, Star, Truck, Users, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { api, ModuleHeader, StatCard, StatusBadge, Toggle } from "./ui-bits";
 import { Code39Svg } from "./barcode";
@@ -23,7 +22,6 @@ type DashData = {
   lowStock: { id: string; sku: string; name: string; stock: number; image: string; brand: { name: string } }[];
   offers: { id: string; name: string; headline: string; active: boolean; heroSlot: boolean; type: string }[];
   coupons: { code: string; headline: string; usedCount: number; usageLimit: number; active: boolean }[];
-  lastSync: { direction: string; status: string; message: string; createdAt: string } | null;
 };
 
 const PIPELINE: [string, string, string][] = [
@@ -48,7 +46,6 @@ function DeltaBadge({ value }: { value: number }) {
 export function DashboardModule({ token }: { token: string }) {
   const call = api(token);
   const [data, setData] = useState<DashData | null>(null);
-  const [syncing, setSyncing] = useState(false);
   const [win, setWin] = useState(90);
 
   useEffect(() => {
@@ -59,37 +56,13 @@ export function DashboardModule({ token }: { token: string }) {
     return () => { alive = false; };
   }, [token, win, call]);
 
-  const syncNow = async () => {
-    setSyncing(true);
-    try {
-      const res = await fetch("/api/admin/erp-direct/sync", {
-        method: "POST",
-        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-        body: JSON.stringify({ action: "resync" }),
-      });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error);
-      const p = d.products;
-      toast.success(
-        p
-          ? `Catalog pull: ${p.created} created, ${p.updated} updated of ${p.seen}${p.done ? " — full pull complete" : " (continues in Data Sync / cron)"}`
-          : "Sync ran — pick warehouses in Data Sync to pull products"
-      );
-      window.location.reload();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Sync failed");
-    } finally {
-      setSyncing(false);
-    }
-  };
-
   if (!data) return <p className="rounded-xl border bg-white p-10 text-center text-sm text-gray-400">Loading dashboard…</p>;
   const k = data.kpis;
   const totalPipeline = Object.values(data.statusCounts).reduce((a, b) => a + b, 0) || 1;
 
   return (
     <div className="space-y-4">
-      <ModuleHeader title="Dashboard" sub={`${data.window.label} · sales, pipeline, payments & sync — everything at a glance`}>
+      <ModuleHeader title="Dashboard" sub={`${data.window.label} · sales, pipeline & payments — everything at a glance`}>
         <div className="flex overflow-hidden rounded-lg border">
           {[7, 30, 90].map((d) => (
             <button key={d} onClick={() => setWin(d)} className={`px-3 py-1.5 text-[10px] font-semibold uppercase ${win === d ? "bg-black text-yellow-400" : "bg-white text-gray-500 hover:bg-gray-50"}`}>
@@ -97,18 +70,7 @@ export function DashboardModule({ token }: { token: string }) {
             </button>
           ))}
         </div>
-        <button onClick={syncNow} disabled={syncing} className="flex h-9 items-center gap-1.5 rounded-lg bg-black px-3.5 text-xs font-bold text-yellow-400 hover:bg-gray-800 disabled:opacity-50">
-          <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} /> {syncing ? "Pulling…" : "Sync catalog"}
-        </button>
       </ModuleHeader>
-
-      {/* ERP sync strip */}
-      <div className={`flex flex-wrap items-center gap-3 rounded-xl border p-3 text-xs ${data.lastSync?.status === "OK" ? "border-emerald-200 bg-emerald-50" : "border-orange-200 bg-orange-50"}`}>
-        <ShieldCheck className="h-4 w-4 shrink-0" />
-        <span className="font-bold">Data Sync:</span>
-        <span className="text-gray-600">{data.lastSync ? `${data.lastSync.direction} · ${data.lastSync.status} · ${data.lastSync.message} · ${new Date(data.lastSync.createdAt).toLocaleString("en-IN")}` : "No sync yet"}</span>
-        <Link href="/admin" className="ml-auto text-[11px] font-bold text-gray-500 underline">Pick warehouses &amp; product details in Data Sync · read-only pull, daily cron</Link>
-      </div>
 
       {/* KPIs — window aware with deltas */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

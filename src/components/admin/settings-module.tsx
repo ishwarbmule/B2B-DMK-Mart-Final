@@ -1,10 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Save, SendHorizontal, MessageSquareText, MessageCircle, Building2, Globe, RefreshCw } from "lucide-react";
+import { Save, SendHorizontal, MessageSquareText, MessageCircle, Building2, Globe, RefreshCcw } from "lucide-react";
 import { toast } from "sonner";
 import { api, ModuleHeader } from "./ui-bits";
-import { ErpDirectModule } from "./erp-direct-module";
 
 const GROUPS: { title: string; hint: string; icon: React.ComponentType<{ className?: string }>; keys: [string, string, string?][] }[] = [
   {
@@ -304,16 +303,15 @@ export function SettingsModule({ token }: { token: string }) {
         <p className="mt-1 text-[11px] text-gray-500">Terms, Privacy, Refund & Shipping pages are managed under <b>Website Management → Pages</b>. Pages flagged LEGAL automatically appear in the storefront footer and sitemap.xml.</p>
       </div>
 
-      {/* DATA SYNC — moved out of the sidebar; lives here under Settings */}
-      <div className="mt-6">
-        <div className="mb-3 flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-black"><RefreshCw className="h-4 w-4 text-yellow-400" /></span>
-          <div>
-            <p className="text-sm font-semibold text-gray-900">Data Sync</p>
-            <p className="text-[11px] text-gray-500">Connect, pick the warehouses to show and update products — the guided flow now lives here.</p>
-          </div>
+      {/* ERP SYNC — has its own sidebar section now */}
+      <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border-2 border-yellow-300 bg-gradient-to-r from-yellow-50 to-white p-4">
+        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-black">
+          <RefreshCcw className="h-4 w-4 text-yellow-400" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-gray-900">ERP Sync</p>
+          <p className="text-[11px] leading-relaxed text-gray-500">Connect your billing system, tick the warehouses to show, choose the product details and press Update Products — the guided flow lives in its own section: <b>ERP Sync</b> in the sidebar (under Website &amp; System).</p>
         </div>
-        <ErpDirectModule token={token} />
       </div>
     </div>
   );

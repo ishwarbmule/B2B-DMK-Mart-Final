@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Data Sync — the owner's guided sync surface (built for a non-technical user).
+ * ERP Sync — the owner's guided sync surface (built for a non-technical user).
  *
  * The flow reads like plain language and never exposes source-system details:
  * no host/database/version, no table or column names, no firm names, no tax
@@ -226,7 +226,7 @@ export function ErpDirectModule({ token }: { token: string }) {
 
   return (
     <div>
-      <ModuleHeader title="Data Sync" sub="Keep products, warehouses and stock fresh — pick what to show, then update">
+      <ModuleHeader title="ERP Sync" sub="Keep products, warehouses and stock fresh — pick what to show, then update">
         <Button variant="outline" size="sm" onClick={syncNow} disabled={busy || !connected}>
           {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />} Sync now
         </Button>

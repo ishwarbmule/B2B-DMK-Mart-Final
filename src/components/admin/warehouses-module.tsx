@@ -129,7 +129,7 @@ export function WarehousesModule({ token }: { token: string }) {
 
   return (
     <div>
-      <ModuleHeader title="Warehouses" sub="Only the warehouses ticked in Data Sync are listed — unticked ones stay off the site. Godowns you add here are LOCAL.">
+      <ModuleHeader title="Warehouses" sub="Only the warehouses ticked in ERP Sync are listed — unticked ones stay off the site. Godowns you add here are LOCAL.">
         <button onClick={load} className="flex h-11 items-center gap-1.5 rounded-lg border bg-white px-3 text-xs font-semibold hover:bg-gray-50">
           <RefreshCcw className={`h-3.5 w-3.5 ${whs === null ? "animate-spin" : ""}`} /> Refresh
         </button>
@@ -144,7 +144,7 @@ export function WarehousesModule({ token }: { token: string }) {
         </div>
       ) : whs.length === 0 ? (
         <div className="rounded-xl border border-dashed bg-white p-10 text-center text-sm text-gray-400">
-          No warehouses yet — tick warehouses in Data Sync → Update Products, or press “Add Warehouse” to create a LOCAL godown.
+          No warehouses yet — tick warehouses in ERP Sync → Update Products, or press “Add Warehouse” to create a LOCAL godown.
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -209,7 +209,7 @@ export function WarehousesModule({ token }: { token: string }) {
               )}
               {w.source === "ERP" && (
                 <p className="mt-1.5 flex min-h-[44px] items-center rounded-lg px-1 text-[11px] font-semibold text-gray-400">
-                  Showing on the site — manage in Data Sync
+                  Showing on the site — manage in ERP Sync
                 </p>
               )}
             </div>
@@ -225,9 +225,9 @@ export function WarehousesModule({ token }: { token: string }) {
             <DialogDescription className="text-[11px] text-gray-400">
               {editing
                 ? editing.source === "ERP"
-                  ? "Synced godown — shown because it is ticked in Data Sync. Show/hide is managed there; local edits stay until the next update."
+                  ? "Synced godown — shown because it is ticked in ERP Sync. Show/hide is managed there; local edits stay until the next update."
                   : "LOCAL godown — managed entirely here."
-                : "Creates a LOCAL godown. Other godowns arrive when you tick them in Data Sync."}
+                : "Creates a LOCAL godown. Other godowns arrive when you tick them in ERP Sync."}
             </DialogDescription>
           </DialogHeader>
 

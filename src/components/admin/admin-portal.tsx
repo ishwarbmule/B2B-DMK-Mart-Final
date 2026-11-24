@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Globe, Package, Building2, ShoppingCart,
   Users, LogOut, Menu, X, Eye, Settings2, ChevronRight, Megaphone,
   Barcode as BarcodeIcon, BadgePercent, IndianRupee, Wallet, FileSpreadsheet,
-  MapPin, BookOpen, Warehouse as WarehouseIcon,
+  MapPin, BookOpen, Warehouse as WarehouseIcon, RefreshCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardModule, CustomersModule, PricingModule, CompanyProductsModule } from "./business-modules-1";
@@ -74,6 +74,7 @@ const NAV: { group: string; items: { id: ModuleId; label: string; icon: React.Co
     { id: "customers", label: "Customer Management", icon: Users },
   ]},
   { group: "Website & System", items: [
+    { id: "erpDirect", label: "ERP Sync", icon: RefreshCcw },
     { id: "website", label: "Website Management", icon: Globe, sub: [
       { id: "liveEditor", label: "Live Visual Editor" },
       { id: "website", label: "Pages / SEO / Robots" },
