@@ -43,6 +43,12 @@ export async function GET(req: NextRequest) {
   if (status === "active") where.active = true;
   if (status === "inactive") where.active = false;
   if (status === "lowstock") where.stock = { lte: 10 };
+  // stock sub-sections (Product Management tabs): In Stock (≥1) vs Out of Stock (0).
+  // Live filters — whenever an ERP pull moves the stock, products move sections by
+  // themselves on the next load. (Applied after status so a picked tab wins.)
+  const stocked = sp.get("stocked") || "";
+  if (stocked === "1") where.stock = { gt: 0 };
+  if (stocked === "0") where.stock = { lte: 0 };
   // warehouse-wise management: the catalog is the same across godowns — pick a
   // warehouse and every product is listed with THAT godown's qty (0 = not stocked
   // there yet, editable inline). Only an explicit onlyStocked=1 narrows the list.
@@ -52,6 +58,17 @@ export async function GET(req: NextRequest) {
     // bulk operations need every matching id, not just the current page
     const rows = await db.product.findMany({ where, orderBy: { createdAt: "desc" }, take: 5000, select: { id: true } });
     return NextResponse.json({ ids: rows.map((r) => r.id), total: rows.length });
+  }
+
+  if (sp.get("counts") === "1") {
+    // per-tab counters for the In Stock / Out of Stock sub-sections — computed
+    // with the same filters except the stock split itself
+    const [all, inStock, outOfStock] = await Promise.all([
+      db.product.count({ where }),
+      db.product.count({ where: { ...where, stock: { gt: 0 } } }),
+      db.product.count({ where: { ...where, stock: { lte: 0 } } }),
+    ]);
+    return NextResponse.json({ counts: { all, in: inStock, out: outOfStock } });
   }
 
   const [total, rows] = await Promise.all([
@@ -152,6 +169,13 @@ export async function PATCH(req: NextRequest) {
     for (const k of boolFields) if (k in data) clean[k] = !!data[k];
     // Manual admin activation/deactivation is recorded so ERP pulls never undo it (last-writer-wins).
     if ("active" in clean) clean.activeSource = "ADMIN";
+    // Auto Ready-to-Dispatch (the owner's stock rule): a REAL stock change flips
+    // the Ready to Dispatch flag with the stock — unless the admin explicitly
+    // set isTop in this very request (their pick always wins).
+    if ("stock" in clean && !("isTop" in clean)) {
+      const prev = await db.product.findUnique({ where: { id: String(id) }, select: { stock: true } });
+      if (prev && Math.round(prev.stock) !== Math.round(Number(clean.stock))) clean.isTop = Number(clean.stock) >= 1;
+    }
     const row = await db.product.update({
       where: { id: String(id) },
       data: clean,

@@ -19,6 +19,8 @@
  *   - Warehouses + their products (per-godown stock) — Warehouse / WarehouseStock
  *   - Product pricing (MRP + rate) — projected automatically
  *   - Brand = ERP company name — auto-upserted into Brand with erpNames aliases
+ *   - Auto Ready-to-Dispatch: every REAL stock change flips the isTop flag with
+ *     the stock (≥1 → on, 0 → off) — see lib/stock-rules.ts
  *
  * NEVER touches the ERP database (see lib/erp-mysql.ts). Website merchandising
  * (badges isHot/isTop/isFeatured/isDeal, dealPrice, images uploaded via
@@ -33,6 +35,7 @@
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getSetting, setSetting, logSyncEvent } from "@/lib/settings";
+import { applyAutoDispatchBySkus } from "@/lib/stock-rules";
 import { assertIdentifier, assertReadOnly, describeErpTable, erpPool, erpQuery, fetchErpPage } from "@/lib/erp-mysql";
 
 // ───────── mapping types + storage ─────────
@@ -734,6 +737,9 @@ export async function syncProductsPage(pageSize = 300, offsetOverride?: number):
         sku: item.sku,
         slug: `${slugifyProduct(`${company || "dmk"}-${item.name}`)}-${item.sku.slice(-6).toLowerCase()}`,
         active: item.active, activeSource: "ERP",
+        // auto Ready-to-Dispatch: stocked items start dispatch-ready (the owner's
+        // stock rule — same as every later stock change applies)
+        ...(m.stockCol ? { isTop: Math.round(item.stock) >= 1 } : {}),
         image: item.image,
         gallery: item.image ? JSON.stringify([item.image]) : "[]",
         description: `${item.name} — synced from DMK Mart ERP.`,
@@ -762,6 +768,9 @@ export async function syncProductsPage(pageSize = 300, offsetOverride?: number):
       if (item.image) { if (prev.image !== item.image) data.image = item.image; } // keep local/Cloudinary image if ERP sends none
       if (ex.activeSource !== "ADMIN") { if (prev.active !== item.active) data.active = item.active; data.activeSource = "ERP"; }
       if (ex.syncSource === "LOCAL") { data.erpId = item.erpId; data.lastSyncedAt = now; } // admin-owned rows: link only
+      // auto Ready-to-Dispatch on every REAL stock change ("stock" only lands in
+      // data when the ERP value differs — manual isTop picks survive untouched)
+      if ("stock" in data) data.isTop = Number(data.stock) >= 1;
       if (Object.keys(data).length) { data.lastSyncedAt = now; updates.push({ id: ex.id, data }); result.updated++; }
     }
   }
@@ -1031,6 +1040,18 @@ export async function syncStock(): Promise<{ rows: number; stocksUpserted: numbe
     await db.$executeRaw(
       Prisma.sql`UPDATE "ErpProductMirror" m SET "availableStock" = v.total FROM (VALUES ${values}) AS v(sku, total) WHERE m."sku" = v.sku`,
     );
+    // auto Ready-to-Dispatch: only the SKUs whose stock ACTUALLY changed —
+    // everything else keeps whatever the owner picked by hand. Previous total
+    // per product = sum of the ERP warehouse rows we read BEFORE the writes.
+    const prevByPid = new Map<string, number>();
+    for (const e of existingRows) prevByPid.set(e.productId, (prevByPid.get(e.productId) ?? 0) + e.qty);
+    const changedSkus: string[] = [];
+    for (const [sku, total] of totals) {
+      const pid = prodBySku.get(sku);
+      if (pid === undefined) continue;
+      if ((prevByPid.get(pid) ?? 0) !== total) changedSkus.push(sku);
+    }
+    try { await applyAutoDispatchBySkus(changedSkus); } catch { /* rule is best-effort — never fail the stock pull */ }
   }
 
   // stale rows: ERP godown stock rows that no longer exist upstream (full pull covers it)

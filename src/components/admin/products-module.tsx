@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
-import { ChevronLeft, ChevronRight, CheckSquare, Download, FileUp, Flame, ImagePlus, Images, Link2, Loader2, Plus, Power, RefreshCcw, Search, ShoppingCart, Star, Trash2, TrendingUp, Upload, Wand2, X, Zap } from "lucide-react";
+import { ChevronLeft, ChevronRight, CheckSquare, Download, FileUp, Flame, ImagePlus, Images, Link2, Loader2, PackageCheck, PackageX, Plus, Power, RefreshCcw, Search, ShoppingCart, Star, Trash2, TrendingUp, Upload, Wand2, X, Zap } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { api, ModuleHeader, Toggle } from "./ui-bits";
@@ -30,6 +30,13 @@ const FLAGS = [
   { key: "isFeatured", label: "Featured", icon: Star, cls: "bg-yellow-400 text-black" },
   { key: "isHot", label: "Hot Products", icon: Flame, cls: "bg-orange-500" },
   { key: "isDeal", label: "Deal of the Day", icon: Zap, cls: "bg-red-500" },
+] as const;
+
+/* stock sub-sections: two live shelves — every feature below works the same in both */
+const STOCK_TABS = [
+  { value: "", label: "All Products", dot: "bg-gray-400", chip: "bg-black text-yellow-400" },
+  { value: "1", label: "In Stock (1+ pcs)", dot: "bg-emerald-500", chip: "bg-emerald-600 text-white" },
+  { value: "0", label: "Out of Stock (0)", dot: "bg-red-400", chip: "bg-red-500 text-white" },
 ] as const;
 
 const UNITS = ["Pcs", "Box", "Set", "Pair", "Pack", "Dozen", "Metre", "Kg", "Litre"];
@@ -108,6 +115,10 @@ export function ProductsModule({ token }: { token: string }) {
   // warehouse-oriented management: manage products per godown
   const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>([]);
   const [whFilter, setWhFilter] = useState("");
+  // stock sub-sections (In Stock / Out of Stock) + the auto Ready-to-Dispatch switch
+  const [stocked, setStocked] = useState<"" | "1" | "0">("");
+  const [counts, setCounts] = useState<{ all: number; in: number; out: number }>({ all: 0, in: 0, out: 0 });
+  const [autoDispatch, setAutoDispatch] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -120,22 +131,37 @@ export function ProductsModule({ token }: { token: string }) {
       if (catTop) params.set("top", catTop);
       if (catEnd) params.set("end", catEnd);
       if (whFilter) params.set("warehouseId", whFilter);
-      const d = await call(`/api/admin/products?${params}`);
+      if (stocked) params.set("stocked", stocked);
+      const cp = new URLSearchParams();
+      if (q) cp.set("q", q);
+      if (company) cp.set("company", company);
+      if (flag) cp.set("flag", flag);
+      if (status) cp.set("status", status);
+      if (catTop) cp.set("top", catTop);
+      if (catEnd) cp.set("end", catEnd);
+      if (whFilter) cp.set("warehouseId", whFilter);
+      cp.set("counts", "1");
+      const [d, c] = await Promise.all([
+        call(`/api/admin/products?${params}`),
+        call(`/api/admin/products?${cp}`).catch(() => null),
+      ]);
       setRows(d.rows ?? []);
       setTotal(d.total ?? 0);
       setPages(d.pages ?? 1);
       setSel({});
       setSelAllMatch(false);
+      if (c?.counts) setCounts(c.counts);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to load");
     } finally {
       setLoading(false);
     }
 
-  }, [token, page, q, company, flag, status, catTop, catEnd, whFilter]);
+  }, [token, page, q, company, flag, status, catTop, catEnd, whFilter, stocked]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
+    call("/api/admin/products/auto-dispatch").then((d) => setAutoDispatch(!!d.enabled)).catch(() => {});
     call("/api/admin/products/companies").then((d) => setCompanies(d.companies ?? [])).catch(() => {});
     call("/api/admin/crud/warehouses").then((d) => setWarehouses((d.rows ?? []).map((r: Record<string, unknown>) => ({ id: String(r.id), name: String(r.name) })))).catch(() => {});
     call("/api/admin/crud/tops").then((d) => setTops((d.rows ?? []).map((r: Record<string, unknown>) => ({ id: String(r.id), name: String(r.name) })))).catch(() => {});
@@ -168,6 +194,7 @@ export function ProductsModule({ token }: { token: string }) {
       if (catTop) params.set("top", catTop);
       if (catEnd) params.set("end", catEnd);
       if (whFilter) params.set("warehouseId", whFilter);
+      if (stocked) params.set("stocked", stocked);
       const d = await call(`/api/admin/products?${params}`);
       const ids: string[] = d.ids ?? [];
       setSel(Object.fromEntries(ids.map((id) => [id, true])));
@@ -179,6 +206,27 @@ export function ProductsModule({ token }: { token: string }) {
   };
 
   const clearSelection = () => { setSel({}); setSelAllMatch(false); };
+
+  /** Auto Ready-to-Dispatch switch — the stock rule that keeps the two
+   *  sub-sections honest: stocked = dispatch-ready, empty = not. */
+  const toggleAutoDispatch = async () => {
+    const next = !autoDispatch;
+    setAutoDispatch(next);
+    try {
+      const res = await fetch("/api/admin/products/auto-dispatch", {
+        method: "PUT",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify({ enabled: next }),
+      });
+      if (!res.ok) throw new Error("Save failed");
+      toast.success(next
+        ? "Auto Ready-to-Dispatch ON — products with stock get flagged automatically"
+        : "Auto Ready-to-Dispatch OFF — flags stay exactly as you set them");
+    } catch {
+      setAutoDispatch(!next);
+      toast.error("Could not save the switch");
+    }
+  };
 
   /* Cloudinary upload — product images land in dmk-mart/products */
   const uploadImage = async (file: File): Promise<string> => {
@@ -442,7 +490,7 @@ export function ProductsModule({ token }: { token: string }) {
 
   return (
     <div>
-      <ModuleHeader title="Product Management" sub={`${total} products · add products with Cloudinary images, organised as per categories · bulk-manage homepage sections`}>
+      <ModuleHeader title="Product Management" sub={`${total} products · two stock sub-sections (In Stock / Out of Stock) move products automatically after every ERP sync · bulk-manage sections in both`}>
         <button onClick={() => { setForm({ ...EMPTY_FORM }); setGallery([]); setMids([]); setEnds([]); setAddOpen(true); }} className="flex h-9 items-center gap-1.5 rounded-lg bg-black px-3.5 text-xs font-bold text-yellow-400 hover:bg-gray-800">
           <Plus className="h-4 w-4" /> Add Products
         </button>
@@ -456,6 +504,35 @@ export function ProductsModule({ token }: { token: string }) {
           <RefreshCcw className="h-3.5 w-3.5" />
         </button>
       </ModuleHeader>
+
+      {/* ── stock sub-sections: two live shelves driven by ERP stock ── */}
+      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-gray-100 bg-white p-2.5">
+        {STOCK_TABS.map((t) => {
+          const n = t.value === "" ? counts.all : t.value === "1" ? counts.in : counts.out;
+          const on = stocked === t.value;
+          return (
+            <button
+              key={t.value}
+              onClick={() => { setStocked(t.value); setPage(1); }}
+              className={`flex h-10 items-center gap-2 rounded-xl px-4 text-[13px] font-bold transition-colors ${on ? `${t.chip} shadow-sm` : "border border-gray-200 bg-white text-gray-600 hover:border-yellow-400"}`}
+            >
+              {t.value === "1" ? <PackageCheck className="h-4 w-4" /> : t.value === "0" ? <PackageX className="h-4 w-4" /> : <ShoppingCart className="h-4 w-4" />}
+              {t.label}
+              <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${on ? "bg-white/20" : "bg-gray-100 text-gray-700"}`}>{n}</span>
+            </button>
+          );
+        })}
+        <div className="ml-auto flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+          <div>
+            <p className="text-[12px] font-bold text-gray-800">Auto Ready-to-Dispatch</p>
+            <p className="text-[10px] text-gray-500">stock 1+ → flagged · stock 0 → unflagged · after every sync</p>
+          </div>
+          <Toggle checked={autoDispatch} onChange={toggleAutoDispatch} />
+        </div>
+      </div>
+      <p className="mb-3 text-[11px] text-gray-400">
+        Stock comes from the ERP — after every sync products move between the two sub-sections on their own. Every tool below (sections, editing, bulk actions, warehouse quantities) works the same inside both.
+      </p>
 
       {/* filters */}
       <div className="mb-3 flex flex-wrap items-center gap-2">

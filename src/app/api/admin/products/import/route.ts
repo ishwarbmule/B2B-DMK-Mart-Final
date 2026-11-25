@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin, jsonError } from "@/lib/admin-auth";
+import { autoDispatchEnabled } from "@/lib/stock-rules";
 import * as XLSX from "xlsx";
 
 export const dynamic = "force-dynamic";
@@ -158,6 +159,7 @@ export async function POST(req: NextRequest) {
     const chunk = allRows.slice(start, start + CHUNK);
     let updated = 0, created = 0, skipped = 0;
     const errors: string[] = [];
+    const stockRule = await autoDispatchEnabled();
 
     for (const row of chunk) {
       const sku = strv(row.sku);
@@ -194,6 +196,8 @@ export async function POST(req: NextRequest) {
           const tier4 = num(row.tier4); if (tier4 !== null) { data.tier4 = tier4; data.dealerPrice = tier4 > 0 ? tier4 : existing.dealerPrice; }
           const tier5 = num(row.tier5); if (tier5 !== null) { data.tier5 = tier5; data.mrp = tier5 > 0 ? tier5 : existing.mrp; }
           const stock = num(row.stock); if (stock !== null) data.stock = stock;
+          // auto Ready-to-Dispatch: stock changed in the sheet → flag follows
+          if (stockRule && stock !== null && Math.round(existing.stock) !== Math.round(stock)) data.isTop = stock >= 1;
           const damaged = num(row.damagedStock); if (damaged !== null) data.damagedStock = damaged;
           const reserved = num(row.reservedQty); if (reserved !== null) data.reservedQty = reserved;
           const low = num(row.lowStockThreshold); if (low !== null) data.lowStockThreshold = Math.round(low);
@@ -244,6 +248,7 @@ export async function POST(req: NextRequest) {
               basePrice: num(row.tier3) ?? tier4,
               mrp: tier5 > 0 ? tier5 : tier4,
               stock: num(row.stock) ?? 0,
+              isTop: stockRule ? (num(row.stock) ?? 0) >= 1 : false,
               damagedStock: num(row.damagedStock) ?? 0,
               reservedQty: num(row.reservedQty) ?? 0,
               lowStockThreshold: Math.round(num(row.lowStockThreshold) ?? 10),

@@ -3,12 +3,14 @@
  * data source". Creates a Brand row for every Product.company that does not yet
  * have one (matched by exact name or an existing erpNames alias), so the brand
  * pages/logos surface covers the whole catalog. Never deletes or renames —
- * existing brands stay untouched; logos can then be picked/uploaded per brand.
- *   POST → { created, totalCompanies, brands: [{ name, created }] }
+ * existing brands stay untouched; the fresh brands get their Cloudinary logo
+ * applied right away when a file with a matching name exists.
+ *   POST → { created, totalCompanies, brands: [{ name, created }], logosMatched }
  */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin, jsonError } from "@/lib/admin-auth";
+import { matchBrandLogosFromCloudinary } from "@/lib/brand-logos";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -42,13 +44,14 @@ export async function POST(req: NextRequest) {
     }
 
     const created: { name: string }[] = [];
+    const createdIds: string[] = [];
     let order = existing.length;
     for (const company of companies) {
       const key = company.toLowerCase();
       if (byName.has(key) || byAlias.has(key)) continue; // already covered (exact or alias)
       let slug = slugify(company);
       if (await db.brand.findUnique({ where: { slug }, select: { id: true } })) slug = `${slug}-${created.length + 1}`;
-      await db.brand.create({
+      const row = await db.brand.create({
         data: {
           name: company,
           slug,
@@ -58,17 +61,29 @@ export async function POST(req: NextRequest) {
         },
       });
       created.push({ name: company });
+      createdIds.push(row.id);
     }
 
     await db.activityLog.create({
       data: { action: "CREATE", entity: "brand", detail: `Brand sync from companies — ${created.length} created of ${companies.length} companies`, user: "Super Admin" },
     }).catch(() => {});
 
+    // fresh brands instantly get their Cloudinary logo when a matching file
+    // exists (file name = brand/company name) — no manual picking needed
+    let logosMatched = 0;
+    if (createdIds.length) {
+      try {
+        const r = await matchBrandLogosFromCloudinary(createdIds);
+        logosMatched = r.updated;
+      } catch { /* Cloudinary hiccup — logos can be pulled with the dedicated button */ }
+    }
+
     return NextResponse.json({
       ok: true,
       created: created.length,
       totalCompanies: companies.length,
       brands: created,
+      logosMatched,
     });
   } catch (e) {
     return jsonError(e instanceof Error ? e.message.slice(0, 300) : "Brand sync failed", 500);
