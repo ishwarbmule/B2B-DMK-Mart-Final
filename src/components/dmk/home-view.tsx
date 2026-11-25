@@ -442,15 +442,17 @@ function ReadyToDispatchGrid() {
   // BRAND CLUSTERS — the API streams Ready-to-Dispatch company-by-company, so
   // consecutive runs are whole brands. Each run gets its own header row + grid:
   // a brand's products always display together, never mixed with another's.
+  // Products without a company run under the store name, kept LAST.
   const clusters = useMemo(() => {
-    const runs: { company: string; items: DProduct[] }[] = [];
+    const runs: { company: string; items: DProduct[]; fallback?: boolean }[] = [];
     for (const p of products) {
-      const name = (p.company || p.brand?.name || "DMK Mart").trim();
+      const fallback = !p.company || !p.company.trim();
+      const name = fallback ? (p.brand?.name || "DMK Mart") : p.company.trim();
       const last = runs[runs.length - 1];
       if (last && last.company === name) last.items.push(p);
-      else runs.push({ company: name, items: [p] });
+      else runs.push({ company: name, items: [p], fallback });
     }
-    return runs;
+    return [...runs.filter((r) => !r.fallback), ...runs.filter((r) => r.fallback)];
   }, [products]);
 
   if (loading) {

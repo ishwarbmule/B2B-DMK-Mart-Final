@@ -106,17 +106,19 @@ export function CatalogView({
 
   // BRAND BLOCKS — the grouped section view: one block per company, in API order
   // (the server already sorts flag views company → name, so every brand's
-  // products render together under their own header)
+  // products render together under their own header). Products without a
+  // company group under the store name, kept LAST so named brands lead.
   const brandBlocks = useMemo(() => {
-    const blocks: { company: string; items: DProduct[] }[] = [];
+    const blocks: { company: string; items: DProduct[]; fallback?: boolean }[] = [];
     const byName = new Map<string, DProduct[]>();
     for (const p of data.products) {
-      const name = (p.company || p.brand?.name || "DMK Mart").trim();
+      const fallback = !p.company || !p.company.trim();
+      const name = fallback ? (p.brand?.name || "DMK Mart") : p.company.trim();
       let arr = byName.get(name);
-      if (!arr) { arr = []; byName.set(name, arr); blocks.push({ company: name, items: arr }); }
+      if (!arr) { arr = []; byName.set(name, arr); blocks.push({ company: name, items: arr, fallback }); }
       arr.push(p);
     }
-    return blocks;
+    return blocks.sort((a, b) => Number(!!a.fallback) - Number(!!b.fallback));
   }, [data.products]);
 
   const activeTop = tops.find((t) => t.id === filters.top);
