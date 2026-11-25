@@ -163,6 +163,9 @@ export interface DProduct {
   piecesPerBox?: number;
   unit?: string;
   stock: number;
+  /** availability flag — buyer payloads never carry the raw stock number, only
+   *  this boolean (server-side from the live stock) */
+  inStock?: boolean;
   barcode: string;
   gst: number;
   image: string;

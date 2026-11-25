@@ -50,8 +50,9 @@ function toDProduct(p: NonNullable<Awaited<ReturnType<typeof getProduct>>>): DPr
     id: p.id, sku: p.sku, slug: p.slug, name: p.name,
     dealerPrice: p.dealerPrice, basePrice: p.basePrice, mrp: p.mrp,
     packQty: p.packQty, piecesPerBox: p.piecesPerBox, unit: p.unit,
-    // Task 12 (g): stock must NEVER reach the buyer payload (network tab included)
-    stock: 0, barcode: p.barcode, gst: p.gst, image: p.image,
+    // Task 12 (g): the stock NUMBER must never reach the buyer payload (network
+    // tab included) — only the boolean availability flag goes out
+    stock: 0, inStock: p.stock > 0, barcode: p.barcode, gst: p.gst, image: p.image,
     isHot: p.isHot, isTop: p.isTop, isFeatured: p.isFeatured, isDeal: p.isDeal,
     dealPrice: p.dealPrice, active: p.active, rating: p.rating, reviewCount: p.reviewCount,
     brand: p.brand, top: p.top, mid: p.mid, end: p.end,

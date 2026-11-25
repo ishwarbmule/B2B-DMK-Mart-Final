@@ -141,8 +141,10 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
-  // Buyer-safe payload whitelist: purchase cost and live stock NEVER leave the admin panel
-  // (Task 12g + Task 15). Tiers + packPrice ride along for the client-side slab pricing engine.
+  // Buyer-safe payload whitelist: purchase cost and the live stock NUMBER never
+  // leave the admin panel (Task 12g + Task 15) — only the boolean availability
+  // flag rides along (powers the in-stock glow dot on product images).
+  // Tiers + packPrice ride along for the client-side slab pricing engine.
   // Location pricing: the logged-in buyer's city override rides as locPrice (all other
   // cities' overrides stay server-side).
   const safe = products.map((p) => ({
@@ -151,7 +153,7 @@ export async function GET(req: NextRequest) {
     tier1: p.tier1, tier2: p.tier2, tier3: p.tier3, tier4: p.tier4, tier5: p.tier5,
     ...(buyerCity ? { locPrice: locationPriceFor(p.locationPrices, buyerCity) } : {}),
     packPrice: p.packPrice, packQty: p.packQty, piecesPerBox: p.piecesPerBox, unit: p.unit,
-    barcode: p.barcode, gst: p.gst, image: p.image,
+    barcode: p.barcode, gst: p.gst, image: p.image, inStock: p.stock > 0,
     isHot: p.isHot, isTop: p.isTop, isFeatured: p.isFeatured, isDeal: p.isDeal, dealPrice: p.dealPrice,
     active: p.active, rating: p.rating, reviewCount: p.reviewCount,
     company: p.company,

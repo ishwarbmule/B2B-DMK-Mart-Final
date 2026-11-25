@@ -156,7 +156,7 @@ export function ProductCard({ p }: { p: DProduct }) {
           unoptimized
         />
         {/* in-stock glow — top-right corner of the image; OOS items show no dot */}
-        <StockDot show={(p.stock ?? 0) > 0} />
+        <StockDot show={!!(p.inStock ?? (p.stock ?? 0) > 0)} />
       </Link>
 
       <div className="flex flex-1 flex-col gap-1 p-3">
@@ -260,7 +260,7 @@ export function ProductCardMini({ p }: { p: DProduct }) {
       <Link href={p.slug ? `/product/${p.slug}` : "#"} className="relative block aspect-square w-full overflow-hidden bg-gray-50">
         <Image src={p.image || "/dmk-logo.png"} alt={p.name} fill sizes="240px" className="object-cover" unoptimized />
         {/* in-stock glow — top-right corner; OOS items show no dot */}
-        <StockDot show={(p.stock ?? 0) > 0} />
+        <StockDot show={!!(p.inStock ?? (p.stock ?? 0) > 0)} />
         {disc > 0 && (
           <span className="absolute left-2 top-2 rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white">
             {disc}% OFF
