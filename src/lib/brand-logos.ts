@@ -25,15 +25,14 @@ const slugify = (s: string) =>
 type Asset = { publicId: string; url: string };
 
 /** Signed, paginated Cloudinary Admin API list for one folder (read-only).
- *  HTTP BASIC auth (api_key:api_secret) — the query-signature variant
- *  intermittently answered "Invalid credentials" on this account. */
+ *  HTTP BASIC auth (api_key:api_secret) + PREFIX scoping — /resources ignores
+ *  the bare "folder" param and would otherwise return account-wide assets. */
 async function listFolder(cloud: string, key: string, secret: string, folder: string): Promise<Asset[]> {
   const out: Asset[] = [];
   let cursor = "";
   const basic = Buffer.from(`${key}:${secret}`).toString("base64");
   for (let page = 0; page < 10; page++) {
-    const timestamp = Math.floor(Date.now() / 1000);
-    const qs = new URLSearchParams({ folder, max_results: "100", timestamp: String(timestamp) });
+    const qs = new URLSearchParams({ prefix: `${folder}/`, max_results: "100" });
     if (cursor) qs.set("next_cursor", cursor);
     const res = await fetch(`https://api.cloudinary.com/v1_1/${cloud}/resources/image?${qs}`, {
       cache: "no-store",

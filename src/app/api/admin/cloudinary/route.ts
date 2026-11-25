@@ -37,11 +37,11 @@ export async function GET(req: NextRequest) {
   const folder = FOLDERS[(sp.get("folder") || "products").toLowerCase()] || "dmk-mart/products";
   const max = Math.max(1, Math.min(100, parseInt(sp.get("max") || "60") || 60));
 
-  // Signed Admin API call — HTTP BASIC auth (api_key:api_secret), the scheme the
-  // Admin API documents alongside query-param signatures; the query-signature
-  // variant intermittently answered "Invalid credentials" on this account.
+  // Signed Admin API call — HTTP BASIC auth (api_key:api_secret). /resources
+  // scopes by PREFIX (folder + "/") — the bare "folder" param is ignored by the
+  // endpoint and silently returns account-wide assets.
   const basic = Buffer.from(`${key}:${secret}`).toString("base64");
-  const qs = new URLSearchParams({ folder, max_results: String(max), timestamp: String(Math.floor(Date.now() / 1000)) });
+  const qs = new URLSearchParams({ prefix: `${folder}/`, max_results: String(max) });
 
   try {
     const res = await fetch(`https://api.cloudinary.com/v1_1/${cloud}/resources/image?${qs}`, {
