@@ -21,6 +21,11 @@ interface Meta {
   warehouses: { id: string; name: string; city: string; isDefault: boolean; skus: number }[];
   contact: { firmName: string; firmPhone: string; site: string };
 }
+interface WhProduct {
+  id: string; sku: string; name: string; company: string; category: string;
+  qty: number; active: boolean; dealerPrice: number; mrp: number; image: string;
+}
+type WhSort = "company" | "name" | "qty" | "price" | "category";
 interface BrochureMeta {
   id: string; filename: string; count: number; companies: string[]; warehouse?: string;
   sections: { name: string; count: number }[];
@@ -56,13 +61,33 @@ export function BrochureModule({ token }: { token: string }) {
   const [includeOOS, setIncludeOOS] = useState(true);
   const [showPrices, setShowPrices] = useState(true);
   const [tier, setTier] = useState("dealer");
-  const [maxProducts, setMaxProducts] = useState(120);
+  const [maxProducts, setMaxProducts] = useState<number | "all">(120);
   const [generating, setGenerating] = useState(false);
   const [last, setLast] = useState<BrochureMeta | null>(null);
+
+  // warehouse product picker — EVERY product the chosen godown carries (hidden
+  // ones included) so the owner decides exactly what goes into the print
+  const [whProducts, setWhProducts] = useState<WhProduct[]>([]);
+  const [whLoading, setWhLoading] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [whSearch, setWhSearch] = useState("");
+  const [whSort, setWhSort] = useState<WhSort>("company");
 
   useEffect(() => {
     call("/api/admin/brochure/generate").then(setMeta).catch((e) => toast.error(e.message));
   }, [call]);
+
+  const onWarehouse = (id: string) => {
+    setWarehouseId(id);
+    setPicked(new Set());
+    setWhSearch("");
+    if (!id) { setWhProducts([]); return; }
+    setWhLoading(true);
+    call(`/api/admin/brochure/generate?warehouseId=${encodeURIComponent(id)}`)
+      .then((d: { products?: WhProduct[] }) => setWhProducts(d.products ?? []))
+      .catch((e: Error) => toast.error(e.message))
+      .finally(() => setWhLoading(false));
+  };
 
   const mids = useMemo(() => meta?.tops.find((t) => t.id === topId)?.mids ?? [], [meta, topId]);
   const ends = useMemo(() => mids.find((m) => m.id === midId)?.ends ?? [], [mids, midId]);
@@ -80,16 +105,44 @@ export function BrochureModule({ token }: { token: string }) {
     });
   };
 
+  const togglePicked = (id: string) => {
+    setPicked((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  };
+
+  const whFiltered = useMemo(() => {
+    const q = whSearch.trim().toLowerCase();
+    const rows = whProducts.filter(
+      (p) => !q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || p.company.toLowerCase().includes(q) || p.category.toLowerCase().includes(q),
+    );
+    const by: Record<WhSort, (a: WhProduct, b: WhProduct) => number> = {
+      company: (a, b) => a.company.localeCompare(b.company) || a.name.localeCompare(b.name),
+      name: (a, b) => a.name.localeCompare(b.name),
+      qty: (a, b) => b.qty - a.qty || a.company.localeCompare(b.company) || a.name.localeCompare(b.name),
+      price: (a, b) => b.dealerPrice - a.dealerPrice || a.company.localeCompare(b.company),
+      category: (a, b) => a.category.localeCompare(b.category) || a.company.localeCompare(b.company) || a.name.localeCompare(b.name),
+    };
+    return [...rows].sort(by[whSort]);
+  }, [whProducts, whSearch, whSort]);
+
   const generate = useCallback(async () => {
     if (!meta) return;
     if (!warehouseId) { toast.error("Pick the warehouse first — every brochure prints one godown's stock"); return; }
+    if (picked.size > 600) { toast.error(`A single brochure prints up to 600 products — ${picked.size} are picked. Clear some or print company-wise.`); return; }
     setGenerating(true);
     try {
+      // picked products (ordered by the visible sort) override every other filter;
+      // an empty pick keeps the classic company/category filter flow working
+      const pickedOrdered = picked.size ? whFiltered.filter((p) => picked.has(p.id)).map((p) => p.id) : undefined;
       const res = await fetch("/api/admin/brochure/generate", {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
         body: JSON.stringify({
           warehouseId,
+          ...(pickedOrdered ? { productIds: pickedOrdered } : {}),
           companies: Array.from(selected),
           topId: topId || undefined,
           midId: midId || undefined,
@@ -135,7 +188,7 @@ export function BrochureModule({ token }: { token: string }) {
     } finally {
       setGenerating(false);
     }
-  }, [meta, warehouseId, selected, topId, midId, endId, readyOnly, includeOOS, showPrices, tier, maxProducts, token]);
+  }, [meta, warehouseId, picked, whFiltered, selected, topId, midId, endId, readyOnly, includeOOS, showPrices, tier, maxProducts, token]);
 
   const waShare = () => {
     if (!last?.shareUrl) return;
@@ -163,7 +216,7 @@ export function BrochureModule({ token }: { token: string }) {
             <p className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-gray-900"><Warehouse className="h-3.5 w-3.5 text-yellow-600" /> 1 · Warehouse (required)</p>
             <select
               value={warehouseId}
-              onChange={(e) => setWarehouseId(e.target.value)}
+              onChange={(e) => onWarehouse(e.target.value)}
               className="h-9 w-full rounded-lg border border-gray-300 bg-white px-2 text-xs"
               aria-label="Warehouse"
             >
@@ -175,10 +228,81 @@ export function BrochureModule({ token }: { token: string }) {
             <p className="mt-1.5 text-[10px] leading-tight text-gray-500">The brochure prints only the products stocked in this godown, with this godown's own quantities on every line.</p>
           </div>
 
+          {/* products picker — every product THIS warehouse carries, hidden ones included */}
+          <div className="rounded-xl border bg-white p-3">
+            <div className="mb-1.5 flex items-center justify-between">
+              <p className="text-xs font-semibold text-gray-900">2 · Pick products (optional)</p>
+              {picked.size > 0 && (
+                <button onClick={() => setPicked(new Set())} className="flex items-center gap-1 text-[10px] font-bold text-gray-400 hover:text-red-500"><X className="h-3 w-3" /> Clear ({picked.size})</button>
+              )}
+            </div>
+            <p className="mb-2 text-[10px] leading-tight text-gray-500">
+              {whLoading
+                ? "Loading this warehouse's products…"
+                : warehouseId
+                  ? <>All <b>{whProducts.length}</b> products of this warehouse — hidden ones too. Search, sort, tick what to print. Empty selection = the filters below decide.</>
+                  : "Pick a warehouse first — its full product list (hidden items included) appears here."}
+            </p>
+            {warehouseId && !whLoading && (
+              <>
+                <div className="mb-1.5 flex gap-1.5">
+                  <div className="relative flex-1">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+                    <input
+                      value={whSearch}
+                      onChange={(e) => setWhSearch(e.target.value)}
+                      placeholder="Search name, SKU, brand, category…"
+                      className="h-8 w-full rounded-lg border border-gray-200 pl-8 pr-2 text-xs outline-none focus:border-yellow-500"
+                    />
+                  </div>
+                  <select
+                    value={whSort}
+                    onChange={(e) => setWhSort(e.target.value as WhSort)}
+                    className="h-8 w-[104px] rounded-lg border border-gray-200 px-1.5 text-[11px] outline-none focus:border-yellow-500"
+                    aria-label="Sort warehouse products"
+                  >
+                    <option value="company">Brand A→Z</option>
+                    <option value="name">Name A→Z</option>
+                    <option value="qty">Stock high→low</option>
+                    <option value="price">Price high→low</option>
+                    <option value="category">Category</option>
+                  </select>
+                </div>
+                <div className="max-h-64 space-y-0.5 overflow-y-auto">
+                  {whFiltered.map((p) => {
+                    const on = picked.has(p.id);
+                    return (
+                      <label key={p.id} className={`flex cursor-pointer items-center gap-2 rounded-lg px-1.5 py-1.5 text-xs hover:bg-gray-50 ${on ? "bg-yellow-50" : ""}`}>
+                        <input type="checkbox" checked={on} onChange={() => togglePicked(p.id)} className="h-3.5 w-3.5 accent-black" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-semibold text-gray-800">{p.name}</span>
+                          <span className="block truncate text-[9.5px] text-gray-400">{p.sku} · {p.company}{p.category ? ` · ${p.category}` : ""}</span>
+                        </span>
+                        {!p.active && <span className="shrink-0 rounded bg-gray-200 px-1 py-0.5 text-[9px] font-bold text-gray-500">Hidden</span>}
+                        <span className={`shrink-0 text-[10px] font-bold tabular-nums ${p.qty > 0 ? "text-emerald-600" : "text-red-400"}`}>{p.qty}</span>
+                        <span className="w-14 shrink-0 text-right text-[10px] tabular-nums text-gray-500">₹{p.dealerPrice.toLocaleString("en-IN")}</span>
+                      </label>
+                    );
+                  })}
+                  {!whFiltered.length && <p className="px-1 py-3 text-center text-[11px] text-gray-400">Nothing matches this search.</p>}
+                </div>
+                <div className="mt-1.5 flex items-center justify-between">
+                  <button
+                    onClick={() => setPicked((s) => { const n = new Set(s); for (const p of whFiltered) n.add(p.id); return n; })}
+                    className="text-[10px] font-bold text-gray-500 hover:text-black"
+                  >
+                    Select all shown ({whFiltered.length})
+                  </button>
+                  <span className="text-[10px] text-gray-400">Picked {picked.size} · max 600 per print</span>
+                </div>
+              </>
+            )}
+          </div>
+
           {/* companies */}
           <div className="rounded-xl border bg-white p-3">
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs font-semibold text-gray-900">2 · Companies</p>
+              <p className="text-xs font-semibold text-gray-900">3 · Companies</p>
               {selected.size > 0 && (
                 <button onClick={() => setSelected(new Set())} className="flex items-center gap-1 text-[10px] font-bold text-gray-400 hover:text-red-500"><X className="h-3 w-3" /> Clear ({selected.size})</button>
               )}
@@ -212,7 +336,7 @@ export function BrochureModule({ token }: { token: string }) {
 
           {/* categories */}
           <div className="rounded-xl border bg-white p-3">
-            <p className="mb-2 text-xs font-semibold text-gray-900">3 · Category (optional)</p>
+            <p className="mb-2 text-xs font-semibold text-gray-900">4 · Category (optional)</p>
             <div className="space-y-2">
               <select value={topId} onChange={(e) => { setTopId(e.target.value); setMidId(""); setEndId(""); }} className="h-9 w-full rounded-lg border border-gray-200 px-2 text-xs" aria-label="Top category">
                 <option value="">All top categories</option>
@@ -251,15 +375,18 @@ export function BrochureModule({ token }: { token: string }) {
             </div>
             <div className="rounded-xl border bg-white p-3">
               <p className="mb-1.5 text-[12px] font-medium text-gray-500">Max products</p>
-              <input
-                type="number"
-                min={10}
-                max={400}
-                value={maxProducts}
-                onChange={(e) => setMaxProducts(Math.max(10, Math.min(400, Number(e.target.value) || 120)))}
+              <select
+                value={String(maxProducts)}
+                onChange={(e) => setMaxProducts(e.target.value === "all" ? "all" : Number(e.target.value))}
                 className="h-8 w-full rounded-lg border border-gray-200 px-2 text-xs"
                 aria-label="Maximum products"
-              />
+              >
+                <option value="60">60 products</option>
+                <option value="120">120 products</option>
+                <option value="200">200 products</option>
+                <option value="250">250 products</option>
+                <option value="all">All products (up to 600)</option>
+              </select>
             </div>
           </div>
 
@@ -272,7 +399,7 @@ export function BrochureModule({ token }: { token: string }) {
             {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4" />}
             {generating ? "Generating PDF…" : warehouseId ? "Generate & Download PDF" : "Pick a warehouse to enable"}
           </button>
-          <p className="text-center text-[10px] text-gray-400">Large catalogs (~120 products) take 20–40 seconds — the file downloads automatically.</p>
+          <p className="text-center text-[10px] text-gray-400">Prints 9 products per page in a 3×3 grid · large catalogs take 20–60 seconds — the file downloads automatically.</p>
         </div>
 
         {/* preview / result */}

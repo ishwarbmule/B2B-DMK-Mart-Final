@@ -35,7 +35,13 @@ export async function GET(req: NextRequest) {
   const unauthorized = requireAdmin(req);
   if (unauthorized) return unauthorized;
   try {
-    const [companyGroups, tops, warehouses, settings] = await Promise.all([
+    // ?warehouseId=… → ALSO return that godown's product picker list: EVERY
+    // product carried by the warehouse — hidden/inactive ones included — with
+    // the godown's own quantities, so the admin can sort and pick exactly what
+    // goes into the brochure.
+    const pickWarehouseId = (req.nextUrl.searchParams.get("warehouseId") || "").trim();
+
+    const [companyGroups, tops, warehouses, settings, picked] = await Promise.all([
       db.product.groupBy({ by: ["company"], _count: { _all: true }, where: { active: true } }),
       db.topCategory.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true, mids: { select: { id: true, name: true, ends: { select: { id: true, name: true } } } } } }),
       // the godowns a brochure can be printed for — ERP godowns the admin still
@@ -46,7 +52,42 @@ export async function GET(req: NextRequest) {
         select: { id: true, name: true, city: true, isDefault: true, _count: { select: { stocks: { where: { qty: { gt: 0 } } } } } },
       }),
       db.setting.findMany({ where: { key: { in: ["firm_name", "firm_phone", "site_title"] } } }).catch(() => [] as { key: string; value: string }[]),
+      pickWarehouseId
+        ? db.warehouseStock.findMany({ where: { warehouseId: pickWarehouseId }, select: { productId: true, qty: true } })
+        : Promise.resolve([] as { productId: string; qty: number }[]),
     ]);
+
+    // picker rows — brand-grouped order (company → name) so the brochure pops
+    // out with the same grouping the picker showed
+    let warehouse: { id: string; name: string; city: string } | null = null;
+    let products: {
+      id: string; sku: string; name: string; company: string; category: string;
+      qty: number; active: boolean; dealerPrice: number; mrp: number; image: string;
+    }[] = [];
+    if (pickWarehouseId) {
+      const wh = await db.warehouse.findUnique({ where: { id: pickWarehouseId }, select: { id: true, name: true, city: true } });
+      if (!wh) return jsonError("That warehouse no longer exists — pick another one.", 400);
+      warehouse = wh;
+      const ids = picked.map((s) => s.productId);
+      const qtyById = new Map(picked.map((s) => [s.productId, s.qty]));
+      const rows = ids.length
+        ? await db.product.findMany({
+            where: { id: { in: ids } },
+            select: { id: true, sku: true, name: true, company: true, dealerPrice: true, mrp: true, active: true, image: true, end: { select: { name: true } }, mid: { select: { name: true } }, top: { select: { name: true } } },
+            orderBy: [{ company: "asc" }, { name: "asc" }],
+          })
+        : [];
+      products = rows.map((p) => ({
+        id: p.id, sku: p.sku, name: p.name, company: p.company || "Unassigned",
+        category: p.end?.name || p.mid?.name || p.top?.name || "General",
+        qty: qtyById.get(p.id) ?? 0,
+        active: p.active,
+        dealerPrice: p.dealerPrice,
+        mrp: p.mrp,
+        image: p.image,
+      }));
+    }
+
     const S: Record<string, string> = {};
     for (const s of settings) S[s.key] = s.value;
     return NextResponse.json({
@@ -56,6 +97,7 @@ export async function GET(req: NextRequest) {
       tops,
       warehouses: warehouses.map((w) => ({ id: w.id, name: w.name, city: w.city, isDefault: w.isDefault, skus: w._count.stocks })),
       contact: { firmName: S.firm_name || "DMK Mart", firmPhone: S.firm_phone || "", site: SITE_URL },
+      ...(pickWarehouseId ? { warehouse, products } : {}),
     });
   } catch (e) {
     return jsonError(e instanceof Error ? e.message.slice(0, 300) : "Could not load brochure meta", 500);
@@ -81,7 +123,10 @@ export async function POST(req: NextRequest) {
       includeOutOfStock: !!body.includeOutOfStock,
       showPrices: body.showPrices !== false,
       tier: typeof body.tier === "string" ? body.tier : "dealer",
-      maxProducts: Math.min(Number(body.maxProducts) || 120, 250),
+      // "all" = print everything that matches (up to the hard server cap);
+      // a picked productIds list always wins over the other filters
+      maxProducts: body.maxProducts === "all" ? "all" : Math.min(Number(body.maxProducts) || 120, 250),
+      productIds: Array.isArray(body.productIds) ? body.productIds.map(String).filter(Boolean) : [],
     };
 
     const { buffer, meta } = await generateBrochure(filters);

@@ -27,6 +27,22 @@ export function toCartItem(p: DProduct, unitType: UnitType = "SINGLE"): CartItem
 
 const UNIT_LABEL: Record<UnitType, string> = { SINGLE: "Pc", PACK: "Pack", BULK: "Case" };
 
+/** "In stock" glow — an animated green dot pinned to the product image's top-right
+ *  corner (the owner's stock signal). Out-of-stock products render nothing. */
+export function StockDot({ show, className = "right-1 top-1" }: { show: boolean; className?: string }) {
+  if (!show) return null;
+  return (
+    <span
+      className={`pointer-events-none absolute z-[5] flex h-3.5 w-3.5 ${className}`}
+      title="In stock — ready to dispatch"
+      aria-label="In stock"
+    >
+      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70 [animation-duration:1.6s]" />
+      <span className="relative inline-flex h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500 shadow-[0_0_7px_rgba(16,185,129,0.9)]" />
+    </span>
+  );
+}
+
 /** BULK ORDERING — type the exact quantity instead of tapping "+" 72 times.
  *  Direct-edit number box: digits only, commits on every keystroke, normalises to ≥1 on blur. */
 export function QtyInput({
@@ -125,7 +141,7 @@ export function ProductCard({ p }: { p: DProduct }) {
       <button
         onClick={() => setWish((w) => !w)}
         aria-label="Add to wishlist"
-        className="absolute right-2 top-2 z-10 rounded-full bg-white/90 p-1.5 shadow-sm transition hover:scale-110"
+        className="absolute right-2 top-9 z-10 rounded-full bg-white/90 p-1.5 shadow-sm transition hover:scale-110"
       >
         <Heart className={`h-4 w-4 ${wish ? "fill-red-500 text-red-500" : "text-gray-400"}`} />
       </button>
@@ -139,6 +155,8 @@ export function ProductCard({ p }: { p: DProduct }) {
           className="object-cover transition duration-300 group-hover:scale-105"
           unoptimized
         />
+        {/* in-stock glow — top-right corner of the image; OOS items show no dot */}
+        <StockDot show={(p.stock ?? 0) > 0} />
       </Link>
 
       <div className="flex flex-1 flex-col gap-1 p-3">
@@ -241,6 +259,8 @@ export function ProductCardMini({ p }: { p: DProduct }) {
     <div className="flex w-[240px] shrink-0 flex-col overflow-hidden rounded-xl border bg-white transition hover:shadow-md">
       <Link href={p.slug ? `/product/${p.slug}` : "#"} className="relative block aspect-square w-full overflow-hidden bg-gray-50">
         <Image src={p.image || "/dmk-logo.png"} alt={p.name} fill sizes="240px" className="object-cover" unoptimized />
+        {/* in-stock glow — top-right corner; OOS items show no dot */}
+        <StockDot show={(p.stock ?? 0) > 0} />
         {disc > 0 && (
           <span className="absolute left-2 top-2 rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white">
             {disc}% OFF

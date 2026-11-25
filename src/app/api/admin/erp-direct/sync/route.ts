@@ -5,11 +5,16 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * POST { action: "resync" | "tick", pageSize? }
- *   resync — one FULL-PULL chunk (warehouses + stock + next product page, cursor
- *            persisted). The admin UI loops calls until products.done — a big
- *            catalog never hits the serverless timeout (the 504 lesson).
- *   tick   — the cron maintenance pass (interval-gated unless forced).
+ * POST { action: "resync" | "update-info" | "tick", pageSize? }
+ *   resync      — one FULL-PULL chunk (warehouses + stock + next product page, cursor
+ *                 persisted). The admin UI loops calls until products.done — a big
+ *                 catalog never hits the serverless timeout (the 504 lesson).
+ *   update-info — "Update information" chunk: same pull but product pages only
+ *                 REFRESH what the panel already lists (prices, MRP, names, brands,
+ *                 categories, stock); brand-new SKUs are counted, not added —
+ *                 "Update Products" / "Sync now" remains the only way to grow the
+ *                 catalog. Warehouses + stock still refresh so quantities stay true.
+ *   tick        — the cron maintenance pass (interval-gated unless forced).
  */
 export async function POST(req: Request) {
   const unauthorized = requireAdmin(req);
@@ -21,7 +26,11 @@ export async function POST(req: Request) {
       const result = await runErpTick(body.force ?? false);
       return Response.json(result);
     }
-    const result = await fullResyncChunk(Math.min(Math.max(50, body.pageSize ?? 300), 1000), body.stage);
+    const result = await fullResyncChunk(
+      Math.min(Math.max(50, body.pageSize ?? 300), 1000),
+      body.stage,
+      action === "update-info" ? { updateOnly: true } : undefined,
+    );
     return Response.json(result);
   } catch (e) {
     return jsonError(e instanceof Error ? e.message : "Sync failed", 500);

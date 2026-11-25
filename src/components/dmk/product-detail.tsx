@@ -10,7 +10,7 @@ import { useHydrated } from "@/hooks/use-hydrated";
 import { discountPct, type DProduct } from "@/lib/types";
 import { useCustomerSession } from "@/lib/customer-client";
 import type { Fulfillment } from "@/lib/pricing";
-import { toCartItem, ProductCard, QtyInput } from "./product-card";
+import { toCartItem, ProductCard, QtyInput, StockDot } from "./product-card";
 
 export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[] }) {
   const hydrated = useHydrated();
@@ -78,6 +78,8 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
         <div>
           <div className="relative aspect-square overflow-hidden rounded-2xl border bg-white">
             <Image src={gallery[imgIdx] || "/dmk-logo.png"} alt={p.name} fill priority sizes="(max-width:1024px) 100vw, 600px" className="object-cover" unoptimized />
+            {/* in-stock glow — top-right corner of the main image */}
+            <StockDot show={(p.stock ?? 0) > 0} className="right-3 top-3 h-4 w-4" />
             <div className="absolute left-3 top-3 flex flex-col gap-1">
               {disc > 0 && <span className="rounded-full bg-yellow-400 px-2.5 py-1 text-[11px] font-black text-black">{disc}% OFF</span>}
               {p.isDeal && <span className="flex items-center gap-1 rounded-full bg-red-500 px-2.5 py-1 text-[11px] font-bold text-white"><Zap className="h-3 w-3" /> Deal of the Day</span>}

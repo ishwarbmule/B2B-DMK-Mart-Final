@@ -150,19 +150,31 @@ export function ErpDirectModule({ token }: { token: string }) {
     setGroups((cur) => ({ ...cur, [id]: cur[id] === false }));
   };
 
-  /** The full pull, chunk by chunk — one page per request so a big catalog
-   *  never hits the function timeout. Runs against the SAVED selection. */
-  const runPullLoop = async (): Promise<boolean> => {
+  /** The pull, chunk by chunk — one page per request so a big catalog never
+   *  hits the function timeout. Runs against the SAVED selection.
+   *  action "resync" = full pull (new products get added);
+   *  action "update-info" = refresh existing products' data only (new SKUs counted, not added). */
+  const runPullLoop = async (action: "resync" | "update-info" = "resync"): Promise<boolean> => {
     const lines: string[] = [];
+    let newSkipped = 0;
     for (let i = 0; i < 100; i++) {
-      const r = await call("/api/admin/erp-direct/sync", { method: "POST", body: JSON.stringify({ action: "resync" }) });
+      const r = await call("/api/admin/erp-direct/sync", { method: "POST", body: JSON.stringify({ action }) });
       const parts: string[] = [];
       if (r.warehouses) parts.push(`warehouses ${r.warehouses.created + r.warehouses.updated} checked`);
       if (r.stock) parts.push(`stock ${nf(r.stock.stocksUpserted)} rows`);
-      if (r.products) parts.push(`products page ${i + 1}: ${nf(r.products.created)} new, ${nf(r.products.updated)} updated`);
+      if (r.products) {
+        parts.push(`products page ${i + 1}: ${nf(r.products.created)} new, ${nf(r.products.updated)} updated`);
+        newSkipped += r.products.newSkipped ?? 0;
+      }
       lines.push(parts.join(" · ") || "nothing to pull yet");
       setLog([...lines]);
-      if (!r.products || r.products.done) return true;
+      if (!r.products || r.products.done) {
+        if (action === "update-info" && newSkipped > 0) {
+          lines.push(`${nf(newSkipped)} new product${newSkipped > 1 ? "s" : ""} found in the source — use Update Products / Sync now to add them`);
+          setLog([...lines]);
+        }
+        return true;
+      }
     }
     return false;
   };
@@ -198,14 +210,34 @@ export function ErpDirectModule({ token }: { token: string }) {
     setSyncing(true);
     setLog([]);
     try {
-      setLog(["Refreshing warehouses and stock…"]);
-      const done = await runPullLoop();
+      setLog(["Refreshing warehouses, stock and product data…"]);
+      const done = await runPullLoop("resync");
       const f = await call("/api/admin/erp-direct/apply", { method: "POST", body: JSON.stringify({ action: "finalize" }) });
       if (done) toast.success(`Sync finished — ${nf(f.hiddenProducts ?? 0)} hidden, ${nf(f.shownProducts ?? 0)} shown`);
       else toast.error("Synced part of the catalog — click Sync again to continue");
       await load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  /** "Update information" — a fast data refresh: prices, MRP, names, brands,
+   *  categories and stock are re-read from the source for the products already
+   *  listed here. Nothing new is added, nothing is hidden — the selection above
+   *  stays exactly as it is. */
+  const updateInformation = async () => {
+    setSyncing(true);
+    setLog([]);
+    try {
+      setLog(["Checking the source for changed product data…"]);
+      const done = await runPullLoop("update-info");
+      if (done) toast.success("Product information updated from the source");
+      else toast.error("Updated part of the catalog — click Update information again to continue");
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Update failed");
     } finally {
       setSyncing(false);
     }
@@ -227,9 +259,14 @@ export function ErpDirectModule({ token }: { token: string }) {
   return (
     <div>
       <ModuleHeader title="ERP Sync" sub="Keep products, warehouses and stock fresh — pick what to show, then update">
-        <Button variant="outline" size="sm" onClick={syncNow} disabled={busy || !connected}>
-          {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />} Sync now
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={updateInformation} disabled={busy || !connected} title="Refresh prices, names and stock of the products already listed — adds nothing new">
+            {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />} Update information
+          </Button>
+          <Button variant="outline" size="sm" onClick={syncNow} disabled={busy || !connected} title="Full pull — everything in the ticked warehouses, including brand-new products">
+            {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />} Sync now
+          </Button>
+        </div>
       </ModuleHeader>
 
       {/* 1 · connection */}

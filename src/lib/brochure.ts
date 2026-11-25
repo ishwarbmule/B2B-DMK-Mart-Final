@@ -33,7 +33,9 @@ export interface BrochureFilters {
   includeOutOfStock?: boolean; // keep OOS lines but badge them
   showPrices?: boolean;       // false → "Login to view price"
   tier?: string;              // tier1..tier5 | dealer (default dealer)
-  maxProducts?: number;       // clamp 10..400
+  maxProducts?: number | "all"; // numeric clamp 10..250; "all" = up to the hard server cap
+  productIds?: string[];      // EXPLICIT picked products (ordered) — bypasses every
+                              // other filter, INACTIVE products included, up to 600
 }
 
 export interface BrochureMeta {
@@ -66,16 +68,19 @@ function makeId(): string {
 /* ── images ── */
 
 const IMG_PLACEHOLDER_W = 300; // small thumbs keep the PDF well inside serverless response limits
+/** Huge catalogs ("All products" prints) automatically drop to smaller, lighter
+ *  thumbs so the generated PDF stays under the Cloudinary share-upload limit. */
+const IMG_PLACEHOLDER_W_COMPACT = 210;
 const IMG_CACHE = new Map<string, string>(); // url → dataURL (process lifetime)
 
-function cloudinaryThumb(url: string): string | null {
+function cloudinaryThumb(url: string, width = IMG_PLACEHOLDER_W): string | null {
   if (!url || !url.includes("/upload/")) return null;
   if (url.startsWith("data:")) return null;
-  return url.replace("/upload/", `/upload/c_fill,g_center,h_${IMG_PLACEHOLDER_W},q_auto:good,w_${IMG_PLACEHOLDER_W}/`);
+  return url.replace("/upload/", `/upload/c_fill,g_center,h_${width},q_auto:good,w_${width}/`);
 }
 
-async function fetchImage(url: string, fit: "cover" | "inside" = "cover"): Promise<string | null> {
-  const cacheKey = `${fit}:${url}`;
+async function fetchImage(url: string, fit: "cover" | "inside" = "cover", width = IMG_PLACEHOLDER_W): Promise<string | null> {
+  const cacheKey = `${fit}:${width}:${url}`;
   const cached = IMG_CACHE.get(cacheKey);
   if (cached) return cached;
   try {
@@ -91,7 +96,7 @@ async function fetchImage(url: string, fit: "cover" | "inside" = "cover"): Promi
       const sharpMod = (await import("sharp")).default;
       jpg = await sharpMod(buf).rotate()
         .flatten({ background: "#ffffff" })
-        .resize(IMG_PLACEHOLDER_W, IMG_PLACEHOLDER_W, { fit })
+        .resize(width, width, { fit })
         .jpeg({ quality: 62 }).toBuffer();
     } catch {
       jpg = buf; // raw passthrough — PDFKit renders JPEG/PNG bytes natively
@@ -137,13 +142,29 @@ interface BrochureProduct {
   section: string; sectionKey: string;
 }
 
+/** Hard server ceiling for one brochure PDF — the 60s serverless budget and the
+ *  Cloudinary share-upload limit both live behind this number. */
+const BROCHURE_HARD_CAP = 600;
+
 export async function loadBrochureProducts(f: BrochureFilters) {
-  const max = Math.max(10, Math.min(250, Number(f.maxProducts) || 120));
-  const where: Prisma.ProductWhereInput = { active: true };
-  if (f.companies?.length) where.company = { in: f.companies };
-  if (f.endId) where.endId = f.endId;
-  else if (f.midId) where.midId = f.midId;
-  else if (f.topId) where.topId = f.topId;
+  const explicit = (f.productIds ?? []).map(String).filter(Boolean);
+  if (explicit.length > BROCHURE_HARD_CAP) {
+    throw new Error(`A single brochure prints up to ${BROCHURE_HARD_CAP} products — this selection has ${explicit.length}. Pick fewer products (search / sort the list) or print company-wise.`);
+  }
+  // "All" → no artificial cap, but never past the hard ceiling; numeric → 10..250
+  const max = f.maxProducts === "all"
+    ? BROCHURE_HARD_CAP
+    : Math.max(10, Math.min(250, Number(f.maxProducts) || 120));
+  const take = explicit.length ? Math.min(BROCHURE_HARD_CAP, explicit.length) : max;
+  const where: Prisma.ProductWhereInput = {};
+  if (!explicit.length) {
+    // filter flow — classic behaviour: active products narrowed by company/category
+    where.active = true;
+    if (f.companies?.length) where.company = { in: f.companies };
+    if (f.endId) where.endId = f.endId;
+    else if (f.midId) where.midId = f.midId;
+    else if (f.topId) where.topId = f.topId;
+  }
 
   // WAREHOUSE SCOPE — the brochure prints ONE godown: only products carried by
   // that warehouse, and every qty shown is THAT godown's own number.
@@ -153,16 +174,22 @@ export async function loadBrochureProducts(f: BrochureFilters) {
     const wh = await db.warehouse.findUnique({ where: { id: f.warehouseId }, select: { name: true, city: true, active: true } });
     if (!wh) throw new Error("That warehouse no longer exists — pick another one.");
     whName = wh.city ? `${wh.name} — ${wh.city}` : wh.name;
+    // explicit picks may include INACTIVE products — the warehouse rows decide
+    // stock either way; filter-flow keeps hidden products out of the pool
     const stockRows = await db.warehouseStock.findMany({
-      where: { warehouseId: f.warehouseId, product: { active: true } },
+      where: { warehouseId: f.warehouseId, ...(explicit.length ? {} : { product: { active: true } }) },
       select: { productId: true, qty: true },
     });
     for (const s of stockRows) qtyByProduct.set(s.productId, s.qty);
-    const ids = [...qtyByProduct.keys()];
-    where.id = ids.length ? { in: ids } : { in: [""] }; // empty godown → empty brochure
-    if (f.readyOnly) {
-      const stocked = [...qtyByProduct.entries()].filter(([, q]) => q > 0).map(([id]) => id);
-      where.id = stocked.length ? { in: stocked } : { in: [""] };
+    if (explicit.length) {
+      where.id = { in: explicit };
+    } else {
+      const ids = [...qtyByProduct.keys()];
+      where.id = ids.length ? { in: ids } : { in: [""] }; // empty godown → empty brochure
+      if (f.readyOnly) {
+        const stocked = [...qtyByProduct.entries()].filter(([, q]) => q > 0).map(([id]) => id);
+        where.id = stocked.length ? { in: stocked } : { in: [""] };
+      }
     }
   } else if (f.readyOnly) {
     where.stock = { gt: 0 };
@@ -172,13 +199,14 @@ export async function loadBrochureProducts(f: BrochureFilters) {
     where,
     include: { top: { select: { name: true, sortOrder: true } }, mid: { select: { name: true } }, end: { select: { name: true } } },
     orderBy: [{ top: { sortOrder: "asc" } }, { company: "asc" }, { name: "asc" }],
-    take: max,
+    take,
   });
 
   const tier = f.tier && ["tier1", "tier2", "tier3", "tier4", "tier5"].includes(f.tier) ? f.tier : "dealer";
 
   const rows: BrochureProduct[] = products
     .filter((p) => {
+      if (explicit.length) return true; // the picker already decided — OOS lines keep their badge
       // warehouse scope → the godown's qty decides in/out of stock
       const qty = f.warehouseId ? (qtyByProduct.get(p.id) ?? 0) : p.stock;
       return f.includeOutOfStock ? true : qty > 0;
@@ -269,10 +297,13 @@ export async function generateBrochure(f: BrochureFilters): Promise<{ buffer: Bu
   const validP = istParts(valid);
   const validTillIST = `${validP.day}-${validP.month}-${validP.year}`;
 
-  // images (Cloudinary thumbs first, then downloads; failures → logo placeholder)
+  // images (Cloudinary thumbs first, then downloads; failures → logo placeholder).
+  // Big "All products" prints automatically switch to smaller, lighter thumbs so
+  // the PDF stays inside the share-upload budget.
+  const thumbW = rows.length > 250 ? IMG_PLACEHOLDER_W_COMPACT : IMG_PLACEHOLDER_W;
   await runPool(rows, 8, async (p) => {
-    const thumb = cloudinaryThumb(p.image);
-    p.image = (thumb ? await fetchImage(thumb) : p.image ? await fetchImage(p.image) : null) || "";
+    const thumb = cloudinaryThumb(p.image, thumbW);
+    p.image = (thumb ? await fetchImage(thumb, "cover", thumbW) : p.image ? await fetchImage(p.image, "cover", thumbW) : null) || "";
   });
 
   // QR → the storefront ordering page

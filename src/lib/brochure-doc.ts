@@ -63,7 +63,6 @@ const SOFT = "#9ca3af";
 const CARD_LINE = "#ececf1";
 const BRAND_GOLD = "#b45309"; // website brand label colour (yellow-700)
 const RTD_GREEN = "#16a34a";
-const HOT_ORANGE = "#f97316";
 
 export interface BrochureCard {
   id: string; sku: string; name: string; company: string;
@@ -155,22 +154,11 @@ function gridLayout(padL: number, padR: number, padT: number, padB: number): unk
   };
 }
 
-/* ── vertical badge pills — attached above the image, one per line,
-      same stacking as the website product card (Deal/Hot/Top column) ── */
+/* ── compact product card — the brochure prints EXACTLY 9 per page (3×3 grid):
+      image on top, gold company label (brand-grouped pages), name, SKU + pack,
+      that godown's stock chip, yellow rule, big rate + struck MRP. ── */
 
-function badgesColumn(p: BrochureCard): unknown[] {
-  const pills: Record<string, unknown>[] = [];
-  if (p.stock > 0) pills.push(chip("READY TO DISPATCH", RTD_GREEN, "#ffffff") as Record<string, unknown>);
-  if (p.isHot) pills.push(chip("HOT PRODUCT", HOT_ORANGE, "#ffffff") as Record<string, unknown>);
-  if (p.isTop) pills.push(chip("TOP", INK, YELLOW) as Record<string, unknown>);
-  return pills.map((c) => ({ columns: [{ ...c, width: "auto" }, { text: "", width: "*" }], margin: [0, 0, 0, 2.5], alignment: "left" }));
-}
-
-/* ── product card — mirrors the website ProductCard:
-      image on top (badges above it), gold company label, name, SKU + pack,
-      big rate /pc with struck MRP. 3 per row, visible outline. ── */
-
-// 3 cards ("32%") + 2 spacers ("2%") per row
+// 3 cards ("32%") + 2 spacers ("2%") per row, 3 rows per page
 const CARD_W = CONTENT_W * 0.32;             // ≈172.6 outer cell
 const CARD_INNER_W = CARD_W - 16;            // minus cell padding (14) + borders (1.6)
 
@@ -181,49 +169,35 @@ function productStack(p: BrochureCard, logo: string): unknown[] {
   const priceRow: unknown = hasPrice
     ? {
         columns: [
-          { text: `₹${(p.price as number).toLocaleString("en-IN")}`, fontSize: 16, bold: true, color: INK },
-          { text: "/pc", fontSize: 7.5, bold: true, color: GRAY, margin: [1.5, 6.5, 0, 0] },
+          { text: `₹${(p.price as number).toLocaleString("en-IN")}`, fontSize: 12.5, bold: true, color: INK },
+          { text: "/pc", fontSize: 7, bold: true, color: GRAY, margin: [1.5, 5, 0, 0] },
           { text: [
-              { text: "MRP ", fontSize: 6.6, bold: true, color: SOFT },
-              { text: `₹${p.mrp.toLocaleString("en-IN")}`, fontSize: 9.2, bold: true, color: SOFT, decoration: mrpHigher ? "lineThrough" : undefined },
-            ], margin: [6, 5.5, 0, 0] },
+              { text: "MRP ", fontSize: 6.4, bold: true, color: SOFT },
+              { text: `₹${p.mrp.toLocaleString("en-IN")}`, fontSize: 8.6, bold: true, color: SOFT, decoration: mrpHigher ? "lineThrough" : undefined },
+            ], margin: [6, 4.5, 0, 0] },
           { text: "", width: "*" },
         ],
-        alignment: "left", margin: [0, 1, 0, 0],
+        alignment: "left", margin: [0, 0.5, 0, 0],
       }
-    : { text: "Login to View Price", fontSize: 10.5, bold: true, color: GRAY, italics: true, alignment: "center", margin: [0, 4, 0, 4] };
+    : { text: "Login to View Price", fontSize: 9.5, bold: true, color: GRAY, italics: true, alignment: "center", margin: [0, 3, 0, 3] };
+
+  // that godown's own quantity — the brochure's availability truth
+  const stockChip = p.stock > 0
+    ? chip(`IN STOCK · ${p.stock}`, RTD_GREEN, "#ffffff")
+    : chip("OUT OF STOCK", "#dc2626", "#ffffff");
 
   return [
-    ...badgesColumn(p),
     p.image
-      ? { image: p.image, fit: [CARD_INNER_W, 140], alignment: "center", margin: [0, 1, 0, 5] }
+      ? { image: p.image, fit: [CARD_INNER_W, 150], alignment: "center", margin: [0, 0, 0, 4] }
       : logo
-        ? { image: logo, fit: [72, 72], alignment: "center", opacity: 0.45, margin: [30, 26, 30, 34] }
-        : { text: " ", margin: [0, 44] },
-    { text: cut(p.company, 26).toUpperCase(), fontSize: 6.9, bold: true, color: BRAND_GOLD, characterSpacing: 0.7, alignment: "left", margin: [0, 0, 0, 1] },
-    { text: cut(p.name, 78), fontSize: 9.3, bold: true, color: INK, alignment: "left", lineHeight: 1.12, margin: [0, 0, 0, 2] },
-    { text: `SKU ${p.sku}  ·  ${p.packLabel}`, fontSize: 7.2, color: GRAY, alignment: "left", margin: [0, 0, 0, 3] },
-    { canvas: [{ type: "line", x1: 0, y1: 0, x2: 118, y2: 0, lineWidth: 0.9, lineColor: YELLOW }], margin: [0, 0, 0, 3.5], alignment: "left" },
+        ? { image: logo, fit: [72, 72], alignment: "center", opacity: 0.45, margin: [28, 30, 28, 34] }
+        : { text: " ", margin: [0, 52] },
+    { text: cut(p.company, 26).toUpperCase(), fontSize: 6.7, bold: true, color: BRAND_GOLD, characterSpacing: 0.7, alignment: "left", margin: [0, 0, 0, 1] },
+    { text: cut(p.name, 66), fontSize: 8.8, bold: true, color: INK, alignment: "left", lineHeight: 1.1, margin: [0, 0, 0, 1.5] },
+    { text: `SKU ${p.sku}  ·  ${p.packLabel}`, fontSize: 6.8, color: GRAY, alignment: "left", margin: [0, 0, 0, 2] },
+    { columns: [{ ...(stockChip as Record<string, unknown>), width: "auto" }, { text: "", width: "*" }], alignment: "left", margin: [0, 0, 0, 2.5] },
+    { canvas: [{ type: "line", x1: 0, y1: 0, x2: 112, y2: 0, lineWidth: 0.9, lineColor: YELLOW }], margin: [0, 0, 0, 3], alignment: "left" },
     priceRow,
-  ];
-}
-
-/* ── inline category bar (NO page break — products continue under it) ── */
-
-function categoryBar(index: number, s: SectionInfo): unknown[] {
-  return [
-    {
-      margin: [0, 7, 0, 0],
-      columns: [
-        { ...numChip(index + 1, 9), width: 30 },
-        { stack: [
-            { text: s.name.toUpperCase(), fontSize: 11.5, bold: true, color: INK, characterSpacing: 1.1, margin: [0, 1, 0, 1] },
-            { text: `${s.count} product${s.count > 1 ? "s" : ""}${s.dept ? `  ·  ${s.dept}` : ""}`, fontSize: 7.4, color: GRAY },
-          ], margin: [10, 0, 0, 0] },
-        { text: "", width: "*" },
-      ],
-    },
-    { canvas: [{ type: "line", x1: 0, y1: 0, x2: CONTENT_W, y2: 0, lineWidth: 1.2, lineColor: YELLOW }], margin: [0, 4, 0, 6] },
   ];
 }
 
@@ -502,29 +476,27 @@ export function buildDocDefinition(cards: BrochureCard[], sections: SectionInfo[
   /* 2 — table of contents: every end category as an image tile, single page */
   content.push(...tocContent(secs, o));
 
-  /* 3+ — product pages: continuous flow, inline category bars, 3 cards per row */
-  let lastKey = "";
-  let sectionIndex = -1;
-  for (let i = 0; i < cards.length; i += 3) {
-    if (cards[i].sectionKey !== lastKey) {
-      lastKey = cards[i].sectionKey;
-      sectionIndex += 1;
-      const s = keyMap.get(cards[i].sectionKey) || { name: cards[i].section, count: 1, dept: cards[i].dept, thumb: "" };
-      content.push(...categoryBar(sectionIndex, s));
+/* ── product pages: EXACTLY 9 products per page in a fixed 3×3 grid (the owner's
+      print standard). Cards are brand-ordered, so every page shows a brand's
+      items together. Incomplete rows keep the grid look with empty cells. ── */
+  for (let i = 0; i < cards.length; i += 9) {
+    if (i > 0) content.push({ text: " ", pageBreak: "before" });
+    for (let r = 0; r < 3; r++) {
+      const trio: unknown[] = [];
+      for (let j = 0; j < 3; j++) {
+        const card = cards[i + r * 3 + j];
+        trio.push(card ? cardCell(productStack(card, o.logo)) : gapCell());
+        if (j < 2) trio.push(gapCell());
+      }
+      content.push({
+        table: { widths: ["32%", "2%", "32%", "2%", "32%"], body: [trio] },
+        layout: gridLayout(7, 7, 6, 7),
+        // each row is a single (row 0) unbreakable table — a row that does not
+        // fit the page would move to the next one intact; the 9-card chunk is
+        // sized so all three rows always share ONE page.
+        unbreakable: true,
+      });
     }
-    const trio: unknown[] = [];
-    for (let j = 0; j < 3; j++) {
-      trio.push(cards[i + j] ? cardCell(productStack(cards[i + j], o.logo)) : gapCell());
-      if (j < 2) trio.push(gapCell());
-    }
-    content.push({
-      table: { widths: ["32%", "2%", "32%", "2%", "32%"], body: [trio] },
-      layout: gridLayout(7, 7, 6, 7),
-      // pdfmake's dontBreakRows only guards rows with rowIndex > 0 — every trio
-      // is a single (row 0) table, so the whole node is marked unbreakable:
-      // a row that does not fit the page moves to the next one intact.
-      unbreakable: true,
-    });
   }
 
   /* brands page (fresh page) */

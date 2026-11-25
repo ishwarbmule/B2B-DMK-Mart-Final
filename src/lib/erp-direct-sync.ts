@@ -587,9 +587,9 @@ async function ensureCategoryCols(pm: ProductMapping, catsTicked: boolean): Prom
 
 // ───────── product sync (one page per call, persisted cursor) ─────────
 
-export type SyncPageResult = { seen: number; created: number; updated: number; skipped: number; offset: number; done: boolean; errors: string[] };
+export type SyncPageResult = { seen: number; created: number; updated: number; skipped: number; offset: number; done: boolean; errors: string[]; /** "Update information" pass only: brand-new SKUs found but NOT added (Update Products adds them) */ newSkipped?: number };
 
-export async function syncProductsPage(pageSize = 300, offsetOverride?: number): Promise<SyncPageResult> {
+export async function syncProductsPage(pageSize = 300, offsetOverride?: number, opts?: { updateOnly?: boolean }): Promise<SyncPageResult> {
   const catsTicked = (await getProductGroups()).find((g) => g.id === "cats")?.ticked ?? true;
   const m0 = await getProductsMapping();
   if (!m0) throw new Error("Product mapping not configured — tick columns in Admin → ERP Data first");
@@ -650,6 +650,9 @@ export async function syncProductsPage(pageSize = 300, offsetOverride?: number):
   });
 
   const result: SyncPageResult = { seen: rows.length, created: 0, updated: 0, skipped: 0, offset, done: rows.length < pageSize, errors: [] };
+  // "Update information" mode: refresh data for what the panel already lists —
+  // brand-new SKUs are counted and left for "Update Products"/"Sync now" to add.
+  const updateOnly = !!opts?.updateOnly;
 
   // normalize in memory — no DB access per row
   const items: NormalizedRow[] = [];
@@ -728,6 +731,11 @@ export async function syncProductsPage(pageSize = 300, offsetOverride?: number):
     const brandId = brandIdFor.get(company) ?? null;
     const chain = catTree?.chainFor(item) ?? null; // null = ERP has no category for this row → leave its current one
     if (!existingBySku.has(item.sku)) {
+      if (updateOnly) {
+        // new SKU — data refresh never grows the catalog silently
+        result.newSkipped = (result.newSkipped ?? 0) + 1;
+        continue;
+      }
       creates.push({
         ...common(item, brandId),
         // new rows always need a full chain: the ERP one when it classifies
@@ -1190,7 +1198,7 @@ export async function runErpTick(force = false): Promise<TickResult> {
 }
 
 /** Full re-sync driver: loops product pages until done (called per HTTP request, cursor persisted). */
-export async function fullResyncChunk(pageSize = 300, stage?: "warehouses" | "stock" | "products"): Promise<{ products?: SyncPageResult; warehouses?: unknown; stock?: unknown; errors: string[]; stageTimings?: Record<string, number> }> {
+export async function fullResyncChunk(pageSize = 300, stage?: "warehouses" | "stock" | "products", opts?: { updateOnly?: boolean }): Promise<{ products?: SyncPageResult; warehouses?: unknown; stock?: unknown; errors: string[]; stageTimings?: Record<string, number> }> {
   const errors: string[] = [];
   const timings: Record<string, number> = {};
   const t = (k: string, fn: () => Promise<void>) => async () => { const t0 = Date.now(); await fn(); timings[k] = Date.now() - t0; };
@@ -1210,7 +1218,7 @@ export async function fullResyncChunk(pageSize = 300, stage?: "warehouses" | "st
     } catch (e) { errors.push(`stock: ${e instanceof Error ? e.message : String(e)}`); }
   }
   if (pm && (!stage || stage === "products")) {
-    try { await t("products", async () => { out.products = await syncProductsPage(pageSize); })(); } catch (e) { errors.push(`products: ${e instanceof Error ? e.message : String(e)}`); }
+    try { await t("products", async () => { out.products = await syncProductsPage(pageSize, undefined, opts); })(); } catch (e) { errors.push(`products: ${e instanceof Error ? e.message : String(e)}`); }
   }
   return out;
 }
