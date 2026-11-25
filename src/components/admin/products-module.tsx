@@ -88,7 +88,9 @@ export function ProductsModule({ token }: { token: string }) {
   const [q, setQ] = useState("");
   const [company, setCompany] = useState("");
   const [flag, setFlag] = useState("");
-  const [status, setStatus] = useState("");
+  // default to Active: the panel lists the warehouses the owner ticked in ERP
+  // Sync — hidden products (unticked godowns, admin-hidden) stay out unless asked
+  const [status, setStatus] = useState("active");
   const [catTop, setCatTop] = useState("");
   const [catEnd, setCatEnd] = useState("");
   const [loading, setLoading] = useState(true);
@@ -564,9 +566,9 @@ export function ProductsModule({ token }: { token: string }) {
           <option value="deal">Deals</option>
         </select>
         <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="h-9 rounded-lg border text-xs">
-          <option value="">Any Status</option>
           <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
+          <option value="inactive">Hidden</option>
+          <option value="">All (incl. hidden)</option>
           <option value="lowstock">Low Stock</option>
         </select>
       </div>

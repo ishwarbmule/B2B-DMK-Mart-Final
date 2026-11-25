@@ -900,6 +900,9 @@ export async function syncWarehouses(): Promise<{ seen: number; created: number;
     const keep = erpId ? keptIds.has(erpId) : wantedCodes.has(w.code);
     if (!keep && w.active) {
       await db.warehouse.update({ where: { id: w.id }, data: { active: false } });
+      // hidden godown loses its stock rows too — the daily cron runs this pass
+      // (no finalize), so the cleanup has to happen right here
+      await db.warehouseStock.deleteMany({ where: { warehouseId: w.id } });
       result.deactivated++;
     }
   }
@@ -968,7 +971,11 @@ export async function syncStock(): Promise<{ rows: number; stocksUpserted: numbe
       });
   const result = { rows: rows.length, stocksUpserted: 0, productsUpdated: 0, missing: 0, errors: [] as string[] };
 
-  const warehouses = await db.warehouse.findMany({ where: { source: "ERP" }, select: { id: true, code: true } });
+  // resolve godowns from the SHOWN (active) ERP warehouses only — a godown the
+  // admin unticked must never receive stock rows again (this source shares
+  // godown codes across firms, so an inactive row with the same code could
+  // otherwise quietly adopt the stock)
+  const warehouses = await db.warehouse.findMany({ where: { source: "ERP", active: true }, select: { id: true, code: true } });
   const whByCode = new Map(warehouses.map((w) => [w.code, w.id]));
   const erpWhIds = warehouses.map((w) => w.id);
 
@@ -1310,13 +1317,19 @@ export async function applySyncSelection(input: { ids?: string[]; groups?: Recor
   for (const [erpId, neonId] of Object.entries(neonMap)) {
     const w = await db.warehouse.findFirst({ where: { id: neonId, source: "ERP" } });
     if (!w) continue;
-    if (ids.has(erpId) && !w.active) {
-      await db.warehouse.update({ where: { id: neonId }, data: { active: true } });
-      shownWarehouses++;
-    } else if (!ids.has(erpId) && w.active) {
-      await db.warehouse.update({ where: { id: neonId }, data: { active: false } });
+    if (ids.has(erpId)) {
+      if (!w.active) {
+        await db.warehouse.update({ where: { id: neonId }, data: { active: true } });
+        shownWarehouses++;
+      }
+    } else {
+      // IDEMPOTENT cleanup — an already-hidden godown still gets its stock rows
+      // purged (rows left behind by an older sync must not linger anywhere)
+      if (w.active) {
+        await db.warehouse.update({ where: { id: neonId }, data: { active: false } });
+        hiddenWarehouses++;
+      }
       await db.warehouseStock.deleteMany({ where: { warehouseId: neonId } });
-      hiddenWarehouses++;
     }
   }
   await logSyncEvent({
@@ -1348,13 +1361,19 @@ export async function finalizeSyncSelection(): Promise<FinalizeResult> {
   for (const w of rows) {
     const erpId = neonToErp.get(w.id);
     const want = sel.configured ? (erpId ? wantedIds.has(erpId) : wantedCodes.has(w.code)) : true;
-    if (want && !w.active) {
-      await db.warehouse.update({ where: { id: w.id }, data: { active: true } });
-      shownWarehouses++;
-    } else if (!want && w.active) {
-      await db.warehouse.update({ where: { id: w.id }, data: { active: false } });
+    if (want) {
+      if (!w.active) {
+        await db.warehouse.update({ where: { id: w.id }, data: { active: true } });
+        shownWarehouses++;
+      }
+    } else {
+      // IDEMPOTENT — every non-selected godown ends up hidden with ZERO stock
+      // rows, even ones hidden long ago whose rows an older sync left behind
+      if (w.active) {
+        await db.warehouse.update({ where: { id: w.id }, data: { active: false } });
+        hiddenWarehouses++;
+      }
       await db.warehouseStock.deleteMany({ where: { warehouseId: w.id } });
-      hiddenWarehouses++;
     }
   }
   // products: listed = stocked in a shown warehouse
