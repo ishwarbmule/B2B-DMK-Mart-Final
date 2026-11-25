@@ -14,8 +14,9 @@
  *
  * Never deletes a logo: a brand whose file vanished keeps its current one.
  */
-import { createHash } from "crypto";
-import { db } from "@/lib/db";
+import {
+  db,
+} from "@/lib/db";
 
 const FOLDERS = ["dmk-mart/brand-logos", "dmk-mart/brands"];
 const slugify = (s: string) =>
@@ -23,19 +24,21 @@ const slugify = (s: string) =>
 
 type Asset = { publicId: string; url: string };
 
-/** Signed, paginated Cloudinary Admin API list for one folder (read-only). */
+/** Signed, paginated Cloudinary Admin API list for one folder (read-only).
+ *  HTTP BASIC auth (api_key:api_secret) — the query-signature variant
+ *  intermittently answered "Invalid credentials" on this account. */
 async function listFolder(cloud: string, key: string, secret: string, folder: string): Promise<Asset[]> {
   const out: Asset[] = [];
   let cursor = "";
+  const basic = Buffer.from(`${key}:${secret}`).toString("base64");
   for (let page = 0; page < 10; page++) {
     const timestamp = Math.floor(Date.now() / 1000);
-    const params = `folder=${folder}&max_results=100${cursor ? `&next_cursor=${cursor}` : ""}&timestamp=${timestamp}`;
-    const signature = createHash("sha1").update(`${params}${secret}`).digest("hex");
-    const qs = new URLSearchParams({ folder, max_results: "100", timestamp: String(timestamp), api_key: key, signature });
+    const qs = new URLSearchParams({ folder, max_results: "100", timestamp: String(timestamp) });
     if (cursor) qs.set("next_cursor", cursor);
     const res = await fetch(`https://api.cloudinary.com/v1_1/${cloud}/resources/image?${qs}`, {
       cache: "no-store",
       signal: AbortSignal.timeout(15000),
+      headers: { authorization: `Basic ${basic}` },
     });
     const data = (await res.json()) as {
       resources?: { secure_url?: string; public_id?: string }[];

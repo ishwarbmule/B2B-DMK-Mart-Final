@@ -37,23 +37,17 @@ export async function GET(req: NextRequest) {
   const folder = FOLDERS[(sp.get("folder") || "products").toLowerCase()] || "dmk-mart/products";
   const max = Math.max(1, Math.min(100, parseInt(sp.get("max") || "60") || 60));
 
-  // signed Cloudinary Admin API: params sorted alphabetically, sha1(param_str + secret)
-  const timestamp = Math.floor(Date.now() / 1000);
-  const signature = createHash("sha1")
-    .update(`folder=${folder}&max_results=${max}&timestamp=${timestamp}${secret}`)
-    .digest("hex");
-  const qs = new URLSearchParams({
-    folder,
-    max_results: String(max),
-    timestamp: String(timestamp),
-    api_key: key,
-    signature,
-  });
+  // Signed Admin API call — HTTP BASIC auth (api_key:api_secret), the scheme the
+  // Admin API documents alongside query-param signatures; the query-signature
+  // variant intermittently answered "Invalid credentials" on this account.
+  const basic = Buffer.from(`${key}:${secret}`).toString("base64");
+  const qs = new URLSearchParams({ folder, max_results: String(max), timestamp: String(Math.floor(Date.now() / 1000)) });
 
   try {
     const res = await fetch(`https://api.cloudinary.com/v1_1/${cloud}/resources/image?${qs}`, {
       cache: "no-store",
       signal: AbortSignal.timeout(15000),
+      headers: { authorization: `Basic ${basic}` },
     });
     const data = (await res.json()) as {
       resources?: { secure_url?: string; public_id?: string; bytes?: number; width?: number; height?: number; created_at?: string }[];

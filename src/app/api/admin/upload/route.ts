@@ -43,10 +43,18 @@ export async function POST(req: NextRequest) {
   const folderKey = FOLDERS[String(form.get("folder") || "ads").toLowerCase()] ? String(form.get("folder")).toLowerCase() : "ads";
   const folder = `dmk-mart/${FOLDERS[folderKey]}`;
 
-  // Timestamp + signature (sha1 of `folder=...&timestamp=...` + api_secret)
+  // optional explicit public_id → deterministic URLs (brand logo slugs etc.);
+  // otherwise Cloudinary mints a random id, which makes filename-matching impossible
+  const rawPublicId = String(form.get("publicId") || "").trim();
+  const publicId = rawPublicId.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 120);
+
+  // Timestamp + signature (sha1 of sorted params + api_secret). public_id sorts
+  // between folder and timestamp alphabetically.
   const timestamp = Math.floor(Date.now() / 1000);
   const signature = createHash("sha1")
-    .update(`folder=${folder}&timestamp=${timestamp}${secret}`)
+    .update(publicId
+      ? `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}${secret}`
+      : `folder=${folder}&timestamp=${timestamp}${secret}`)
     .digest("hex");
 
   const upload = new FormData();
@@ -54,6 +62,7 @@ export async function POST(req: NextRequest) {
   upload.append("api_key", key);
   upload.append("timestamp", String(timestamp));
   upload.append("folder", folder);
+  if (publicId) upload.append("public_id", publicId);
   upload.append("signature", signature);
 
   let result: { secure_url?: string; error?: { message?: string } };
