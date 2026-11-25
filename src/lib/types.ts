@@ -174,6 +174,7 @@ export interface DProduct {
   active: boolean;
   rating?: number;
   reviewCount?: number;
+  company: string; // brand = the ERP company — sections group by it
   brand?: { name: string; slug: string; logo?: string };
   top?: { name: string };
   mid?: { name: string };

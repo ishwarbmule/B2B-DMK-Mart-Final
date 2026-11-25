@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { SlidersHorizontal, X, ChevronLeft, ChevronRight, Warehouse, LayoutGrid } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { SlidersHorizontal, X, ChevronLeft, ChevronRight, Warehouse, LayoutGrid, Building2 } from "lucide-react";
 import type { DProduct, TopCategoryNode, BrandNode } from "@/lib/types";
 import { EndCategoryIconTile } from "@/lib/category-icons";
 import { useCartStore } from "@/lib/store";
@@ -78,7 +78,13 @@ export function CatalogView({
 
   useEffect(() => {
     let cancelled = false;
-    const params: Record<string, string> = { page: String(page), limit: "24", sort: filters.sort };
+    // MERCHANDISED SECTIONS (Ready to Dispatch / Hot / Deals / Featured) load as
+    // ONE grouped fetch so the page can render brand-wise blocks — products of a
+    // brand sit together, never mixed with another brand's.
+    const flagMode = !!filters.flag;
+    const params: Record<string, string> = flagMode
+      ? { page: "1", limit: "60", sort: filters.sort, flagAll: "1" }
+      : { page: String(page), limit: "24", sort: filters.sort };
     if (filters.top) params.top = filters.top;
     if (filters.mid) params.mid = filters.mid;
     if (filters.end) params.end = filters.end;
@@ -97,6 +103,21 @@ export function CatalogView({
     }, 300);
     return () => { cancelled = true; clearTimeout(timer); };
   }, [filters, page, fetchPage, customer]);
+
+  // BRAND BLOCKS — the grouped section view: one block per company, in API order
+  // (the server already sorts flag views company → name, so every brand's
+  // products render together under their own header)
+  const brandBlocks = useMemo(() => {
+    const blocks: { company: string; items: DProduct[] }[] = [];
+    const byName = new Map<string, DProduct[]>();
+    for (const p of data.products) {
+      const name = (p.company || p.brand?.name || "DMK Mart").trim();
+      let arr = byName.get(name);
+      if (!arr) { arr = []; byName.set(name, arr); blocks.push({ company: name, items: arr }); }
+      arr.push(p);
+    }
+    return blocks;
+  }, [data.products]);
 
   const activeTop = tops.find((t) => t.id === filters.top);
   const activeMid = activeTop?.mids.find((m) => m.id === filters.mid);
@@ -293,6 +314,32 @@ export function CatalogView({
               <p className="text-sm font-semibold text-gray-700">No products match your filters</p>
               <p className="mt-1 text-xs text-gray-400">Try clearing filters or searching a different term.</p>
             </div>
+          ) : filters.flag ? (
+            <>
+              {/* MERCHANDISED SECTION — brand-wise blocks: every company's products
+                  under their own header, brands never mixed together */}
+              <p className="mb-3 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                <Building2 className="h-3.5 w-3.5 text-yellow-500" />
+                Grouped by company — {brandBlocks.length} brand{brandBlocks.length === 1 ? "" : "s"} in this section
+              </p>
+              {brandBlocks.map((block) => (
+                <div key={block.company} className="mb-6">
+                  <div className="mb-2.5 flex items-center gap-2 border-b border-yellow-300 pb-1.5">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-black text-[10px] font-black text-yellow-400">
+                      {block.company.slice(0, 2).toUpperCase()}
+                    </span>
+                    <h3 className="text-sm font-black uppercase tracking-wide text-gray-900">{block.company}</h3>
+                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-600">{block.items.length} SKUs</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                    {block.items.map((p) => <ProductCard key={p.id} p={p} />)}
+                  </div>
+                </div>
+              ))}
+              <p className="mt-3 text-center text-[11px] text-gray-400">
+                Wholesale prices · Itemised invoice on every dispatch
+              </p>
+            </>
           ) : (
             <>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">

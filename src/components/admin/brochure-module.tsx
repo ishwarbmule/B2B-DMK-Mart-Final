@@ -11,17 +11,18 @@
  *  - WhatsApp share + Email via the Cloudinary-hosted PDF link
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BookOpen, Check, Copy, FileDown, Loader2, Mail, MessageCircle, Printer, Search, X } from "lucide-react";
+import { BookOpen, Check, Copy, FileDown, Loader2, Mail, MessageCircle, Printer, Search, Warehouse, X } from "lucide-react";
 import { toast } from "sonner";
 import { api, ModuleHeader } from "./ui-bits";
 
 interface Meta {
   companies: { name: string; count: number }[];
   tops: { id: string; name: string; mids: { id: string; name: string; ends: { id: string; name: string }[] }[] }[];
+  warehouses: { id: string; name: string; city: string; isDefault: boolean; skus: number }[];
   contact: { firmName: string; firmPhone: string; site: string };
 }
 interface BrochureMeta {
-  id: string; filename: string; count: number; companies: string[];
+  id: string; filename: string; count: number; companies: string[]; warehouse?: string;
   sections: { name: string; count: number }[];
   generatedAtIST: string; validTillIST: string; shareUrl?: string;
 }
@@ -45,6 +46,7 @@ const Switch = ({ on, onChange, label, hint }: { on: boolean; onChange: (v: bool
 export function BrochureModule({ token }: { token: string }) {
   const call = useMemo(() => api(token), [token]);
   const [meta, setMeta] = useState<Meta | null>(null);
+  const [warehouseId, setWarehouseId] = useState(""); // MANDATORY — every print is one godown
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [companySearch, setCompanySearch] = useState("");
   const [topId, setTopId] = useState("");
@@ -80,12 +82,14 @@ export function BrochureModule({ token }: { token: string }) {
 
   const generate = useCallback(async () => {
     if (!meta) return;
+    if (!warehouseId) { toast.error("Pick the warehouse first — every brochure prints one godown's stock"); return; }
     setGenerating(true);
     try {
       const res = await fetch("/api/admin/brochure/generate", {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
         body: JSON.stringify({
+          warehouseId,
           companies: Array.from(selected),
           topId: topId || undefined,
           midId: midId || undefined,
@@ -131,7 +135,7 @@ export function BrochureModule({ token }: { token: string }) {
     } finally {
       setGenerating(false);
     }
-  }, [meta, selected, topId, midId, endId, readyOnly, includeOOS, showPrices, tier, maxProducts, token]);
+  }, [meta, warehouseId, selected, topId, midId, endId, readyOnly, includeOOS, showPrices, tier, maxProducts, token]);
 
   const waShare = () => {
     if (!last?.shareUrl) return;
@@ -154,10 +158,27 @@ export function BrochureModule({ token }: { token: string }) {
       <div className="grid gap-3 lg:grid-cols-[340px_1fr]">
         {/* filters */}
         <div className="space-y-3">
+          {/* warehouse — MANDATORY step 1: the brochure prints this godown's stock */}
+          <div className="rounded-xl border-2 border-black bg-yellow-50/60 p-3">
+            <p className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-gray-900"><Warehouse className="h-3.5 w-3.5 text-yellow-600" /> 1 · Warehouse (required)</p>
+            <select
+              value={warehouseId}
+              onChange={(e) => setWarehouseId(e.target.value)}
+              className="h-9 w-full rounded-lg border border-gray-300 bg-white px-2 text-xs"
+              aria-label="Warehouse"
+            >
+              <option value="">— Pick the warehouse —</option>
+              {meta?.warehouses.map((w) => (
+                <option key={w.id} value={w.id}>{w.name}{w.city ? ` — ${w.city}` : ""}{w.skus ? ` (${w.skus} SKUs)` : ""}</option>
+              ))}
+            </select>
+            <p className="mt-1.5 text-[10px] leading-tight text-gray-500">The brochure prints only the products stocked in this godown, with this godown's own quantities on every line.</p>
+          </div>
+
           {/* companies */}
           <div className="rounded-xl border bg-white p-3">
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs font-semibold text-gray-900">1 · Companies</p>
+              <p className="text-xs font-semibold text-gray-900">2 · Companies</p>
               {selected.size > 0 && (
                 <button onClick={() => setSelected(new Set())} className="flex items-center gap-1 text-[10px] font-bold text-gray-400 hover:text-red-500"><X className="h-3 w-3" /> Clear ({selected.size})</button>
               )}
@@ -191,7 +212,7 @@ export function BrochureModule({ token }: { token: string }) {
 
           {/* categories */}
           <div className="rounded-xl border bg-white p-3">
-            <p className="mb-2 text-xs font-semibold text-gray-900">2 · Category (optional)</p>
+            <p className="mb-2 text-xs font-semibold text-gray-900">3 · Category (optional)</p>
             <div className="space-y-2">
               <select value={topId} onChange={(e) => { setTopId(e.target.value); setMidId(""); setEndId(""); }} className="h-9 w-full rounded-lg border border-gray-200 px-2 text-xs" aria-label="Top category">
                 <option value="">All top categories</option>
@@ -244,11 +265,12 @@ export function BrochureModule({ token }: { token: string }) {
 
           <button
             onClick={generate}
-            disabled={generating || !meta}
+            disabled={generating || !meta || !warehouseId}
+            title={warehouseId ? "Generate the brochure PDF" : "Pick the warehouse first"}
             className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-black text-sm font-semibold text-yellow-400 transition-colors hover:bg-gray-900 disabled:opacity-60"
           >
             {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4" />}
-            {generating ? "Generating PDF…" : "Generate & Download PDF"}
+            {generating ? "Generating PDF…" : warehouseId ? "Generate & Download PDF" : "Pick a warehouse to enable"}
           </button>
           <p className="text-center text-[10px] text-gray-400">Large catalogs (~120 products) take 20–40 seconds — the file downloads automatically.</p>
         </div>
@@ -262,7 +284,7 @@ export function BrochureModule({ token }: { token: string }) {
                   <div>
                     <p className="flex items-center gap-1.5 text-sm font-semibold text-gray-900"><Check className="h-4 w-4 text-emerald-600" /> Catalog {last.id} generated</p>
                     <p className="mt-0.5 text-[11px] text-gray-500">
-                      {last.count} products · {last.companies.length} compan{last.companies.length === 1 ? "y" : "ies"} · {last.sections.length} sections · generated {last.generatedAtIST}
+                      {last.count} products{last.warehouse ? ` · ${last.warehouse}` : ""} · {last.companies.length} compan{last.companies.length === 1 ? "y" : "ies"} · {last.sections.length} sections · generated {last.generatedAtIST}
                     </p>
                     <p className="text-[11px] text-gray-500">Prices valid till <b>{last.validTillIST}</b> · {last.filename}</p>
                   </div>

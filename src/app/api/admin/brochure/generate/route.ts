@@ -35,9 +35,16 @@ export async function GET(req: NextRequest) {
   const unauthorized = requireAdmin(req);
   if (unauthorized) return unauthorized;
   try {
-    const [companyGroups, tops, settings] = await Promise.all([
+    const [companyGroups, tops, warehouses, settings] = await Promise.all([
       db.product.groupBy({ by: ["company"], _count: { _all: true }, where: { active: true } }),
       db.topCategory.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true, mids: { select: { id: true, name: true, ends: { select: { id: true, name: true } } } } } }),
+      // the godowns a brochure can be printed for — ERP godowns the admin still
+      // shows + admin-created LOCAL ones, each with its stocked-SKU count
+      db.warehouse.findMany({
+        where: { active: true },
+        orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+        select: { id: true, name: true, city: true, isDefault: true, _count: { select: { stocks: { where: { qty: { gt: 0 } } } } } },
+      }),
       db.setting.findMany({ where: { key: { in: ["firm_name", "firm_phone", "site_title"] } } }).catch(() => [] as { key: string; value: string }[]),
     ]);
     const S: Record<string, string> = {};
@@ -47,6 +54,7 @@ export async function GET(req: NextRequest) {
         .map((c) => ({ name: c.company || "Unassigned", count: c._count._all }))
         .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),
       tops,
+      warehouses: warehouses.map((w) => ({ id: w.id, name: w.name, city: w.city, isDefault: w.isDefault, skus: w._count.stocks })),
       contact: { firmName: S.firm_name || "DMK Mart", firmPhone: S.firm_phone || "", site: SITE_URL },
     });
   } catch (e) {
@@ -59,7 +67,12 @@ export async function POST(req: NextRequest) {
   if (unauthorized) return unauthorized;
   try {
     const body = (await req.json().catch(() => ({}))) as Partial<BrochureFilters> & { share?: boolean };
+    // WAREHOUSE IS MANDATORY — every brochure is printed for ONE godown, and the
+    // product list + quantities are that warehouse's own stock.
+    const warehouseId = String(body.warehouseId || "").trim();
+    if (!warehouseId) return jsonError("Pick the warehouse first — every brochure prints one godown's stock.", 400);
     const filters: BrochureFilters = {
+      warehouseId,
       companies: Array.isArray(body.companies) ? body.companies.map(String).filter(Boolean).slice(0, 25) : [],
       topId: body.topId || undefined,
       midId: body.midId || undefined,
@@ -85,7 +98,7 @@ export async function POST(req: NextRequest) {
     }
 
     await db.activityLog.create({
-      data: { action: "EXPORT", entity: "brochure", detail: `${meta.id}: ${meta.count} products, companies=[${meta.companies.slice(0, 6).join(", ")}]${shareUrl ? " · shared" : ""}`, user: "Super Admin" },
+      data: { action: "EXPORT", entity: "brochure", detail: `${meta.id}: ${meta.count} products for ${meta.warehouse ?? "warehouse"}, companies=[${meta.companies.slice(0, 6).join(", ")}]${shareUrl ? " · shared" : ""}`, user: "Super Admin" },
     }).catch(() => {});
 
     if (needsShare && shareUrl) {

@@ -375,6 +375,8 @@ function useDeals() {
 
 function DealsRail({ cfg, deals, title, sub }: { cfg?: HomeSectionCfg; deals: DProduct[]; title?: string; sub?: string }) {
   if (!deals.length) return null;
+  // BRAND-ORIENTED — one company's deals sit together in the rail, never mixed
+  const ordered = [...deals].sort((a, b) => (a.company || a.brand?.name || "").localeCompare(b.company || b.brand?.name || ""));
   return (
     <section className="rounded-2xl bg-gradient-to-r from-red-600 to-red-500 p-4 md:p-6">
       <div className="mb-4 flex items-center justify-between">
@@ -390,7 +392,7 @@ function DealsRail({ cfg, deals, title, sub }: { cfg?: HomeSectionCfg; deals: DP
         </Link>
       </div>
       <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
-        {deals.map((p) => <ProductCardMini key={p.id} p={p} />)}
+        {ordered.map((p) => <ProductCardMini key={p.id} p={p} />)}
       </div>
     </section>
   );
@@ -437,6 +439,20 @@ function ReadyToDispatchGrid() {
     loadPage(1, true);
   }, [loadPage]);
 
+  // BRAND CLUSTERS — the API streams Ready-to-Dispatch company-by-company, so
+  // consecutive runs are whole brands. Each run gets its own header row + grid:
+  // a brand's products always display together, never mixed with another's.
+  const clusters = useMemo(() => {
+    const runs: { company: string; items: DProduct[] }[] = [];
+    for (const p of products) {
+      const name = (p.company || p.brand?.name || "DMK Mart").trim();
+      const last = runs[runs.length - 1];
+      if (last && last.company === name) last.items.push(p);
+      else runs.push({ company: name, items: [p] });
+    }
+    return runs;
+  }, [products]);
+
   if (loading) {
     return (
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
@@ -462,9 +478,21 @@ function ReadyToDispatchGrid() {
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-        {products.map((p) => <ProductCard key={p.id} p={p} />)}
-      </div>
+      {clusters.map((run) => (
+        <div key={`${run.company}-${run.items[0]?.id}`} className="mb-5">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="flex h-5 w-5 items-center justify-center rounded bg-black text-[9px] font-black text-yellow-400">
+              {run.company.slice(0, 2).toUpperCase()}
+            </span>
+            <p className="text-xs font-black uppercase tracking-wide text-gray-700">{run.company}</p>
+            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-500">{run.items.length}</span>
+            <span className="h-px flex-1 bg-gray-200" />
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+            {run.items.map((p) => <ProductCard key={p.id} p={p} />)}
+          </div>
+        </div>
+      ))}
       {/* Load More appends the next 20 inline — never a pagination jump */}
       {products.length < total && (
         <div className="mt-6 flex flex-col items-center gap-1.5">

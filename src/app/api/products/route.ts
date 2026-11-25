@@ -28,6 +28,11 @@ export async function GET(req: NextRequest) {
 
   const warehouseId = sp.get("warehouseId") || ""; // Task 15: only products stocked at this warehouse
   const allWarehouses = sp.get("allWarehouses") === "1"; // explicit escape hatch
+  // BRAND-GROUPED SECTIONS — flag views (Ready to Dispatch / Top Selling, Hot,
+  // Deals of the Day, Featured) can fetch the whole section at once so the page
+  // can render clean per-company blocks (products of one brand never mix with
+  // another). Bounded by the section size; hard cap 600 keeps it safe.
+  const flagAll = flag !== "" && sp.get("flagAll") === "1";
 
   const where: Record<string, unknown> = {};
   if (!includeInactive) where.active = true;
@@ -111,21 +116,27 @@ export async function GET(req: NextRequest) {
     where.AND = [...((where.AND as unknown[]) ?? []), seenPrice];
   }
 
+  // BRAND-FIRST ORDER for the merchandised sections: with the default sort,
+  // flag views stream company-by-company (every brand's products sit together,
+  // never interleaved). Explicit user sorts still win.
+  const flagView = flag !== "";
   const orderBy =
     sort === "price-asc" ? { dealerPrice: "asc" as const }
     : sort === "price-desc" ? { dealerPrice: "desc" as const }
     : sort === "name-asc" ? { name: "asc" as const }
     : sort === "new" ? { createdAt: "desc" as const }
     : sort === "discount" ? { mrp: "desc" as const }
+    : flagView ? [{ company: "asc" as const }, { name: "asc" as const }]
     : { isTop: "desc" as const };
 
+  const take = flagAll ? 600 : limit;
   const [total, products] = await Promise.all([
     db.product.count({ where }),
     db.product.findMany({
       where,
       orderBy,
-      skip: (page - 1) * limit,
-      take: limit,
+      skip: flagAll ? 0 : (page - 1) * limit,
+      take,
       include: { brand: { select: { name: true, slug: true, logo: true } } },
     }),
   ]);
@@ -149,9 +160,10 @@ export async function GET(req: NextRequest) {
 
   const res = NextResponse.json({
     products: safe,
-    total,
+    total: flagAll ? safe.length : total,
     page,
-    pages: Math.max(1, Math.ceil(total / limit)),
+    pages: flagAll ? 1 : Math.max(1, Math.ceil(total / limit)),
+    ...(flagAll ? { grouped: true } : {}),
     ...(buyerWarehouseName ? { buyerWarehouse: buyerWarehouseName } : {}),
   });
   // Cacheable browsing (category/brand/flag pages) → served from Vercel edge CDN in ~100ms.

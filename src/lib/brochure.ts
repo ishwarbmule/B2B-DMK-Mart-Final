@@ -1,23 +1,32 @@
 /**
  * Brochure / Catalog — DATA LAYER (server-side, Vercel-safe).
  *
+ * ZERO runtime file reads: fonts, logo and cover artwork are embedded base64
+ * (see scripts/gen-brochure-assets.mjs + brochure-assets.generated.ts) — the
+ * serverless 500s all came from file-traced assets going missing on Vercel.
+ * sharp loads lazily and is optional — Cloudinary thumbs arrive pre-sized via
+ * URL transformations, so images still work without it.
+ *
  * Loads live products per filters, prepares images/QR/settings, then hands off
  * to the pure doc builder in brochure-doc.ts (design v2 — brochure standard:
  * full-bleed cover collage, TOC page, section-per-page, big product cards).
  * Every generation carries a unique version ID + timestamp.
+ *
+ * WAREHOUSE SCOPING (owner requirement): a brochure is always for ONE godown —
+ * the warehouseId is mandatory, the product list is the warehouse's stock and
+ * every qty line prints that godown's own numbers.
  */
-import { readFile } from "fs/promises";
-import path from "path";
 import { createHash } from "crypto";
 import QRCode from "qrcode";
-import sharp from "sharp";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { buildDocDefinition, renderPdf, type BrochureCard } from "@/lib/brochure-doc";
+import { LOGO_PNG_BASE64, HERO_JPEG_BASE64 } from "@/lib/brochure-assets.generated";
 
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://b2b-dmk-mart.vercel.app";
 
 export interface BrochureFilters {
+  warehouseId: string;        // MANDATORY — the godown this brochure is printed for
   companies: string[];        // exact Product.company values (company = THE grouping)
   topId?: string; midId?: string; endId?: string;  // category narrowing (cascade)
   readyOnly?: boolean;        // only in-stock, ready-to-dispatch items
@@ -32,6 +41,7 @@ export interface BrochureMeta {
   filename: string;
   count: number;
   companies: string[];
+  warehouse?: string;         // godown name the brochure was printed for
   sections: { name: string; count: number }[];
   generatedAtIST: string;
   validTillIST: string;
@@ -73,11 +83,19 @@ async function fetchImage(url: string, fit: "cover" | "inside" = "cover"): Promi
     if (!res.ok) return null;
     const buf = Buffer.from(await res.arrayBuffer());
     if (!buf.length) return null;
-    // "inside" keeps brand logos uncropped on white; "cover" squares product shots
-    const jpg = await sharp(buf).rotate()
-      .flatten({ background: "#ffffff" })
-      .resize(IMG_PLACEHOLDER_W, IMG_PLACEHOLDER_W, { fit })
-      .jpeg({ quality: 62 }).toBuffer();
+    // sharp is optional: Cloudinary thumbs are already exactly sized by the URL
+    // transformation, so a raw passthrough is a faithful fallback when the
+    // native binary is unavailable in the runtime.
+    let jpg: Buffer;
+    try {
+      const sharpMod = (await import("sharp")).default;
+      jpg = await sharpMod(buf).rotate()
+        .flatten({ background: "#ffffff" })
+        .resize(IMG_PLACEHOLDER_W, IMG_PLACEHOLDER_W, { fit })
+        .jpeg({ quality: 62 }).toBuffer();
+    } catch {
+      jpg = buf; // raw passthrough — PDFKit renders JPEG/PNG bytes natively
+    }
     const dataUrl = `data:image/jpeg;base64,${jpg.toString("base64")}`;
     if (IMG_CACHE.size > 600) IMG_CACHE.clear();
     IMG_CACHE.set(cacheKey, dataUrl);
@@ -95,38 +113,17 @@ async function runPool<T>(items: T[], limit: number, fn: (item: T) => Promise<vo
   await Promise.all(workers);
 }
 
+/* Logo + cover artwork ship as embedded base64 constants — no fs, no tracing. */
 let logoDataUrl: string | null = null;
 async function getLogo(): Promise<string> {
-  if (logoDataUrl) return logoDataUrl;
-  try {
-    const raw = await readFile(path.join(process.cwd(), "public", "dmk-logo.png"));
-    logoDataUrl = `data:image/png;base64,${raw.toString("base64")}`;
-  } catch {
-    logoDataUrl = "";
-  }
+  if (logoDataUrl === null) logoDataUrl = LOGO_PNG_BASE64 ? `data:image/png;base64,${LOGO_PNG_BASE64}` : "";
   return logoDataUrl;
 }
 
-/** Homepage hero artwork (cover band) — crop the product-arrangement side of
- *  public/images/hero-banner.jpg (left ~38% is the baked-in headline copy),
- *  vertically centered to the exact aspect of the 595×318pt cover band. */
+/** Cover band artwork — pre-cropped at generation time (scripts/gen-brochure-assets.mjs). */
 let heroDataUrl: string | null = null;
 async function getHeroImage(): Promise<string> {
-  if (heroDataUrl !== null) return heroDataUrl;
-  try {
-    const raw = await readFile(path.join(process.cwd(), "public", "images", "hero-banner.jpg"));
-    const meta = await sharp(raw).metadata();
-    const w = meta.width || 1920;
-    const h = meta.height || 702;
-    const left = Math.round(w * 0.38);
-    const cw = w - left;
-    const ch = Math.min(h, Math.round((cw * 318) / 595.28));
-    const top = Math.max(0, Math.round((h - ch) / 2));
-    const jpg = await sharp(raw).extract({ left, top, width: cw, height: ch }).resize(1190).jpeg({ quality: 80 }).toBuffer();
-    heroDataUrl = `data:image/jpeg;base64,${jpg.toString("base64")}`;
-  } catch {
-    heroDataUrl = "";
-  }
+  if (heroDataUrl === null) heroDataUrl = HERO_JPEG_BASE64 ? `data:image/jpeg;base64,${HERO_JPEG_BASE64}` : "";
   return heroDataUrl;
 }
 
@@ -147,7 +144,29 @@ export async function loadBrochureProducts(f: BrochureFilters) {
   if (f.endId) where.endId = f.endId;
   else if (f.midId) where.midId = f.midId;
   else if (f.topId) where.topId = f.topId;
-  if (f.readyOnly) where.stock = { gt: 0 };
+
+  // WAREHOUSE SCOPE — the brochure prints ONE godown: only products carried by
+  // that warehouse, and every qty shown is THAT godown's own number.
+  let whName = "";
+  const qtyByProduct = new Map<string, number>();
+  if (f.warehouseId) {
+    const wh = await db.warehouse.findUnique({ where: { id: f.warehouseId }, select: { name: true, city: true, active: true } });
+    if (!wh) throw new Error("That warehouse no longer exists — pick another one.");
+    whName = wh.city ? `${wh.name} — ${wh.city}` : wh.name;
+    const stockRows = await db.warehouseStock.findMany({
+      where: { warehouseId: f.warehouseId, product: { active: true } },
+      select: { productId: true, qty: true },
+    });
+    for (const s of stockRows) qtyByProduct.set(s.productId, s.qty);
+    const ids = [...qtyByProduct.keys()];
+    where.id = ids.length ? { in: ids } : { in: [""] }; // empty godown → empty brochure
+    if (f.readyOnly) {
+      const stocked = [...qtyByProduct.entries()].filter(([, q]) => q > 0).map(([id]) => id);
+      where.id = stocked.length ? { in: stocked } : { in: [""] };
+    }
+  } else if (f.readyOnly) {
+    where.stock = { gt: 0 };
+  }
 
   const products = await db.product.findMany({
     where,
@@ -159,7 +178,11 @@ export async function loadBrochureProducts(f: BrochureFilters) {
   const tier = f.tier && ["tier1", "tier2", "tier3", "tier4", "tier5"].includes(f.tier) ? f.tier : "dealer";
 
   const rows: BrochureProduct[] = products
-    .filter((p) => (f.includeOutOfStock ? true : p.stock > 0))
+    .filter((p) => {
+      // warehouse scope → the godown's qty decides in/out of stock
+      const qty = f.warehouseId ? (qtyByProduct.get(p.id) ?? 0) : p.stock;
+      return f.includeOutOfStock ? true : qty > 0;
+    })
     .map((p) => {
       const price = tier === "dealer" ? p.dealerPrice : (p as unknown as Record<string, number>)[tier] ?? p.dealerPrice;
       const section = p.end?.name || p.mid?.name || p.top?.name || "General";
@@ -171,7 +194,7 @@ export async function loadBrochureProducts(f: BrochureFilters) {
         image: p.image,
         price: f.showPrices ? price : null,
         mrp: p.mrp,
-        stock: p.stock,
+        stock: f.warehouseId ? (qtyByProduct.get(p.id) ?? 0) : p.stock,
         low: p.lowStockThreshold,
         isTop: p.isTop,
         isHot: p.isHot,
@@ -190,7 +213,7 @@ export async function loadBrochureProducts(f: BrochureFilters) {
   for (const v of seen.values()) sections.push(v);
 
   const companiesUsed = Array.from(new Set(rows.map((r) => r.company)));
-  return { rows, sections, companiesUsed, max };
+  return { rows, sections, companiesUsed, max, whName };
 }
 
 /* ── brands (brand page: logo + clickable storefront name) ── */
@@ -225,7 +248,7 @@ async function loadBrochureBrands(): Promise<BrochureBrandRow[]> {
 /* ── generation ── */
 
 export async function generateBrochure(f: BrochureFilters): Promise<{ buffer: Buffer; meta: BrochureMeta }> {
-  const { rows, sections, companiesUsed } = await loadBrochureProducts(f);
+  const { rows, sections, companiesUsed, whName } = await loadBrochureProducts(f);
   if (!rows.length) throw new Error("No products match these filters — nothing to put in the brochure.");
 
   const settings = await db.setting.findMany({
@@ -278,6 +301,7 @@ export async function generateBrochure(f: BrochureFilters): Promise<{ buffer: Bu
     firmName, firmPhone, logo, qr, heroImage, brands,
     id, generatedAtIST, validTillIST,
     titleScope, monthName, tierLabel,
+    warehouseName: whName,
     siteDisplay: SITE_URL.replace(/^https?:\/\//, ""),
     siteUrl: SITE_URL,
   });
@@ -288,6 +312,7 @@ export async function generateBrochure(f: BrochureFilters): Promise<{ buffer: Bu
     filename: `DMK-Catalog-${(companiesUsed[0] || "All").replace(/[^a-z0-9]+/gi, "-")}-${id}.pdf`,
     count: rows.length,
     companies: companiesUsed,
+    ...(whName ? { warehouse: whName } : {}),
     sections,
     generatedAtIST,
     validTillIST,

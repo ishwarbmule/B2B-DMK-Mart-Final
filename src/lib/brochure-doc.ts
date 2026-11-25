@@ -22,10 +22,36 @@
  * Consumed by src/lib/brochure.ts (data loading) and by the local design
  * preview script (scripts/brochure-preview.ts).
  */
-import pdfmake from "pdfmake"; // Node engine — fonts ship via outputFileTracingIncludes (see next.config.ts)
-import Roboto from "pdfmake/fonts/Roboto";
+import pdfmake from "pdfmake";
+// Fonts are EMBEDDED (base64 → pdfmake's shared virtual fs) — no font files on
+// disk, no node_modules reads, nothing for Vercel file-tracing to lose.
+import { ROBOTO_VFS } from "./brochure-assets.generated";
 
-try { pdfmake.addFonts(Roboto); } catch { /* already registered */ }
+/* Register the embedded Roboto set once per process: base64 TTFs land in the
+ * shared virtual fs, and the font definitions point at those vfs keys. When
+ * pdfmake renders, it resolves them from the vfs — never from the real fs. */
+type PdfmakeVfs = { existsSync(name: string): boolean; writeFileSync(name: string, data: Buffer): void };
+const sharedVfs = (pdfmake as unknown as { sharedVirtualfs: PdfmakeVfs }).sharedVirtualfs;
+const ROBOTO_REGISTERED = Symbol.for("dmk.brochure.roboto.vfs");
+const globalReg = globalThis as unknown as { [ROBOTO_REGISTERED]?: boolean };
+if (!globalReg[ROBOTO_REGISTERED]) {
+  try {
+    for (const [name, data] of Object.entries(ROBOTO_VFS)) {
+      if (!sharedVfs.existsSync(name)) {
+        sharedVfs.writeFileSync(name, Buffer.from(data, "base64"));
+      }
+    }
+    pdfmake.addFonts({
+      Roboto: {
+        normal: "Roboto-Regular.ttf",
+        bold: "Roboto-Medium.ttf",
+        italics: "Roboto-Italic.ttf",
+        bolditalics: "Roboto-MediumItalic.ttf",
+      },
+    });
+    globalReg[ROBOTO_REGISTERED] = true;
+  } catch { /* already registered — harmless */ }
+}
 pdfmake.setUrlAccessPolicy(() => true);
 pdfmake.setLocalAccessPolicy(() => true);
 
@@ -68,6 +94,7 @@ export interface DocOpts {
   id: string; generatedAtIST: string; validTillIST: string;
   titleScope: string; monthName: string;
   tierLabel: string;                              // "DEALER" | "TIER1"…
+  warehouseName?: string;                         // godown this brochure was printed for
   siteDisplay: string;
   siteUrl: string;                                // absolute, for clickable links
 }
@@ -226,6 +253,10 @@ function coverContent(cards: BrochureCard[], sections: SectionInfo[], o: DocOpts
   c.push({ absolutePosition: { x: 40, y: 151 }, text: "CATALOG", fontSize: 30, bold: true, color: INK, characterSpacing: 0.6 });
   c.push({ absolutePosition: { x: 41, y: 200 }, text: o.titleScope.toUpperCase().slice(0, 62), fontSize: 11.5, bold: true, color: INK, characterSpacing: 1.1 });
   c.push({ absolutePosition: { x: 41, y: 220 }, text: `${o.monthName} Edition  ·  ${cards.length} Products Live  ·  ${sections.length} Categories`, fontSize: 9.5, color: GRAY });
+  if (o.warehouseName) {
+    // the godown this print is for — stock & availability are THAT warehouse's
+    c.push({ absolutePosition: { x: 41, y: 232 }, text: `Stock & availability: ${o.warehouseName.toUpperCase().slice(0, 66)}`, fontSize: 8.5, bold: true, color: BRAND_GOLD, characterSpacing: 0.4 });
+  }
 
   // homepage hero artwork band — full bleed width, no catalog product collage
   const HERO_H = 318;
@@ -251,7 +282,7 @@ function coverContent(cards: BrochureCard[], sections: SectionInfo[], o: DocOpts
   });
   c.push({ absolutePosition: { x: 41, y: 646 }, canvas: [{ type: "line", x1: 0, y1: 0, x2: 513, y2: 0, lineWidth: 0.8, lineColor: "#374151" }] });
   c.push({ absolutePosition: { x: 41, y: 656 }, text: "WHAT'S INSIDE", fontSize: 6.8, bold: true, color: YELLOW, characterSpacing: 1.8 });
-  c.push({ absolutePosition: { x: 41, y: 667 }, text: `${sections.length} live categories  ·  ${o.brands.length} brand storefronts  ·  ${o.tierLabel} tier pricing  ·  GST extra`, fontSize: 8.5, color: "#ffffff" });
+  c.push({ absolutePosition: { x: 41, y: 667 }, text: [`${sections.length} live categories`, `${o.brands.length} brand storefronts`, o.warehouseName ? `Stock from ${o.warehouseName}` : `${o.tierLabel} tier pricing`, "GST extra"].join("  ·  "), fontSize: 8.5, color: "#ffffff" });
   c.push({ absolutePosition: { x: 41, y: 688 }, text: `Version ${o.id}  ·  Generated ${o.generatedAtIST}  ·  rates valid till ${o.validTillIST}`, fontSize: 7.6, color: SOFT });
 
   // yellow order strip — keep flowing text ABOVE y≈797 (content-area bottom,

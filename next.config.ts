@@ -15,20 +15,11 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_PORTAL_BUILD: portalBuild,
   },
-  // pdfmake (brochure PDF engine) is a large CJS package — keep it external so
-  // the server bundle never re-bundles its font/vfs assets.
-  serverExternalPackages: ["pdfmake"],
-  // pdfmake reads its Roboto TTFs from node_modules/pdfmake/fonts via fs at
-  // runtime — fs reads inside the package are invisible to file tracing, so
-  // ship the fonts explicitly for the brochure PDF route (same for the cover
-  // hero artwork + brand logo the builder reads from public/).
-  outputFileTracingIncludes: {
-    "/api/admin/brochure/generate": [
-      "./node_modules/pdfmake/fonts/**/*",
-      "./public/images/hero-banner.jpg",
-      "./public/dmk-logo.png",
-    ],
-  },
+  // pdfmake (brochure PDF engine) is BUNDLED into the route on purpose: with it
+  // marked external the serverless lambda needed file-traced node_modules +
+  // font assets, which silently go missing on Vercel and 500 every request.
+  // Fonts/logo/hero are embedded base64 (see scripts/gen-brochure-assets.mjs),
+  // so the bundled route is fully self-contained.
   typescript: {
     ignoreBuildErrors: true,
   },
