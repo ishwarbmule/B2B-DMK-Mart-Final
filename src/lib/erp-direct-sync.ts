@@ -21,8 +21,11 @@
  *   - Brand = ERP company name — auto-upserted into Brand with erpNames aliases
  *
  * NEVER touches the ERP database (see lib/erp-mysql.ts). Website merchandising
- * (badges isHot/isTop/isFeatured/isDeal, dealPrice, categories, images uploaded
- * via Cloudinary) is admin-owned overlay data — a sync never overwrites it.
+ * (badges isHot/isTop/isFeatured/isDeal, dealPrice, images uploaded via
+ * Cloudinary) is admin-owned overlay data — a sync never overwrites it.
+ * Categories: the ERP's top-level / end-level category columns DO sync — they
+ * build the Top→Mid→End tree and classify every product they cover; products
+ * the ERP leaves unclassified keep their admin-assigned categories.
  *
  * Big catalogs exceed the 60s serverless cap → sync runs ONE page per call with
  * a persisted cursor (the 504 lesson): products chunk via erp_sync_cursor_products.
@@ -42,6 +45,10 @@ export type ProductMapping = {
   unitCol?: string; packQtyCol?: string; hsnCol?: string; gstCol?: string;
   barcodeCol?: string; weightCol?: string; piecesPerBoxCol?: string;
   tier1Col?: string; tier2Col?: string; tier3Col?: string; tier4Col?: string; tier5Col?: string;
+  // category source columns (ERP → Top/Mid/End taxonomy). A stored mapping
+  // WITHOUT these keys triggers a one-time DESCRIBE backfill on the next sync
+  // page; "" = checked, no such column exists (never probed again).
+  topCatCol?: string; midCatCol?: string; endCatCol?: string;
   columns: string[]; // ticked — shown in admin + exposed to the website verbatim
 };
 export type WarehouseMapping = { table: string; codeCol: string; nameCol: string; activeCol?: string; columns: string[] };
@@ -213,7 +220,7 @@ async function selectedGodownWhere(
 
 export async function saveProductsMapping(m: ProductMapping): Promise<void> {
   assertIdentifier(m.table);
-  for (const c of [m.skuCol, m.nameCol, m.companyCol, m.mrpCol, m.rateCol, ...(m.columns || [])]) assertIdentifier(c);
+  for (const c of [m.skuCol, m.nameCol, m.companyCol, m.mrpCol, m.rateCol, m.topCatCol, m.midCatCol, m.endCatCol, ...(m.columns || [])].filter(Boolean) as string[]) assertIdentifier(c);
   await setSetting(KEY_PRODUCTS, JSON.stringify(m));
 }
 export async function saveWarehousesMapping(m: WarehouseMapping): Promise<void> {
@@ -242,6 +249,19 @@ const CODE_RE = /(code|^id$|short|abbr)/i;
 const GODOWN_RE = /(godown|warehouse|wh|location|store|branch)/i;
 const QTY_RE = /(qty|quantity|stock|balance|pieces|pcs)/i;
 
+/** Category column detection — single source of regex truth for top/mid/end
+ *  category source columns. This ERP exposes top_level_category +
+ *  end_level_category (the owner's "top level and end level categories");
+ *  sub/mid-named columns are picked up when present. */
+async function detectCatCols(table: string): Promise<{ top: string; mid: string; end: string }> {
+  const cols = await describeErpTable(table);
+  return {
+    top: pick(cols, /^top[_\-]?level[_\-]?cat/i, /^top[_\-]?cat/i, /^department$/i, /^dept$/i) || "",
+    mid: pick(cols, /sub[_\-]?cat/i, /mid[_\-]?cat/i, /sub[_\-]?dept/i) || "",
+    end: pick(cols, /^end[_\-]?level[_\-]?cat/i, /^end[_\-]?cat/i, /last[_\-]?cat/i) || "",
+  };
+}
+
 function pick(cols: { field: string }[], ...regexes: RegExp[]): string {
   for (const re of regexes) {
     const hit = cols.find((c) => re.test(c.field));
@@ -254,6 +274,7 @@ function pick(cols: { field: string }[], ...regexes: RegExp[]): string {
 export async function autoDetectMapping(entity: "products" | "warehouses" | "stock", table: string) {
   const cols = await describeErpTable(table);
   if (entity === "products") {
+    const catCols = await detectCatCols(table);
     const m: ProductMapping = {
       table,
       skuCol: pick(cols, SKU_RE, CODE_RE) || cols[0]?.field || "",
@@ -273,6 +294,9 @@ export async function autoDetectMapping(entity: "products" | "warehouses" | "sto
       barcodeCol: pick(cols, /barcode|bar_?code|ean/i) || undefined,
       weightCol: pick(cols, /weight/i) || undefined,
       piecesPerBoxCol: pick(cols, /pieces|per_?box/i) || undefined,
+      topCatCol: catCols.top || undefined,
+      midCatCol: catCols.mid || undefined,
+      endCatCol: catCols.end || undefined,
       columns: cols.map((c) => c.field).filter((f) => [SKU_RE, NAME_RE, COMPANY_RE, MRP_RE, RATE_RE, IMAGE_RE, STOCK_RE].some((re) => re.test(f))),
     };
     if (!m.mrpCol && m.rateCol) m.mrpCol = m.rateCol;
@@ -327,8 +351,22 @@ export type NormalizedRow = {
   packQty: number; piecesPerBox: number;
   mrp: number; rate: number; deliveryRate: number; tier1: number; tier2: number; tier3: number; tier4: number; tier5: number;
   stock: number; weightGrams: number; barcode: string; image: string; active: boolean;
+  topCat: string; midCat: string; endCat: string; // cleaned ERP category names (may be empty)
   extras: Record<string, unknown>; // ticked columns verbatim
 };
+
+/** Category names straight from the source system: trim, collapse spaces,
+ *  strip curly/straight apostrophes, title-case ALL-CAPS words (keeping short
+ *  acronyms like SS/NV/HD readable) — stable, display-clean names so the
+ *  taxonomy matches case-insensitively across syncs. */
+function cleanCatName(s: string): string {
+  let t = s.replace(/[\u2018\u2019]/g, "").replace(/\s+/g, " ").trim();
+  if (/^[A-Z0-9 &()\/.\-]+$/.test(t) && t.length > 4) {
+    t = t.toLowerCase().replace(/(^|[\s(&/.\-])([a-z])/g, (_m, p1: string, p2: string) => p1 + p2.toUpperCase());
+    t = t.replace(/\bSs\b/g, "SS").replace(/\bNv\b/g, "NV").replace(/\bGn\b/g, "GN").replace(/\bHd\b/g, "HD");
+  }
+  return t.slice(0, 80).replace(/\s*[!.,;:]+\s*$/, "").trim();
+}
 
 export function normalizeProductRow(raw: Record<string, unknown>, m: ProductMapping, imageBase: string): NormalizedRow | null {
   const sku = str(val(raw, m.skuCol));
@@ -346,7 +384,8 @@ export function normalizeProductRow(raw: Record<string, unknown>, m: ProductMapp
   const mapped = new Set(
     [m.skuCol, m.nameCol, m.companyCol, m.mrpCol, m.rateCol, m.costCol, m.deliveryRateCol, m.stockCol,
      m.imageCol, m.activeCol, m.unitCol, m.packQtyCol, m.hsnCol, m.gstCol, m.barcodeCol, m.weightCol,
-     m.piecesPerBoxCol, m.tier1Col, m.tier2Col, m.tier3Col, m.tier4Col, m.tier5Col].filter(Boolean) as string[]
+     m.piecesPerBoxCol, m.tier1Col, m.tier2Col, m.tier3Col, m.tier4Col, m.tier5Col,
+     m.topCatCol, m.midCatCol, m.endCatCol].filter(Boolean) as string[]
   );
   const extras: Record<string, unknown> = {};
   for (const c of ticked) {
@@ -372,6 +411,9 @@ export function normalizeProductRow(raw: Record<string, unknown>, m: ProductMapp
     barcode: str(val(raw, m.barcodeCol)),
     image: img,
     active: coerceActive(val(raw, m.activeCol)),
+    topCat: cleanCatName(str(val(raw, m.topCatCol))),
+    midCat: cleanCatName(str(val(raw, m.midCatCol))),
+    endCat: cleanCatName(str(val(raw, m.endCatCol))),
     extras,
   };
 }
@@ -415,19 +457,147 @@ async function loadCatCache(): Promise<CatCache> {
   return { fallback: { topId: fallbackTop.id, midId: fallbackMid.id, endId: fallbackEnd.id } };
 }
 
+// ───────── category taxonomy built from the ERP pull ─────────
+
+type CatTriple = { topId: string; midId: string; endId: string };
+type CatTreeStats = { tops: number; mids: number; ends: number };
+
+/**
+ * Build the site taxonomy from this page's ERP category names and return a
+ * per-item resolver.
+ *
+ * - top level category → TopCategory, end level category → EndCategory; when
+ *   the source has no mid/sub-department column the top doubles as the mid so
+ *   every End has a proper home (Top → Mid(same name) → End).
+ * - matching is case-insensitive, so repeated syncs never duplicate categories;
+ *   missing rows are batch-created. Existing rows are NEVER restyled — images,
+ *   emojis and colors stay admin-owned.
+ * - items with NO top-level category in the ERP resolve to null: their products
+ *   keep whatever classification the admin assigned (the ERP only claims
+ *   products it actually classifies; the old always-fallback behaviour is what
+ *   kept flattening the whole tree back to "General" on every sync).
+ */
+async function resolveCatChains(items: NormalizedRow[]): Promise<{ chainFor: (it: NormalizedRow) => CatTriple | null; created: CatTreeStats }> {
+  const created: CatTreeStats = { tops: 0, mids: 0, ends: 0 };
+  const lcase = (s: string) => s.trim().toLowerCase();
+
+  // distinct wanted chains (display-cleaned names, case-insensitive keys)
+  const wanted = new Map<string, { top: string; mid: string; end: string }>();
+  for (const it of items) {
+    if (!it.topCat) continue;
+    const top = it.topCat;
+    const mid = it.midCat || top; // no mid column → the top groups its own ends
+    const end = it.endCat || "General";
+    const key = `${lcase(top)}||${lcase(mid)}||${lcase(end)}`;
+    if (!wanted.has(key)) wanted.set(key, { top, mid, end });
+  }
+  if (!wanted.size) return { chainFor: () => null, created };
+
+  // tops — find-or-create by (case-insensitive) name
+  const topByName = new Map((await db.topCategory.findMany({ select: { id: true, name: true } })).map((t) => [lcase(t.name), t.id] as const));
+  const missingTops = [...new Set([...wanted.values()].map((w) => w.top))].filter((n) => !topByName.has(lcase(n)));
+  if (missingTops.length) {
+    await db.topCategory.createMany({ data: missingTops.map((name) => ({ name })), skipDuplicates: true });
+    for (const t of await db.topCategory.findMany({ where: { name: { in: missingTops } }, select: { id: true, name: true } })) {
+      topByName.set(lcase(t.name), t.id);
+    }
+    created.tops = missingTops.length;
+  }
+
+  // mids — unique per (top, name)
+  const midByKey = new Map<string, string>((await db.midCategory.findMany({ select: { id: true, name: true, topId: true } })).map((m) => [`${m.topId}||${lcase(m.name)}`, m.id]));
+  const missingMids = new Map<string, { topId: string; name: string }>();
+  for (const w of wanted.values()) {
+    const topId = topByName.get(lcase(w.top));
+    if (!topId) continue;
+    const key = `${topId}||${lcase(w.mid)}`;
+    if (!midByKey.has(key) && !missingMids.has(key)) missingMids.set(key, { topId, name: w.mid });
+  }
+  if (missingMids.size) {
+    await db.midCategory.createMany({ data: [...missingMids.values()], skipDuplicates: true });
+    for (const m of await db.midCategory.findMany({ where: { OR: [...missingMids.values()].map((v) => ({ topId: v.topId, name: v.name })) }, select: { id: true, name: true, topId: true } })) {
+      midByKey.set(`${m.topId}||${lcase(m.name)}`, m.id);
+    }
+    created.mids = missingMids.size;
+  }
+
+  // ends — unique per (mid, name)
+  const endByKey = new Map<string, string>((await db.endCategory.findMany({ select: { id: true, name: true, midId: true } })).map((e) => [`${e.midId}||${lcase(e.name)}`, e.id]));
+  const missingEnds = new Map<string, { midId: string; name: string }>();
+  for (const w of wanted.values()) {
+    const topId = topByName.get(lcase(w.top));
+    const midId = topId ? midByKey.get(`${topId}||${lcase(w.mid)}`) : undefined;
+    if (!topId || !midId) continue;
+    const key = `${midId}||${lcase(w.end)}`;
+    if (!endByKey.has(key) && !missingEnds.has(key)) missingEnds.set(key, { midId, name: w.end });
+  }
+  if (missingEnds.size) {
+    await db.endCategory.createMany({ data: [...missingEnds.values()], skipDuplicates: true });
+    for (const e of await db.endCategory.findMany({ where: { OR: [...missingEnds.values()].map((v) => ({ midId: v.midId, name: v.name })) }, select: { id: true, name: true, midId: true } })) {
+      endByKey.set(`${e.midId}||${lcase(e.name)}`, e.id);
+    }
+    created.ends = missingEnds.size;
+  }
+
+  // resolve every wanted chain to ids
+  const resolved = new Map<string, CatTriple>();
+  for (const [key, w] of wanted) {
+    const topId = topByName.get(lcase(w.top));
+    const midId = topId ? midByKey.get(`${topId}||${lcase(w.mid)}`) : undefined;
+    const endId = midId ? endByKey.get(`${midId}||${lcase(w.end)}`) : undefined;
+    if (topId && midId && endId) resolved.set(key, { topId, midId, endId });
+  }
+
+  return {
+    chainFor: (it: NormalizedRow): CatTriple | null => {
+      if (!it.topCat) return null;
+      const mid = it.midCat || it.topCat;
+      const end = it.endCat || "General";
+      return resolved.get(`${lcase(it.topCat)}||${lcase(mid)}||${lcase(end)}`) ?? null;
+    },
+    created,
+  };
+}
+
+/**
+ * Category column backfill: mappings saved before the guided flow knew about
+ * categories carry no topCatCol/endCatCol keys. DESCRIBE the products table
+ * once, detect, and persist the outcome ("checked, none found" persists as
+ * empty strings so it never re-probes). Respects the wizard's "Departments &
+ * categories" tick — unticked means the owner wants no category sync, so the
+ * keys stay absent and every page keeps skipping the taxonomy.
+ */
+async function ensureCategoryCols(pm: ProductMapping, catsTicked: boolean): Promise<ProductMapping> {
+  if ("topCatCol" in pm || "endCatCol" in pm) return pm;
+  if (!catsTicked) return pm;
+  try {
+    const det = await detectCatCols(pm.table);
+    const next: ProductMapping = { ...pm, topCatCol: det.top, midCatCol: det.mid, endCatCol: det.end };
+    const add = [det.top, det.mid, det.end].filter(Boolean) as string[];
+    if (add.length) next.columns = [...new Set([...(pm.columns || []), ...add])];
+    await saveProductsMapping(next);
+    return next;
+  } catch {
+    return pm; // DESCRIBE hiccup — retry on the next page call
+  }
+}
+
 // ───────── product sync (one page per call, persisted cursor) ─────────
 
 export type SyncPageResult = { seen: number; created: number; updated: number; skipped: number; offset: number; done: boolean; errors: string[] };
 
 export async function syncProductsPage(pageSize = 300, offsetOverride?: number): Promise<SyncPageResult> {
-  const m = await getProductsMapping();
-  if (!m) throw new Error("Product mapping not configured — tick columns in Admin → ERP Data first");
+  const catsTicked = (await getProductGroups()).find((g) => g.id === "cats")?.ticked ?? true;
+  const m0 = await getProductsMapping();
+  if (!m0) throw new Error("Product mapping not configured — tick columns in Admin → ERP Data first");
+  const m = await ensureCategoryCols(m0, catsTicked);
   const imageBase = (await getSetting("erp_image_base_url", "")).trim().replace(/\/+$/, "");
   const cursorRaw = await getSetting("erp_sync_cursor_products", "0");
   const offset = offsetOverride ?? Number(cursorRaw || 0);
   const allCols = [...new Set([m.skuCol, m.nameCol, m.companyCol, m.mrpCol, m.rateCol, m.costCol, m.deliveryRateCol,
     m.stockCol, m.imageCol, m.activeCol, m.unitCol, m.packQtyCol, m.hsnCol, m.gstCol, m.barcodeCol, m.weightCol,
-    m.piecesPerBoxCol, m.tier1Col, m.tier2Col, m.tier3Col, m.tier4Col, m.tier5Col, ...(m.columns || [])].filter(Boolean) as string[])];
+    m.piecesPerBoxCol, m.tier1Col, m.tier2Col, m.tier3Col, m.tier4Col, m.tier5Col, m.topCatCol, m.midCatCol, m.endCatCol,
+    ...(m.columns || [])].filter(Boolean) as string[])];
   // godown scope: when the admin picked specific warehouses, only pull SKUs
   // stocked in those godowns. This source keys stock rows by godown row ID and
   // joins them to products/warehouses by ID, so the scope runs through the
@@ -492,6 +662,9 @@ export async function syncProductsPage(pageSize = 300, offsetOverride?: number):
   }
 
   const catCache = await loadCatCache();
+  // taxonomy from the ERP's own top/end category columns (null resolver when
+  // the cats tick is off — products then keep their current classification)
+  const catTree = catsTicked ? await resolveCatChains(items) : null;
   const now = new Date();
 
   // ── brands: ONE table load, match in memory, create only missing (brand = ERP company) ──
@@ -530,7 +703,9 @@ export async function syncProductsPage(pageSize = 300, offsetOverride?: number):
     return {
       erpId: item.erpId, name: item.name, company: item.company.trim(),
       ...(brandId ? { brandId } : {}),
-      topId: catCache.fallback.topId, midId: catCache.fallback.midId, endId: catCache.fallback.endId,
+      // NOTE: categories are deliberately NOT here — see the create/update
+      // branches below. Putting the fallback in common() re-pointed EVERY
+      // product to "General" on each sync and wiped the taxonomy.
       unit: item.unit, packQty: item.packQty, piecesPerBox: item.piecesPerBox,
       purchaseCost: item.costPrice, dealerPrice: dealer, basePrice: dealer,
       mrp: item.mrp > 0 ? item.mrp : dealer,
@@ -548,10 +723,13 @@ export async function syncProductsPage(pageSize = 300, offsetOverride?: number):
   for (const item of items) {
     const company = item.company.trim();
     const brandId = brandIdFor.get(company) ?? null;
-    const ex = existingBySku.get(item.sku);
-    if (!ex) {
+    const chain = catTree?.chainFor(item) ?? null; // null = ERP has no category for this row → leave its current one
+    if (!existingBySku.has(item.sku)) {
       creates.push({
         ...common(item, brandId),
+        // new rows always need a full chain: the ERP one when it classifies
+        // this product, the fallback chain otherwise
+        ...(chain ?? catCache.fallback),
         syncSource: "ERP", lastSyncedAt: now,
         sku: item.sku,
         slug: `${slugifyProduct(`${company || "dmk"}-${item.name}`)}-${item.sku.slice(-6).toLowerCase()}`,
@@ -566,6 +744,7 @@ export async function syncProductsPage(pageSize = 300, offsetOverride?: number):
       });
       result.created++;
     } else {
+      const ex = existingBySku.get(item.sku)!;
       const base = common(item, brandId) as Record<string, unknown>;
       const prev = ex as unknown as Record<string, unknown>;
       const data: Record<string, unknown> = {};
@@ -573,6 +752,12 @@ export async function syncProductsPage(pageSize = 300, offsetOverride?: number):
         const pv = prev[k] instanceof Date ? (prev[k] as Date).getTime() : prev[k];
         const cv = v instanceof Date ? v.getTime() : v;
         if (JSON.stringify(pv) !== JSON.stringify(cv)) data[k] = v;
+      }
+      if (chain) {
+        // ERP classifies this product → keep its categories true to the source
+        if (prev.topId !== chain.topId) data.topId = chain.topId;
+        if (prev.midId !== chain.midId) data.midId = chain.midId;
+        if (prev.endId !== chain.endId) data.endId = chain.endId;
       }
       if (item.image) { if (prev.image !== item.image) data.image = item.image; } // keep local/Cloudinary image if ERP sends none
       if (ex.activeSource !== "ADMIN") { if (prev.active !== item.active) data.active = item.active; data.activeSource = "ERP"; }
@@ -636,7 +821,9 @@ export async function syncProductsPage(pageSize = 300, offsetOverride?: number):
   }
   await logSyncEvent({
     direction: "ERP→WEB", action: "mysql-products", status: result.errors.length ? "PARTIAL" : "OK",
-    message: `page@${offset} ${result.created}c/${result.updated}u/${result.skipped}s ${result.done ? "(full done)" : "(continues next page)"}`,
+    message: `page@${offset} ${result.created}c/${result.updated}u/${result.skipped}s`
+      + (catTree ? ` cats ${catTree.created.tops}t/${catTree.created.mids}m/${catTree.created.ends}e` : "")
+      + ` ${result.done ? "(full done)" : "(continues next page)"}`,
     seen: result.seen, created: result.created, updated: result.updated, skipped: result.skipped,
   });
   return result;
@@ -1019,6 +1206,7 @@ const GROUP_DEFS: { id: string; label: string; keys: (keyof ProductMapping)[]; l
   { id: "hsnTax", label: "HSN & tax rate", keys: ["hsnCol", "gstCol"] },
   { id: "image", label: "Product image", keys: ["imageCol"] },
   { id: "brand", label: "Brand / company", keys: ["companyCol"] },
+  { id: "cats", label: "Departments & categories", keys: ["topCatCol", "midCatCol", "endCatCol"] },
   { id: "weight", label: "Weight", keys: ["weightCol"] },
 ];
 
@@ -1193,6 +1381,7 @@ const DMK_DEFAULT_PRODUCTS: ProductMapping = {
   piecesPerBoxCol: "piecesPerBox", hsnCol: "hsnCode", gstCol: "gstRate", barcodeCol: "barcode",
   weightCol: "weightGrams", tier1Col: "tier1Distributor", tier2Col: "tier2Wholesale", tier3Col: "tier3SemiWholesale",
   tier4Col: "tier4Retailer", tier5Col: "tier5Mrp",
+  topCatCol: "top_level_category", endCatCol: "end_level_category",
   columns: ["sku", "name", "company", "brand", "category", "top_level_category", "end_level_category",
     "tier1Distributor", "tier2Wholesale", "tier3SemiWholesale", "tier4Retailer", "tier5Mrp", "deliveryRate",
     "stockQuantity", "photoUrl", "isActive", "unit", "packQty", "piecesPerBox", "hsnCode", "gstRate",

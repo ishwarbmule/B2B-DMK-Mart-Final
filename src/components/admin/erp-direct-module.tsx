@@ -297,7 +297,7 @@ export function ErpDirectModule({ token }: { token: string }) {
       {/* 3 · product details */}
       <section className={`${card} mb-4 p-5`}>
         <h2 className={sectionTitle}>3 · Product details</h2>
-        <p className={sectionSub}>Choose which product details to show. Name, code and selling price are always on.</p>
+        <p className={sectionSub}>Choose which product details to show. Name, code and selling price are always on. Departments &amp; categories keep the shop tree true to the source.</p>
         <div className="mt-3 grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
           {(sources?.groups ?? []).map((g) => {
             const stagedOn = groups[g.id] !== false;
