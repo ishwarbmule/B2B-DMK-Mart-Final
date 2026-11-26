@@ -90,7 +90,9 @@ function LoginInner() {
           .filter((s: { image?: string; mobileImage?: string }) => (s.image || s.mobileImage || "").trim())
           .map((s: { image?: string; mobileImage?: string; kicker?: string; heading?: string; content?: string }) => ({
             img: (s.image || s.mobileImage || "").trim(),
-            kicker: s.kicker || undefined, heading: s.heading || undefined, content: s.content || undefined,
+            kicker: s.kicker || undefined,
+            heading: (s.heading || "").replace(/\*/g, "").trim() || undefined, // strip hero *highlight* markers
+            content: (s.content || "").replace(/\*/g, "").trim() || undefined,
           }))
           .filter((s: Slide) => !s.img.endsWith(".svg")); // skip placeholder art, prefer real photos
         if (fromAdmin.length >= 2) setSlides(fromAdmin.slice(0, 5));
