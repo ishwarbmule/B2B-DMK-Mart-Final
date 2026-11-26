@@ -66,6 +66,16 @@ try {
 
   // 5. Total catalog size + active split
   await q("SELECT COUNT(*) AS totalProducts FROM `Product`", "ERP Product catalog total");
+  const actCol = cols.find((c) => /^is|isactive|active|status|enabled|listed/i.test(c.Field) && /tinyint|int|bit|bool|char|varchar/i.test(c.Type || ""));
+  if (actCol && hasFirmId) {
+    await q(
+      `SELECT f.\`name\` AS firm, p.\`${actCol.Field}\` AS flag, COUNT(*) AS products ` +
+      "FROM `Product` p JOIN `Firm` f ON f.`id` = p.`firmId` GROUP BY f.`id`, f.`name`, flag ORDER BY f.`name`, flag",
+      `Catalog per firm × ${actCol.Field} (source active flag)`
+    );
+  } else {
+    console.log("\n(no obvious active/status column or no firmId — DESCRIBE above is the reference)");
+  }
 
   // 6. Stock coverage: distinct products with stock rows per godown vs firm catalog
   await q(

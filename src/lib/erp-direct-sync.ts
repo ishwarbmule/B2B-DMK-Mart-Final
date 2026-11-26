@@ -97,7 +97,10 @@ export async function getStockMapping(): Promise<StockMapping | null> {
  * godowns (Product.firmId) — including products the owner's team is still
  * building in the source with zero stock yet (stock rows alone would hide
  * those: DMK Mart Pune lists 2k+ catalog products, far more than the ones
- * already stocked). Stock sync only pulls rows of the selected godowns. The
+ * already stocked). Every pulled catalog product is LISTED on the site
+ * (active=true): catalog membership = a working product, the source's own
+ * isActive flag is informational only, and an explicit admin hide still wins.
+ * Stock sync only pulls rows of the selected godowns. The
  * ERP stays strictly read-only: bound-parameter WHERE on SELECTs only.
  */
 export async function getSelectedWarehouseCodes(): Promise<string[]> {
@@ -791,7 +794,11 @@ export async function syncProductsPage(pageSize = 300, offsetOverride?: number, 
         syncSource: "ERP", lastSyncedAt: now,
         sku: item.sku,
         slug: `${slugifyProduct(`${company || "dmk"}-${item.name}`)}-${item.sku.slice(-6).toLowerCase()}`,
-        active: item.active, activeSource: "ERP",
+        // every catalog product the firms behind the picked godowns own is a
+        // WORKING product on this site (the owner builds them in the source
+        // ahead of stocking — the source's isActive flag stays informational
+        // in the mirror only). Admin hides still win via activeSource.
+        active: true, activeSource: "ERP",
         // auto Ready-to-Dispatch: stocked items start dispatch-ready (the owner's
         // stock rule — same as every later stock change applies)
         ...(m.stockCol ? { isTop: Math.round(item.stock) >= 1 } : {}),
@@ -821,7 +828,13 @@ export async function syncProductsPage(pageSize = 300, offsetOverride?: number, 
         if (prev.endId !== chain.endId) data.endId = chain.endId;
       }
       if (item.image) { if (prev.image !== item.image) data.image = item.image; } // keep local/Cloudinary image if ERP sends none
-      if (ex.activeSource !== "ADMIN") { if (prev.active !== item.active) data.active = item.active; data.activeSource = "ERP"; }
+      if (ex.activeSource !== "ADMIN") {
+        // catalog coverage lists a product — the source's isActive flag never
+        // un-lists one (the team keeps not-yet-stocked entries inactive there).
+        // Only an explicit admin hide (activeSource "ADMIN") keeps it dark.
+        if (!prev.active) data.active = true;
+        data.activeSource = "ERP";
+      }
       if (ex.syncSource === "LOCAL") { data.erpId = item.erpId; data.lastSyncedAt = now; } // admin-owned rows: link only
       // auto Ready-to-Dispatch on every REAL stock change ("stock" only lands in
       // data when the ERP value differs — manual isTop picks survive untouched)
@@ -1425,10 +1438,12 @@ export type FinalizeResult = { shownWarehouses: number; hiddenWarehouses: number
  * Apply, part 2 (runs after the pull completes): reconcile visibility with the
  * saved selection. ERP rows never mapped here get hidden too, and products
  * outside the shown godowns' FIRM catalogs stop being listed (active=false;
- * admin-owned active overrides are respected). Products of those firms keep
- * whatever active state the pull brought from the source — the firm catalog
- * decides WHAT belongs on the site, the source's own active flag decides
- * WHETHER it is listed (the team builds products there ahead of stocking).
+ * admin-owned active overrides are respected). EVERY product inside those
+ * firms' catalogs is listed as a working product — the firm catalog decides
+ * WHAT belongs on the site and coverage decides WHETHER it is listed; the
+ * source's own isActive flag is informational only (the team builds products
+ * there ahead of stocking, flagged inactive until finished). Only an explicit
+ * admin hide (activeSource "ADMIN") keeps a covered product off the site.
  */
 export async function finalizeSyncSelection(): Promise<FinalizeResult> {
   const sel = await selectionState();
@@ -1493,9 +1508,14 @@ export async function finalizeSyncSelection(): Promise<FinalizeResult> {
       where: { ...syncOwned, active: true, id: { notIn: covered } },
       data: { active: false },
     }).then((r) => (typeof r === "number" ? r : r.count)));
-    // Covered products are NOT force-activated here — the pull already set each
-    // one to the source's own active flag (activeSource "ERP"); re-activating
-    // by coverage would override products the source marked inactive.
+    // Coverage lists the product: every catalog SKU of the picked firms must be
+    // a working product on the site even if the source flags it inactive — the
+    // pull re-lists as pages land, and this pass back-fills anything the pull
+    // missed (admin hides keep activeSource "ADMIN" and stay dark).
+    await db.product.updateMany({
+      where: { ...syncOwned, active: false, id: { in: covered } },
+      data: { active: true },
+    });
     shownProducts = await db.product.count({ where: { ...syncOwned, active: true, id: { in: covered } } });
   }
   await logSyncEvent({
