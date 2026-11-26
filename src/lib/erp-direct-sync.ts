@@ -93,9 +93,12 @@ export async function getStockMapping(): Promise<StockMapping | null> {
 /**
  * Sync scope — which ERP godowns (warehouses) feed the website. Persisted as a
  * Setting (NO new tables). Empty list / unset = ALL godowns (legacy behaviour).
- * Products sync only pulls SKUs that have rows in the selected godowns' stock
- * table; stock sync only pulls rows of the selected godowns. The ERP stays
- * strictly read-only: bound-parameter WHERE on SELECTs only.
+ * Products sync pulls the WHOLE catalog of the firms that own the selected
+ * godowns (Product.firmId) — including products the owner's team is still
+ * building in the source with zero stock yet (stock rows alone would hide
+ * those: DMK Mart Pune lists 2k+ catalog products, far more than the ones
+ * already stocked). Stock sync only pulls rows of the selected godowns. The
+ * ERP stays strictly read-only: bound-parameter WHERE on SELECTs only.
  */
 export async function getSelectedWarehouseCodes(): Promise<string[]> {
   try {
@@ -123,6 +126,9 @@ export type ErpGodown = {
 
 /**
  * Read-only ERP read: every godown joined with its owning firm's tax mode.
+ * productCount = the owning FIRM's whole catalog size (Product.firmId), NOT
+ * just the godown's stocked rows — the picker must show the real catalog the
+ * sync will bring (DMK Mart Pune lists 2k+ catalog products, ~190 stocked).
  * The admin UI only ever shows NON_GST-firm godowns and never renders the firm
  * name, tax status, code, table or column names — just "Warehouse · City".
  */
@@ -130,7 +136,7 @@ export async function listErpGodowns(): Promise<ErpGodown[]> {
   const rows = await erpQuery(
     "SELECT w.`id` AS erpId, w.`code` AS code, w.`name` AS name, w.`city` AS city, " +
     "w.`isActive` AS isActive, f.`gstMode` AS gstMode, f.`gstin` AS gstin, " +
-    "(SELECT COUNT(*) FROM `WarehouseStock` s WHERE s.`warehouseId` = w.`id`) AS productCount " +
+    "(SELECT COUNT(*) FROM `Product` p WHERE p.`firmId` = w.`firmId`) AS productCount " +
     "FROM `Warehouse` w JOIN `Firm` f ON f.`id` = w.`firmId` ORDER BY w.`name` ASC, w.`id` ASC"
   );
   return rows.map((r) => ({
@@ -202,6 +208,38 @@ export async function selectionState(): Promise<{ configured: boolean; ids: stri
     }
   } catch { /* source unreachable — fall back to legacy unscoped behaviour */ }
   return { configured: false, ids: [] };
+}
+
+/**
+ * Products pull scope — the FIRMS behind the selected godowns own the whole
+ * catalog. Every catalog product of those firms must sync, stocked or not:
+ * the owner's team is actively building products in the source that have no
+ * stock rows yet (DMK Mart Pune: 2k+ catalog SKUs, ~190 stocked today).
+ * Returns a WHERE fragment on the products table (`firmId` IN the firms of the
+ * selected godowns), or null when the products table carries no firmId column
+ * (caller falls back to the legacy stock-row scope). The DESCRIBE check is
+ * cached per process — one cheap probe per serverless instance, not per page.
+ */
+let firmScopeCheck: { table: string; hasFirmId: boolean } | null = null;
+async function selectedFirmScope(
+  productTable: string,
+  ids: string[],
+): Promise<{ whereSql: string; params: unknown[] } | null> {
+  if (!ids.length) return null;
+  if (firmScopeCheck?.table !== productTable) {
+    try {
+      const cols = await describeErpTable(productTable);
+      firmScopeCheck = { table: productTable, hasFirmId: cols.some((c) => c.field === "firmId") };
+    } catch {
+      return null; // DESCRIBE hiccup — legacy scope still covers the stocked rows
+    }
+  }
+  if (!firmScopeCheck.hasFirmId) return null;
+  const marks = ids.map(() => "?").join(", ");
+  return {
+    whereSql: "`firmId` IN (SELECT w.`firmId` FROM `Warehouse` w WHERE w.`id` IN (" + marks + "))",
+    params: ids,
+  };
 }
 
 /** WHERE fragment limiting an ERP read to the selected godowns; null = no filter. */
@@ -601,17 +639,26 @@ export async function syncProductsPage(pageSize = 300, offsetOverride?: number, 
     m.stockCol, m.imageCol, m.activeCol, m.unitCol, m.packQtyCol, m.hsnCol, m.gstCol, m.barcodeCol, m.weightCol,
     m.piecesPerBoxCol, m.tier1Col, m.tier2Col, m.tier3Col, m.tier4Col, m.tier5Col, m.topCatCol, m.midCatCol, m.endCatCol,
     ...(m.columns || [])].filter(Boolean) as string[])];
-  // godown scope: when the admin picked specific warehouses, only pull SKUs
-  // stocked in those godowns. This source keys stock rows by godown row ID and
-  // joins them to products/warehouses by ID, so the scope runs through the
-  // stock table on IDs — codes collide across firms here. Read-only: SELECT
-  // subquery with bound params.
+  // godown scope: when the admin picked specific warehouses, pull the WHOLE
+  // catalog of those godowns' firms — every product, stocked or not (the owner
+  // works on products in the source before any stock exists). Only when the
+  // products table has no firm column do we fall back to the legacy rule of
+  // pulling just SKUs stocked in the picked godowns. Read-only: SELECT
+  // subqueries with bound params; codes collide across firms so scopes key on
+  // godown row IDs, never codes.
   const smForScope = await getStockMapping();
   const sel = await selectionState();
   let scope: { whereSql: string; params: unknown[] } | null = null;
   if (sel.configured) {
     if (!sel.ids.length) {
       scope = { whereSql: "1 = 0", params: [] }; // every godown unticked → pull nothing
+    } else {
+      scope = await selectedFirmScope(m.table, sel.ids);
+    }
+  }
+  if (sel.configured && !scope) {
+    if (!sel.ids.length) {
+      // already handled above; keep the legacy chain from re-running
     } else if (smForScope?.skuJoin) {
       // stock rows key products by row ID → translate through the same JOIN the
       // stock pull uses, so the outer sku column compares against real SKUs
@@ -1236,6 +1283,14 @@ export async function fullResyncChunk(pageSize = 300, stage?: "warehouses" | "st
   }
   if (pm && (!stage || stage === "products")) {
     try { await t("products", async () => { out.products = await syncProductsPage(pageSize, undefined, opts); })(); } catch (e) { errors.push(`products: ${e instanceof Error ? e.message : String(e)}`); }
+    // The pull just created catalog SKUs that carried no Neon stock rows yet
+    // (the stock pass at the top of this chunk ran before they existed). One
+    // final stock pass right before "done" gives every new SKU its godown
+    // rollup + per-godown rows, so visibility and the green-dot stock rule
+    // are correct the moment the loop finishes. Full chunks only (stage unset).
+    if (out.products?.done && sm && !stage) {
+      try { await t("stock-final", async () => { out.stock = await syncStock(); })(); } catch (e) { errors.push(`stock-final: ${e instanceof Error ? e.message : String(e)}`); }
+    }
   }
   return out;
 }
@@ -1368,9 +1423,12 @@ export type FinalizeResult = { shownWarehouses: number; hiddenWarehouses: number
 
 /**
  * Apply, part 2 (runs after the pull completes): reconcile visibility with the
- * saved selection. ERP rows never mapped here get hidden too, and products not
- * stocked in any shown warehouse stop being listed (active=false; admin-owned
- * active overrides are respected).
+ * saved selection. ERP rows never mapped here get hidden too, and products
+ * outside the shown godowns' FIRM catalogs stop being listed (active=false;
+ * admin-owned active overrides are respected). Products of those firms keep
+ * whatever active state the pull brought from the source — the firm catalog
+ * decides WHAT belongs on the site, the source's own active flag decides
+ * WHETHER it is listed (the team builds products there ahead of stocking).
  */
 export async function finalizeSyncSelection(): Promise<FinalizeResult> {
   const sel = await selectionState();
@@ -1401,25 +1459,45 @@ export async function finalizeSyncSelection(): Promise<FinalizeResult> {
       await db.warehouseStock.deleteMany({ where: { warehouseId: w.id } });
     }
   }
-  // products: listed = stocked in a shown warehouse
-  const stockRows = await db.warehouseStock.findMany({
-    where: { warehouse: { source: "ERP", active: true } },
-    select: { productId: true },
-  });
-  const covered = [...new Set(stockRows.map((r) => r.productId))];
+  // products: listed = every catalog SKU of the firms behind the shown godowns.
+  // Stock-row coverage alone would hide the products the owner's team is still
+  // building in the source (catalog entries without stock rows yet), so the
+  // firm catalog is the source of truth for what belongs on the site. If the
+  // source cannot be read right now, visibility is left untouched — never
+  // blind-hide the catalog on a network hiccup.
+  let covered: string[] | null = null;
+  if (sel.configured && sel.ids.length) {
+    try {
+      const skuRows = await erpQuery(
+        "SELECT p.`sku` AS sku FROM `Product` p WHERE p.`firmId` IN " +
+        "(SELECT w.`firmId` FROM `Warehouse` w WHERE w.`id` IN (" + sel.ids.map(() => "?").join(", ") + "))",
+        sel.ids,
+      );
+      const wantedSkus = [...new Set(skuRows.map((r) => str(r.sku)).filter(Boolean))];
+      for (let i = 0; i < wantedSkus.length; i += 1000) {
+        const chunk = wantedSkus.slice(i, i + 1000);
+        const rowsChunk = await db.product.findMany({ where: { sku: { in: chunk } }, select: { id: true } });
+        (covered ??= []).push(...rowsChunk.map((c) => c.id));
+      }
+      if (covered && !covered.length) covered = null; // nothing resolved — treat like an ERP hiccup
+    } catch { covered = null; }
+  }
   const syncOwned: Prisma.ProductWhereInput = {
     syncSource: "ERP",
     activeSource: { not: "ADMIN" }, // column is NOT NULL — admin overrides stay untouched
   };
-  const hiddenProducts = Number(await db.product.updateMany({
-    where: covered.length
-      ? { ...syncOwned, active: true, id: { notIn: covered } }
-      : { ...syncOwned, active: true },
-    data: { active: false },
-  }).then((r) => (typeof r === "number" ? r : r.count)));
-  const shownProducts = covered.length
-    ? Number(await db.product.updateMany({ where: { ...syncOwned, active: false, id: { in: covered } }, data: { active: true } }).then((r) => (typeof r === "number" ? r : r.count)))
-    : 0;
+  let hiddenProducts = 0;
+  let shownProducts = 0;
+  if (covered) {
+    hiddenProducts = Number(await db.product.updateMany({
+      where: { ...syncOwned, active: true, id: { notIn: covered } },
+      data: { active: false },
+    }).then((r) => (typeof r === "number" ? r : r.count)));
+    // Covered products are NOT force-activated here — the pull already set each
+    // one to the source's own active flag (activeSource "ERP"); re-activating
+    // by coverage would override products the source marked inactive.
+    shownProducts = await db.product.count({ where: { ...syncOwned, active: true, id: { in: covered } } });
+  }
   await logSyncEvent({
     direction: "ERP→WEB", action: "selection-finalize", status: "OK",
     message: `${shownWarehouses} wh shown / ${hiddenWarehouses} hidden · ${shownProducts} products shown / ${hiddenProducts} hidden`,

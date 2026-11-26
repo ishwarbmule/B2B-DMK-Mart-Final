@@ -6,8 +6,9 @@
  *     re-ticked ones show again.
  * POST { action: "finalize" }
  *   → stage 2 (after the pull loop completes): reconcile every ERP-sourced
- *     warehouse's visibility and list products stocked in shown warehouses
- *     only. Never touches the source system (strictly read-only).
+ *     warehouse's visibility and list exactly the shown godowns' FIRM catalogs
+ *     (stocked or not — products the team is still building stay listed).
+ *     Never touches the source system (strictly read-only).
  */
 import { requireAdmin, jsonError } from "@/lib/admin-auth";
 import { applySyncSelection, finalizeSyncSelection } from "@/lib/erp-direct-sync";
