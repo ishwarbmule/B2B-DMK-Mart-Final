@@ -124,6 +124,7 @@ export async function saveSelectedWarehouseCodes(codes: string[]): Promise<void>
 export type ErpGodown = {
   erpId: string; code: string; name: string; city: string;
   isActive: boolean; productCount: number;
+  firmId: string; // owning firm — links the firm's catalog to this godown
   gstMode: string; gstin: string; // internal — NEVER shown in the UI
 };
 
@@ -138,7 +139,7 @@ export type ErpGodown = {
 export async function listErpGodowns(): Promise<ErpGodown[]> {
   const rows = await erpQuery(
     "SELECT w.`id` AS erpId, w.`code` AS code, w.`name` AS name, w.`city` AS city, " +
-    "w.`isActive` AS isActive, f.`gstMode` AS gstMode, f.`gstin` AS gstin, " +
+    "w.`isActive` AS isActive, w.`firmId` AS firmId, f.`gstMode` AS gstMode, f.`gstin` AS gstin, " +
     "(SELECT COUNT(*) FROM `Product` p WHERE p.`firmId` = w.`firmId`) AS productCount " +
     "FROM `Warehouse` w JOIN `Firm` f ON f.`id` = w.`firmId` ORDER BY w.`name` ASC, w.`id` ASC"
   );
@@ -149,6 +150,7 @@ export async function listErpGodowns(): Promise<ErpGodown[]> {
     city: str(r.city),
     isActive: coerceActive(r.isActive),
     productCount: num(r.productCount),
+    firmId: str(r.firmId),
     gstMode: str(r.gstMode).toUpperCase(),
     gstin: str(r.gstin),
   }));
@@ -1146,10 +1148,13 @@ export async function syncStock(): Promise<{ rows: number; stocksUpserted: numbe
     try { await applyAutoDispatchBySkus(changedSkus); } catch { /* rule is best-effort — never fail the stock pull */ }
   }
 
-  // stale rows: ERP godown stock rows that no longer exist upstream (full pull covers it)
+  // stale rows: ERP godown stock rows that no longer exist upstream (full pull covers it).
+  // Zero-qty rows are COVERAGE MARKERS — finalize plants one per firm-catalog SKU
+  // that has no stock yet, so "this godown's products" = every row here. They are
+  // never deleted by the stock pass, only re-scoped by finalize.
   if (rows.length < 5000 && wm) {
     for (const [whId, productIds] of touched) {
-      await db.warehouseStock.deleteMany({ where: { warehouseId: whId, productId: { notIn: [...productIds] } } });
+      await db.warehouseStock.deleteMany({ where: { warehouseId: whId, productId: { notIn: [...productIds] }, qty: { gt: 0 } } });
     }
   }
   await setSetting("erp_sync_last_stock_at", new Date().toISOString());
@@ -1481,14 +1486,42 @@ export async function finalizeSyncSelection(): Promise<FinalizeResult> {
   // source cannot be read right now, visibility is left untouched — never
   // blind-hide the catalog on a network hiccup.
   let covered: string[] | null = null;
+  // per-godown SKU lists — every catalog SKU of the godown's firm becomes a
+  // (possibly zero-qty) WarehouseStock row on that godown, so "this warehouse's
+  // products" is a plain relation filter for buyers, brochure and admin alike.
+  const skusByGodown = new Map<string, string[]>(); // neon Warehouse.id → SKUs
   if (sel.configured && sel.ids.length) {
     try {
       const skuRows = await erpQuery(
-        "SELECT p.`sku` AS sku FROM `Product` p WHERE p.`firmId` IN " +
+        "SELECT p.`sku` AS sku, p.`firmId` AS firmId FROM `Product` p WHERE p.`firmId` IN " +
         "(SELECT w.`firmId` FROM `Warehouse` w WHERE w.`id` IN (" + sel.ids.map(() => "?").join(", ") + "))",
         sel.ids,
       );
-      const wantedSkus = [...new Set(skuRows.map((r) => str(r.sku)).filter(Boolean))];
+      // firm → ERP godowns (a firm could own more than one) → Neon warehouse ids
+      let godowns: ErpGodown[] = [];
+      try { godowns = await listErpGodowns(); } catch { /* mapping stays empty — coverage only */ }
+      const neonMap = await loadWhNeonMap();
+      const whIdsForFirm = new Map<string, string[]>();
+      for (const g of godowns) {
+        if (!g.firmId) continue;
+        const neonId = neonMap[g.erpId];
+        if (!neonId) continue;
+        const list = whIdsForFirm.get(g.firmId) ?? [];
+        if (!list.includes(neonId)) list.push(neonId);
+        whIdsForFirm.set(g.firmId, list);
+      }
+      const seen = new Set<string>(); // dedupe across firms sharing a SKU
+      for (const r of skuRows) {
+        const sku = str(r.sku);
+        if (!sku || seen.has(sku)) continue;
+        seen.add(sku);
+        for (const neonWhId of whIdsForFirm.get(str(r.firmId)) ?? []) {
+          const list = skusByGodown.get(neonWhId) ?? [];
+          list.push(sku);
+          skusByGodown.set(neonWhId, list);
+        }
+      }
+      const wantedSkus = [...seen];
       for (let i = 0; i < wantedSkus.length; i += 1000) {
         const chunk = wantedSkus.slice(i, i + 1000);
         const rowsChunk = await db.product.findMany({ where: { sku: { in: chunk } }, select: { id: true } });
@@ -1518,9 +1551,29 @@ export async function finalizeSyncSelection(): Promise<FinalizeResult> {
     });
     shownProducts = await db.product.count({ where: { ...syncOwned, active: true, id: { in: covered } } });
   }
+  // plant the per-godown COVERAGE ROWS (qty 0): every catalog SKU of each
+  // selected godown's firm gets a row on that godown, so warehouse-scoped
+  // browsing ("Kolhar customer sees Kolhar's products") covers the whole
+  // catalog, not just stocked lines. Rows that already exist (the godown's
+  // real ERP stock rows) are left untouched — createMany skipDuplicates on
+  // the (warehouseId, productId) unique keeps live quantities safe.
+  let coverageRows = 0;
+  for (const [neonWhId, skus] of skusByGodown) {
+    if (!skus.length) continue;
+    for (let i = 0; i < skus.length; i += 1000) {
+      const chunk = skus.slice(i, i + 1000);
+      const rowsChunk = await db.product.findMany({ where: { sku: { in: chunk } }, select: { id: true } });
+      if (!rowsChunk.length) continue;
+      const res = await db.warehouseStock.createMany({
+        data: rowsChunk.map((c) => ({ warehouseId: neonWhId, productId: c.id, qty: 0 })),
+        skipDuplicates: true,
+      });
+      coverageRows += Number((res as unknown as { count?: number }).count ?? 0);
+    }
+  }
   await logSyncEvent({
     direction: "ERP→WEB", action: "selection-finalize", status: "OK",
-    message: `${shownWarehouses} wh shown / ${hiddenWarehouses} hidden · ${shownProducts} products shown / ${hiddenProducts} hidden`,
+    message: `${shownWarehouses} wh shown / ${hiddenWarehouses} hidden · ${shownProducts} products shown / ${hiddenProducts} hidden · ${coverageRows} coverage rows planted`,
   });
   return { shownWarehouses, hiddenWarehouses, shownProducts, hiddenProducts };
 }

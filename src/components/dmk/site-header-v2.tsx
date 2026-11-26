@@ -10,6 +10,7 @@ import { useCartStore, formatINR } from "@/lib/store";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { useCustomerSession, customerTypeLabel } from "@/lib/customer-client";
 import { clearCustomerToken, customerAuthHeaders } from "@/lib/customer-session";
+import { endCategoryIcon } from "@/lib/category-icons";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { CatalogPayload } from "@/lib/types";
 
@@ -52,8 +53,10 @@ export function SiteHeaderV2() {
 
   const logout = () => {
     clearCustomerToken();
+    fetch("/api/auth/logout", { method: "POST" }).catch(() => {}); // clears the gate cookies too
     useCustomerSession.setState({ customer: null, nearestWarehouse: null, warehouses: [], loaded: true, loading: false });
     toast.success("Logged out — see you soon!");
+    router.push("/login");
   };
 
   const tops = catalog?.tops ?? [];
@@ -61,7 +64,7 @@ export function SiteHeaderV2() {
   // Top utility bar = business contact details ONLY (email + phone), nothing else.
   // Admin-editable settings win when set; fallbacks match the footer's business contact.
   const bizEmail = catalog?.settings?.support_email || catalog?.settings?.firm_email || "dmkmartdata@gmail.com";
-  const bizPhone = catalog?.settings?.support_phone || catalog?.settings?.firm_phone || "+91 98220 12345";
+  const bizPhone = catalog?.settings?.support_phone || catalog?.settings?.firm_phone || "+91 93095 75173";
   const bizPhoneRaw = bizPhone.replace(/[^\d+]/g, "");
 
   const submit = (e?: React.FormEvent) => {
@@ -239,8 +242,13 @@ export function SiteHeaderV2() {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
+                  <Link href="/choose-warehouse" className="cursor-pointer">
+                    <Package className="mr-2 h-4 w-4 text-gray-500" /> Change warehouse
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
                   <Link href="/account#recent-orders" className="cursor-pointer">
-                    <Package className="mr-2 h-4 w-4 text-gray-500" /> My Orders
+                    <LogOut className="mr-2 h-4 w-4 text-gray-500" /> My Orders
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -312,7 +320,7 @@ export function SiteHeaderV2() {
               aria-expanded={mega === t.id}
               className={`flex shrink-0 items-center gap-1 whitespace-nowrap px-3 py-2.5 text-xs font-medium transition ${mega === t.id ? "rounded-t bg-white text-yellow-600" : "text-gray-200 hover:text-yellow-400"}`}
             >
-              <span aria-hidden>{t.emoji}</span> {t.name} <ChevronDown className={`h-3 w-3 opacity-60 transition-transform ${mega === t.id ? "rotate-180" : ""}`} />
+              {t.name} <ChevronDown className={`h-3 w-3 opacity-60 transition-transform ${mega === t.id ? "rotate-180" : ""}`} />
             </Link>
           ))}
           <Link href="/page/contact-us" className="ml-auto flex shrink-0 whitespace-nowrap px-3 py-2.5 text-xs font-medium text-gray-200 hover:text-yellow-400">
@@ -376,22 +384,44 @@ export function SiteHeaderV2() {
               </Link>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-3">
-                  <h3 className="truncate text-sm font-black text-black">{t.emoji} {t.name}</h3>
+                  <h3 className="truncate text-sm font-black text-black">{t.name}</h3>
                   <Link href={`/catalog?top=${t.id}`} onClick={() => setMega(null)} className="shrink-0 text-xs font-bold text-yellow-600 hover:underline">
                     Shop all {t.productCount ?? 0} SKUs →
                   </Link>
                 </div>
-                <div className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-0.5 sm:grid-cols-3 lg:grid-cols-4">
+                <div className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3 lg:grid-cols-4">
                   {t.mids.map((m) => (
-                    <Link
-                      key={m.id}
-                      href={`/catalog?top=${t.id}`}
-                      onClick={() => setMega(null)}
-                      className="flex items-center gap-1.5 truncate rounded-lg px-2 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-yellow-50 hover:text-black"
-                    >
-                      <ChevronRight className="h-3 w-3 shrink-0 text-yellow-500" />
-                      <span className="truncate">{m.name}</span>
-                    </Link>
+                    <div key={m.id} className="min-w-0">
+                      <Link
+                        href={`/catalog?top=${t.id}`}
+                        onClick={() => setMega(null)}
+                        className="flex items-center gap-1.5 truncate rounded-lg px-2 py-1 text-xs font-bold text-gray-800 transition hover:bg-yellow-50 hover:text-black"
+                      >
+                        <ChevronRight className="h-3 w-3 shrink-0 text-yellow-500" />
+                        <span className="truncate">{m.name}</span>
+                      </Link>
+                      {/* leaf categories with their own small icons — the owner's
+                          rule: photos on top level, icons on the end level */}
+                      {m.ends?.length > 0 && (
+                        <div className="ml-3.5 space-y-0 border-l border-gray-100 pl-2">
+                          {m.ends.slice(0, 6).map((end) => {
+                            const Icon = endCategoryIcon(end.name);
+                            return (
+                              <Link
+                                key={end.id}
+                                href={`/catalog?end=${end.id}`}
+                                onClick={() => setMega(null)}
+                                title={end.name}
+                                className="flex items-center gap-1.5 truncate rounded px-1.5 py-0.5 text-[11px] text-gray-500 transition hover:bg-yellow-50 hover:text-yellow-700"
+                              >
+                                <Icon className="h-3 w-3 shrink-0 text-yellow-600" aria-hidden />
+                                <span className="truncate">{end.name}</span>
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>

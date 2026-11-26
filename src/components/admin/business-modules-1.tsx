@@ -482,9 +482,11 @@ function SlabPricing({ token }: { token: string }) {
   const call = api(token);
   const [companies, setCompanies] = useState<string[]>([]);
   const [tops, setTops] = useState<{ id: string; name: string }[]>([]);
-  const [target, setTarget] = useState<"company" | "category">("company");
+  const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>([]);
+  const [target, setTarget] = useState<"company" | "category" | "warehouse">("company");
   const [companySel, setCompanySel] = useState<string[]>([]);
   const [topId, setTopId] = useState("");
+  const [whId, setWhId] = useState("");
   const [basis, setBasis] = useState<"current" | "purchaseCost">("purchaseCost");
   const [ops, setOps] = useState<{ field: string; mode: "percent" | "amount" | "set"; value: string }[]>([
     { field: "mrp", mode: "percent", value: "35" },
@@ -495,14 +497,24 @@ function SlabPricing({ token }: { token: string }) {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    call("/api/admin/products/companies").then((d) => setCompanies((d.companies ?? []).map((c: { name: string }) => c.name))).catch(() => {});
+    call("/api/admin/products/companies").then((d) => setCompanies((d.companies ?? []).map((c: { name: string }) => c.name))).catch((e) => toast.error(e instanceof Error ? e.message : "Failed to load companies"));
     call("/api/admin/crud/tops").then((d) => setTops((d.rows ?? []).map((r: Record<string, unknown>) => ({ id: String(r.id), name: String(r.name) })))).catch(() => {});
     call("/api/admin/pricing/bulk").then((d) => setLogs(d.logs ?? [])).catch(() => {});
+    // warehouse dropdown — the owner's fix: Pricing was missing the warehouse
+    // selector. crud is the primary source, admin/warehouses the fallback.
+    call("/api/admin/crud/warehouses")
+      .then((d) => {
+        const rows = (d.rows ?? []) as { id: string; name: string }[];
+        setWarehouses(rows);
+        if (!rows.length) return call("/api/admin/warehouses").then((x) => setWarehouses((x.warehouses ?? []).map((w: { id: string; name: string }) => ({ id: w.id, name: w.name }))));
+      })
+      .catch(() => call("/api/admin/warehouses").then((x) => setWarehouses((x.warehouses ?? []).map((w: { id: string; name: string }) => ({ id: w.id, name: w.name })))).catch(() => toast.error("Could not load warehouses")));
 
   }, [token]);
 
   const buildBody = (isPreview: boolean) => ({
-    target,
+    target: target === "warehouse" ? "all" : target,
+    warehouseId: target === "warehouse" ? whId : undefined,
     companies: companySel,
     topId: target === "category" ? topId : undefined,
     basis,
@@ -525,6 +537,7 @@ function SlabPricing({ token }: { token: string }) {
   };
 
   const doApply = async () => {
+    if (target === "warehouse" && !whId) { toast.error("Pick a warehouse first"); return; }
     if (!confirm(`Apply ${ops.length} pricing operation(s) to matched products? This logs every change.`)) return;
     setBusy(true);
     try {
@@ -548,12 +561,22 @@ function SlabPricing({ token }: { token: string }) {
         <div className="space-y-3 rounded-xl border bg-white p-4">
           <div>
             <p className="mb-1.5 text-[11px] font-bold uppercase text-gray-500">Apply to</p>
-            <div className="grid grid-cols-2 gap-1.5">
-              {(["company", "category"] as const).map((t) => (
-                <button key={t} onClick={() => setTarget(t)} className={`rounded-lg border-2 py-2 text-xs font-bold capitalize ${target === t ? "border-yellow-400 bg-yellow-50" : "border-gray-200"}`}>{t === "company" ? "By Company" : "By Category"}</button>
+            <div className="grid grid-cols-3 gap-1.5">
+              {(["company", "category", "warehouse"] as const).map((t) => (
+                <button key={t} onClick={() => setTarget(t)} className={`rounded-lg border-2 py-2 text-xs font-bold capitalize ${target === t ? "border-yellow-400 bg-yellow-50" : "border-gray-200"}`}>{t === "company" ? "By Company" : t === "category" ? "By Category" : "Whole Warehouse"}</button>
               ))}
             </div>
           </div>
+          {target === "warehouse" && (
+            <div>
+              <p className="mb-1.5 text-[11px] font-bold uppercase text-gray-500">Warehouse ({warehouses.length} available)</p>
+              <select value={whId} onChange={(e) => setWhId(e.target.value)} className="h-9 w-full rounded-lg border border-gray-200 px-2 text-xs">
+                <option value="">Pick a warehouse…</option>
+                {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+              </select>
+              {!warehouses.length && <p className="mt-1 text-[10px] text-red-500">No warehouses loaded — refresh the page or check ERP Sync.</p>}
+            </div>
+          )}
           {target === "company" ? (
             <div>
               <p className="mb-1.5 text-[11px] font-bold uppercase text-gray-500">Companies ({companySel.length} selected)</p>
@@ -688,11 +711,16 @@ function LocationPricing({ token }: { token: string }) {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    call("/api/admin/crud/warehouses").then((d) => {
-      const rows = (d.rows ?? []) as { id: string; name: string }[];
-      setWarehouses(rows);
-      if (rows.length) setWhId((cur) => cur || rows[0].id);
-    }).catch(() => {});
+    // primary source crud/warehouses; admin/warehouses fallback — never leave
+    // the warehouse select silently empty (the owner's pricing bug)
+    const loadWhs = (src: string): Promise<void> =>
+      call(src).then((d) => {
+        const rows = (src === "/api/admin/warehouses" ? (d.warehouses ?? []) : (d.rows ?? [])) as { id: string; name: string }[];
+        setWarehouses(rows);
+        if (rows.length) setWhId((cur) => cur || rows[0].id);
+        else if (src === "/api/admin/crud/warehouses") return loadWhs("/api/admin/warehouses");
+      });
+    loadWhs("/api/admin/crud/warehouses").catch(() => toast.error("Could not load the warehouse list — refresh the page"));
     call("/api/admin/products/companies").then((d) => setCompanies(d.companies ?? [])).catch(() => {});
   }, [call]);
 

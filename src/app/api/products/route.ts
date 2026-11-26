@@ -70,31 +70,49 @@ export async function GET(req: NextRequest) {
   let buyerTier = GUEST_TIER; // logged-out visitors see wholesale (tier2) piece prices
   let buyerWarehouseName = "";
   let buyerCity: string | null = null;
+  let scopedWarehouseId = ""; // the godown whose products THIS buyer browses
   if (customerId) {
-    const cust = await db.customer.findUnique({ where: { id: customerId }, select: { city: true, pincode: true, tier: true } });
+    const cust = await db.customer.findUnique({
+      where: { id: customerId },
+      select: { city: true, pincode: true, tier: true, status: true },
+    });
+    // API-level approval gate: a suspended/pending account's old token must not
+    // keep working even if the login page never let them back in
+    if (cust && cust.status !== "APPROVED") {
+      return NextResponse.json({ error: `Account ${cust.status.toLowerCase()} — contact DMK Mart support.` }, { status: 403 });
+    }
     if (cust) {
       buyerTier = /^tier[1-5]$/.test(cust.tier) ? cust.tier : GUEST_TIER;
       buyerCity = cust.city?.trim() || null;
       if (!includeInactive) {
-        // SITE-WIDE LOCATION LOCK: a signed-in buyer only ever sees the products
-        // stocked at THEIR location's warehouse — their shop's belt (Pune / Kolhar)
-        // decides the godown, falling back to nearest-warehouse ranking for towns
-        // outside both belts. Neither a hand-picked ?warehouseId= nor the
-        // ?allWarehouses=1 escape can bypass it (admin ?all=1 bypasses — POS/tools).
         const whs = await db.warehouse.findMany({
           where: { active: true },
           orderBy: [{ isDefault: "desc" }, { sortOrder: "asc" }],
           select: { id: true, name: true, city: true, isDefault: true, sortOrder: true },
         });
-        const belt = beltOfLocation(cust.city);
-        const beltWh = belt ? servingWarehouseFor(whs, belt) : undefined;
-        const nearest = beltWh ?? ((cust.city || cust.pincode) ? rankWarehouses(whs, cust.city, cust.pincode)[0] : undefined);
-        if (nearest) {
-          where.warehouseStocks = { some: { warehouseId: nearest.id, qty: { gt: 0 } } };
-          buyerWarehouseName = nearest.name;
-        } else if (warehouseId) {
-          where.warehouseStocks = { some: { warehouseId, qty: { gt: 0 } } };
+        // WAREHOUSE-SCOPED BROWSING: the buyer picks their godown right after
+        // login (the /choose-warehouse gate) and sees ONLY that godown's
+        // products — scoped with ANY qty, because finalize plants zero-qty
+        // coverage rows for the whole firm catalog (stocked or still being
+        // built). No URL escape can bypass the cookie. Legacy fallback when no
+        // cookie: the buyer's city belt decides the godown.
+        const chosenId = req.cookies.get("dmk_wh")?.value || "";
+        const chosen = chosenId ? whs.find((w) => w.id === chosenId) : undefined;
+        if (chosen) {
+          scopedWarehouseId = chosen.id;
+          buyerWarehouseName = chosen.name;
+        } else {
+          const belt = beltOfLocation(cust.city);
+          const beltWh = belt ? servingWarehouseFor(whs, belt) : undefined;
+          const nearest = beltWh ?? ((cust.city || cust.pincode) ? rankWarehouses(whs, cust.city, cust.pincode)[0] : undefined);
+          if (nearest) {
+            scopedWarehouseId = nearest.id;
+            buyerWarehouseName = nearest.name;
+          } else if (warehouseId) {
+            scopedWarehouseId = warehouseId;
+          }
         }
+        if (scopedWarehouseId) where.warehouseStocks = { some: { warehouseId: scopedWarehouseId } };
       }
     }
   }
@@ -130,6 +148,14 @@ export async function GET(req: NextRequest) {
     : { isTop: "desc" as const };
 
   const take = flagAll ? 600 : limit;
+  // per-warehouse availability: when scoped, inStock means "stocked at THIS
+  // godown" (powers the green dot honestly per location), not stocked anywhere
+  const include = {
+    brand: { select: { name: true, slug: true, logo: true } },
+    ...(scopedWarehouseId
+      ? { warehouseStocks: { where: { warehouseId: scopedWarehouseId }, select: { qty: true } } }
+      : {}),
+  };
   const [total, products] = await Promise.all([
     db.product.count({ where }),
     db.product.findMany({
@@ -137,7 +163,7 @@ export async function GET(req: NextRequest) {
       orderBy,
       skip: flagAll ? 0 : (page - 1) * limit,
       take,
-      include: { brand: { select: { name: true, slug: true, logo: true } } },
+      include,
     }),
   ]);
 
@@ -153,7 +179,10 @@ export async function GET(req: NextRequest) {
     tier1: p.tier1, tier2: p.tier2, tier3: p.tier3, tier4: p.tier4, tier5: p.tier5,
     ...(buyerCity ? { locPrice: locationPriceFor(p.locationPrices, buyerCity) } : {}),
     packPrice: p.packPrice, packQty: p.packQty, piecesPerBox: p.piecesPerBox, unit: p.unit,
-    barcode: p.barcode, gst: p.gst, image: p.image, inStock: p.stock > 0,
+    barcode: p.barcode, gst: p.gst, image: p.image,
+    inStock: scopedWarehouseId
+      ? ((p as unknown as { warehouseStocks?: { qty: number }[] }).warehouseStocks ?? []).some((s) => s.qty > 0)
+      : p.stock > 0,
     isHot: p.isHot, isTop: p.isTop, isFeatured: p.isFeatured, isDeal: p.isDeal, dealPrice: p.dealPrice,
     active: p.active, rating: p.rating, reviewCount: p.reviewCount,
     company: p.company,

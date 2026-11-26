@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
       companies?: string[];
       topId?: string; midId?: string; endId?: string;
       ids?: string[];
+      warehouseId?: string; // optional godown scope — only products of THAT warehouse
       ops: { field: string; mode: "percent" | "amount" | "set"; value: number }[];
       preview?: boolean;
     };
@@ -38,8 +39,12 @@ export async function POST(req: NextRequest) {
       else return jsonError("Pick a category");
     }
     if (body.target === "products" && body.ids?.length) where.id = { in: body.ids };
-    if (body.target === "all" && !body.preview) {
-      return jsonError("Refusing to apply to ALL products without selection — use preview or pick a scope");
+    // warehouse scope — with the finalize coverage rows, "a warehouse's products"
+    // is the godown's whole firm catalog (zero-qty rows included), so a bulk
+    // price change can be safely bounded to one godown's assortment
+    if (body.warehouseId) where.warehouseStocks = { some: { warehouseId: body.warehouseId } };
+    if (body.target === "all" && !body.preview && !body.warehouseId) {
+      return jsonError("Refusing to apply to ALL products without selection — use preview or pick a warehouse/scope");
     }
 
     const products = await db.product.findMany({

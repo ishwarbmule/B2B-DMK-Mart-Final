@@ -41,7 +41,7 @@ function waTextFor(c: { shopName: string; name: string; phone: string; customerT
     `📦 Bulk auto-slabs: ₹5,000+ 2% · ₹25,000+ 4% · ₹50,000+ 7% · ₹1,00,000+ 10%`,
     `🚚 Dispatch in 48h · OTP-verified delivery · Itemised invoice`,
     ``,
-    `Need help? WhatsApp us: ${support || "+91 98220 12345"} — DMK Mart, Pune`,
+    `Need help? WhatsApp us: ${support || "+91 93095 75173"} — DMK Mart, Pune`,
   ].join("\n");
 }
 
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
   ]);
   const countMap: Record<string, number> = {};
   for (const c of counts) countMap[c.status] = c._count._all;
-  const support = (await db.setting.findUnique({ where: { key: "support_phone" } }))?.value || "+91 98220 12345";
+  const support = (await db.setting.findUnique({ where: { key: "support_phone" } }))?.value || "+91 93095 75173";
   return NextResponse.json({
     rows: pending.map((c) => ({ ...c, waText: waTextFor(c, support) })),
     counts: countMap,
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
 
     const finalTier = ["tier1", "tier2", "tier3", "tier4"].includes(tier) ? tier : "tier4";
     const finalType = ["RETAILER", "WHOLESALE", "SEMI_WHOLESALE", "DISTRIBUTOR"].includes(customerType) ? customerType : customer.customerType;
-    const support = (await db.setting.findUnique({ where: { key: "support_phone" } }))?.value || "+91 98220 12345";
+    const support = (await db.setting.findUnique({ where: { key: "support_phone" } }))?.value || "+91 93095 75173";
 
     const updated = await db.customer.update({
       where: { id: customer.id },

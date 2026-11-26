@@ -66,6 +66,9 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
     setStep(sessionLoaded && !customer ? "gate" : "mode");
     setFulfillment(cartFulfillment);
     setResult(null);
+    const cookieWh = document.cookie.match(/(?:^|; )dmk_wh=([^;]+)/)?.[1] ?? "";
+    if (cookieWh) setPickupWh(cookieWh);
+    else if (warehouses.length) setPickupWh((cur) => cur || warehouses[0].id);
     const c = useCustomerSession.getState().customer;
     if (c) {
       setForm((f) => ({
@@ -78,7 +81,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
         pincode: f.pincode || c.pincode,
       }));
     }
-  }, [open, sessionLoaded, customer, cartFulfillment]);
+  }, [open, sessionLoaded, customer, cartFulfillment, warehouses]);
 
   // Login gate → /account with a return path that re-opens checkout after login
   // (only computed on the client, at gate-render time — never during SSR)
@@ -93,6 +96,11 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
   // totals under the chosen fulfillment mode (pickup = pack rates · delivery = single-piece prices)
   const t = useMemo(() => cartTotals(items, fulfillment), [items, fulfillment]);
   const chosenWh = warehouses.find((w) => w.id === pickupWh) ?? warehouses[0] ?? null;
+  // the buyer's own post-login warehouse choice (dmk_wh cookie) — the cart never
+  // asks which warehouse again, the picker at login already decided it
+  const homeWhId = typeof document !== "undefined"
+    ? (document.cookie.match(/(?:^|; )dmk_wh=([^;]+)/)?.[1] ?? "")
+    : "";
 
   const validateAddress = () => {
     const e: Record<string, string> = {};
@@ -252,7 +260,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
         {step === "mode" && (
           <div className="space-y-3 p-5">
             <button
-              onClick={() => { setFulfillment("PICKUP"); setPickupWh(warehouses[0]?.id ?? ""); setCartFulfillment("PICKUP"); }}
+              onClick={() => { setFulfillment("PICKUP"); setPickupWh(homeWhId || warehouses[0]?.id || ""); setCartFulfillment("PICKUP"); }}
               className={`flex w-full items-start justify-between rounded-2xl border-2 p-4 text-left transition ${
                 fulfillment === "PICKUP" ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:border-gray-300"
               }`}
@@ -290,36 +298,20 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
 
             {fulfillment === "PICKUP" && (
               <div className="rounded-2xl border bg-white p-3">
-                <p className="mb-2 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-gray-500">
-                  <MapPin className="h-3.5 w-3.5" /> Choose pickup warehouse
+                <p className="mb-1.5 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                  <MapPin className="h-3.5 w-3.5" /> Pickup point — your warehouse
                 </p>
-                {warehouses.length === 0 ? (
-                  <p className="text-xs text-gray-400">Loading warehouses…</p>
+                {chosenWh ? (
+                  <p className="flex items-center gap-1.5 text-sm font-bold text-gray-900">
+                    <BadgeCheck className="h-4 w-4 shrink-0 text-yellow-500" /> {chosenWh.name}
+                    {chosenWh.city && <span className="text-[11px] font-normal text-gray-400">· {chosenWh.city}</span>}
+                  </p>
                 ) : (
-                  <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
-                    {warehouses.map((w: SessionWarehouse, i: number) => (
-                      <button
-                        key={w.id}
-                        onClick={() => setPickupWh(w.id)}
-                        className={`flex w-full items-start justify-between rounded-xl border p-2.5 text-left transition ${
-                          pickupWh === w.id ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:border-gray-300"
-                        }`}
-                      >
-                        <span className="min-w-0">
-                          <span className="block text-xs font-bold text-gray-900">
-                            {w.name}
-                            {i === 0 && <span className="ml-1.5 rounded bg-emerald-100 px-1 py-0.5 text-[9px] font-black uppercase text-emerald-700">Nearest</span>}
-                          </span>
-                          <span className="block text-[10px] text-gray-500">{[w.address, w.city].filter(Boolean).join(", ")}</span>
-                          {w.phone && <span className="block text-[10px] text-gray-400">{w.phone}</span>}
-                        </span>
-                        <span className="flex h-4 w-4 shrink-0 items-center justify-start">
-                          {pickupWh === w.id && <BadgeCheck className="h-4 w-4 text-yellow-500" />}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
+                  <p className="text-xs text-gray-400">Loading your warehouse…</p>
                 )}
+                <p className="mt-1 text-[11px] leading-snug text-gray-400">
+                  You picked this location at sign-in — the cart never asks again. Need a different one? Use “Change warehouse” in the account menu.
+                </p>
               </div>
             )}
 

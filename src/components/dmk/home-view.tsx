@@ -777,7 +777,7 @@ function HowItWorks({ cfg, title }: { cfg?: HomeSectionCfg; title?: string }) {
           <p className="text-lg font-black text-black"><LiveText k="home.hiw.cta.title" /></p>
           <p className="text-xs text-black/70"><LiveText k="home.hiw.cta.text" /></p>
         </div>
-        <a href="tel:+919822012345" className="flex items-center gap-2 rounded-xl bg-black px-6 py-3 text-sm font-bold text-yellow-400 hover:bg-gray-900">
+        <a href="tel:+919309575173" className="flex items-center gap-2 rounded-xl bg-black px-6 py-3 text-sm font-bold text-yellow-400 hover:bg-gray-900">
           <PhoneCall className="h-4 w-4" /> <LiveText k="home.hiw.cta.phone" />
         </a>
       </div>

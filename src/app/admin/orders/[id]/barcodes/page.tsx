@@ -34,7 +34,7 @@ export default async function BarcodeSheetPage({
     db.setting.findUnique({ where: { key: "firm_phone" } }),
   ]);
   const brand = firmName?.value || "DMK Mart";
-  const phone = firmPhone?.value || "+91 98220 12345";
+  const phone = firmPhone?.value || "+91 93095 75173";
   const invoiceDigits = order.invoiceNo.replace(/[^0-9A-Z]/g, "").slice(-8);
 
   return (

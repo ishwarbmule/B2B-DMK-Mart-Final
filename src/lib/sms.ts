@@ -47,7 +47,7 @@ export const smsTemplates = {
   orderPlaced: (invoice: string, deliveryOtp: string) =>
     `Order ${invoice} placed at DMK Mart B2B. Status: pending confirmation — your itemised invoice will follow once confirmed. Delivery OTP: ${deliveryOtp}. Share OTP only at handover.`,
   orderStatus: (invoice: string, status: string, support: string) =>
-    `DMK Mart B2B: Order ${invoice} is now ${status}. Query? Call ${support || "+91 98220 12345"}. Thank you for your business.`,
+    `DMK Mart B2B: Order ${invoice} is now ${status}. Query? Call ${support || "+91 93095 75173"}. Thank you for your business.`,
   test: () => `DMK Mart B2B SMS gateway is live. You will receive login codes, order status and delivery OTPs on this number.`,
 };
 

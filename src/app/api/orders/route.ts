@@ -113,6 +113,17 @@ export async function POST(req: NextRequest) {
         { status: 401 },
       );
     }
+    // approval gate: a suspended or still-pending account must not be able to
+    // order with an old token — the login page blocks them, so does this API
+    if (cust.status === "SUSPENDED") {
+      return NextResponse.json({ error: "Account suspended. Contact DMK Mart support." }, { status: 403 });
+    }
+    if (cust.status === "PENDING") {
+      return NextResponse.json(
+        { error: "Your account is awaiting admin approval — ordering opens the moment it is approved.", code: "PENDING_APPROVAL" },
+        { status: 403 },
+      );
+    }
     // approved customers buy on their own slab; logged-in but not yet approved → WHOLESALE (tier2)
     const priceTier = cust.status === "APPROVED" ? cust.tier : GUEST_TIER;
     const customerType = cust.status === "APPROVED" ? cust.customerType : "GUEST";

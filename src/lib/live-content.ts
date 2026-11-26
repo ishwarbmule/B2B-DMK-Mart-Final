@@ -31,7 +31,7 @@ export const LIVE_TEXTS: LiveTextDef[] = [
   { key: "home.hiw.step3.text", page: "home", label: "Step 3 — description", value: "A 4-digit OTP is printed on your invoice — share it only when your order arrives.", multiline: true },
   { key: "home.hiw.cta.title", page: "home", label: "Custom quote strip — heading", value: "Need a custom quote for container loads?" },
   { key: "home.hiw.cta.text", page: "home", label: "Custom quote strip — subtext", value: "Talk to our wholesale desk — slab pricing up to 16% off." },
-  { key: "home.hiw.cta.phone", page: "home", label: "Custom quote strip — phone number", value: "+91 98220 12345" },
+  { key: "home.hiw.cta.phone", page: "home", label: "Custom quote strip — phone number", value: "+91 93095 75173" },
 
   /* Homepage — trust strip */
   { key: "home.trust.1.title", page: "home", label: "Trust badge 1 — title", value: "4.8/5 B2B rating" },

@@ -49,11 +49,6 @@ export function SiteFooter() {
             <li><Link href="/catalog" className="text-gray-400 hover:text-yellow-400">All Products</Link></li>
             <li><Link href="/brands" className="text-gray-400 hover:text-yellow-400">Brand Portfolio</Link></li>
             <li><Link href="/catalog?flag=deal" className="text-gray-400 hover:text-yellow-400">Deals of the Day</Link></li>
-            <li>
-              <Link href="/admin" className="flex items-center gap-1 text-gray-600 hover:text-yellow-400">
-                <ShieldCheck className="h-3 w-3" /> Super Admin
-              </Link>
-            </li>
           </ul>
         </div>
 
@@ -69,7 +64,7 @@ export function SiteFooter() {
                 </li>
               ) : null;
             })()}
-            <li className="flex gap-2"><Phone className="h-4 w-4 shrink-0 text-yellow-400" /> {settings.support_phone ?? "+91 98220 12345"} (wholesale desk)</li>
+            <li className="flex gap-2"><Phone className="h-4 w-4 shrink-0 text-yellow-400" /> {settings.support_phone ?? "+91 93095 75173"} (wholesale desk)</li>
             <li className="flex gap-2"><Mail className="h-4 w-4 shrink-0 text-yellow-400" /> {settings.support_email ?? "dmkmartdata@gmail.com"}</li>
             <li className="flex gap-2"><MapPin className="h-4 w-4 shrink-0 text-yellow-400" /> <span className="text-gray-400">{settings.address ?? "Plot 14, MIDC Industrial Area, Solapur Road, Pune 411019"}</span></li>
           </ul>
