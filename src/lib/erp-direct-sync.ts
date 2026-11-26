@@ -923,8 +923,15 @@ export async function syncWarehouses(): Promise<{ seen: number; created: number;
 
 /** Read-only JOINed stock fetch: substitutes ID-keyed columns with the values
  *  they reference (Product.sku under the skuCol key, Warehouse.code under the
- *  warehouseCodeCol key) so the existing row-processing logic is unchanged. */
-async function fetchStockJoined(sm: StockMapping): Promise<Record<string, unknown>[]> {
+ *  warehouseCodeCol key) so the existing row-processing logic is unchanged.
+ *  Options: scoped=false reads EVERY godown's rows (admin data browser — the
+ *  sync itself always stays scoped to the picked godowns); limit/offset page
+ *  the read; search filters on the joined SKU (HAVING — the alias only exists
+ *  after SELECT). */
+export async function fetchStockJoined(
+  sm: StockMapping,
+  opts?: { scoped?: boolean; limit?: number; offset?: number; searchCol?: string; search?: string },
+): Promise<Record<string, unknown>[]> {
   const p = await erpPool();
   const sel: string[] = [];
   for (const c of [...new Set([sm.qtyCol, ...(sm.columns || [])].filter(Boolean) as string[])]) {
@@ -943,21 +950,31 @@ async function fetchStockJoined(sm: StockMapping): Promise<Record<string, unknow
   let sql = `SELECT ${sel.join(", ")} FROM \`${sm.table}\` s`;
   if (sm.skuJoin) sql += ` JOIN \`${sm.skuJoin.table}\` j1 ON j1.\`${sm.skuJoin.idCol}\` = s.\`${sm.skuCol}\``;
   if (sm.warehouseJoin) sql += ` JOIN \`${sm.warehouseJoin.table}\` j2 ON j2.\`${sm.warehouseJoin.idCol}\` = s.\`${sm.warehouseCodeCol}\``;
+  const params: unknown[] = [];
   // godown scope: only stock rows of the warehouses the admin picked. The
   // joined read keys godowns by row ID — scope on IDs, never on codes (codes
-  // are shared by different firms here).
-  const whSel = await selectionState();
-  const params: unknown[] = [];
-  if (whSel.configured) {
-    if (!whSel.ids.length) {
-      sql += ` WHERE 1 = 0`;
-    } else {
-      const marks = whSel.ids.map(() => "?").join(", ");
-      sql += ` WHERE s.\`${assertIdentifier(sm.warehouseCodeCol)}\` IN (${marks})`;
-      params.push(...whSel.ids);
+  // are shared by different firms here). scoped=false = the admin data
+  // browser's godown-wide view; the sync itself never uses it.
+  if (opts?.scoped !== false) {
+    const whSel = await selectionState();
+    if (whSel.configured) {
+      if (!whSel.ids.length) {
+        sql += ` WHERE 1 = 0`;
+      } else {
+        const marks = whSel.ids.map(() => "?").join(", ");
+        sql += ` WHERE s.\`${assertIdentifier(sm.warehouseCodeCol)}\` IN (${marks})`;
+        params.push(...whSel.ids);
+      }
     }
   }
-  sql += ` LIMIT 5000`;
+  if (opts?.search && opts.searchCol) {
+    const sc = assertIdentifier(opts.searchCol);
+    params.push(`%${opts.search}%`);
+    sql += ` HAVING \`${sc}\` LIKE ?`;
+  }
+  const limit = Math.max(1, Math.min(5000, Math.round(Number(opts?.limit) || 5000)));
+  const offset = Math.max(0, Math.round(Number(opts?.offset) || 0));
+  sql += ` LIMIT ${limit}${offset ? ` OFFSET ${offset}` : ""}`;
   assertReadOnly(sql);
   const [rows] = await p.query(sql, params);
   return rows as Record<string, unknown>[];

@@ -1,6 +1,6 @@
 import { requireAdmin, jsonError } from "@/lib/admin-auth";
 import { fetchErpPage, countErpTable } from "@/lib/erp-mysql";
-import { getProductsMapping, getWarehousesMapping, getStockMapping } from "@/lib/erp-direct-sync";
+import { getProductsMapping, getWarehousesMapping, getStockMapping, fetchStockJoined, type StockMapping } from "@/lib/erp-direct-sync";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -38,13 +38,25 @@ export async function GET(req: Request) {
 
     const [total, rows] = await Promise.all([
       countErpTable(mapping.table),
-      fetchErpPage(mapping.table, displayCols, {
-        limit: pageSize,
-        offset: (page - 1) * pageSize,
-        orderBy: searchCol,
-        searchCol: q && searchCol ? searchCol : undefined,
-        search: q || undefined,
-      }),
+      // stock rows are ID-keyed (productId / warehouseId) — when the mapping
+      // declares its joins, resolve them (SKU + godown code readable instead of
+      // raw row ids) and read EVERY godown, not just the picked ones: this
+      // browser is the owner's window into the whole source table.
+      entity === "stock" && ((mapping as { skuJoin?: unknown }).skuJoin || (mapping as { warehouseJoin?: unknown }).warehouseJoin)
+        ? fetchStockJoined(mapping as StockMapping, {
+            scoped: false,
+            limit: pageSize,
+            offset: (page - 1) * pageSize,
+            searchCol: q && searchCol ? searchCol : undefined,
+            search: q || undefined,
+          })
+        : fetchErpPage(mapping.table, displayCols, {
+            limit: pageSize,
+            offset: (page - 1) * pageSize,
+            orderBy: searchCol,
+            searchCol: q && searchCol ? searchCol : undefined,
+            search: q || undefined,
+          }),
     ]);
     return Response.json({ configured: true, table: mapping.table, columns: displayCols, page, pageSize, total, rows });
   } catch (e) {
