@@ -10,12 +10,23 @@ import { LiveContentProvider } from "./live-content-context";
 import { LiveEditOverlay } from "./live-edit-overlay";
 import { ForcePasswordDialog } from "./force-password-dialog";
 import { useCustomerSession } from "@/lib/customer-client";
+import { ensureGateCookie } from "@/lib/customer-session";
 
 /** Shared storefront chrome: header + footer + cart/checkout overlays on every route. */
 export function StoreChrome({ children }: { children: ReactNode }) {
   const [checkout, setCheckout] = useState(false);
   const [couponCode, setCouponCode] = useState("");
   const [couponDisc, setCouponDisc] = useState(0);
+
+  // Self-healing session: keep the httpOnly gate cookie in step with the
+  // localStorage token so /account, /account/orders, /choose-warehouse and
+  // every other gated page open directly instead of re-asking for a login.
+  useEffect(() => {
+    ensureGateCookie().then((ok) => {
+      if (ok) useCustomerSession.getState().refresh();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ?next=checkout return flow — after logging in from the checkout gate, the account
   // page redirects back to this page with ?next=checkout; auto-reopen checkout once the

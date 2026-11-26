@@ -7,7 +7,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { customerFromReq } from "@/lib/customer-auth";
+import { customerFromReq, isHttpsReq } from "@/lib/customer-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   const res = NextResponse.json({ ok: true, customer });
   const token = req.headers.get("x-customer-token") || "";
   res.cookies.set("dmk_sess", token, {
-    httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production",
+    httpOnly: true, sameSite: "lax", secure: isHttpsReq(req),
     path: "/", maxAge: 60 * 60 * 24 * 30,
   });
   return res;

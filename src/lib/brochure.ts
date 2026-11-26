@@ -142,20 +142,19 @@ interface BrochureProduct {
   section: string; sectionKey: string;
 }
 
-/** Hard server ceiling for one brochure PDF — the 60s serverless budget and the
- *  Cloudinary share-upload limit both live behind this number. */
-const BROCHURE_HARD_CAP = 600;
+/** Beyond this many products the PDF skips image downloads (logo placeholder
+ *  renders instead) — keeps whole-godown catalogs inside the 60s serverless
+ *  budget while still printing EVERY product of the godown. */
+const BROCHURE_IMAGE_CAP = 300;
 
 export async function loadBrochureProducts(f: BrochureFilters) {
   const explicit = (f.productIds ?? []).map(String).filter(Boolean);
-  if (explicit.length > BROCHURE_HARD_CAP) {
-    throw new Error(`A single brochure prints up to ${BROCHURE_HARD_CAP} products — this selection has ${explicit.length}. Pick fewer products (search / sort the list) or print company-wise.`);
-  }
-  // "All" → no artificial cap, but never past the hard ceiling; numeric → 10..250
+  // "All" → NO cap: the limit is the godown's own catalog (owner's rule — the
+  // old 600 ceiling is gone). numeric → 10..250 for legacy API callers.
   const max = f.maxProducts === "all"
-    ? BROCHURE_HARD_CAP
+    ? undefined
     : Math.max(10, Math.min(250, Number(f.maxProducts) || 120));
-  const take = explicit.length ? Math.min(BROCHURE_HARD_CAP, explicit.length) : max;
+  const take = explicit.length ? explicit.length : max;
   const where: Prisma.ProductWhereInput = {};
   if (!explicit.length) {
     // filter flow — classic behaviour: active products narrowed by company/category
@@ -299,9 +298,13 @@ export async function generateBrochure(f: BrochureFilters): Promise<{ buffer: Bu
 
   // images (Cloudinary thumbs first, then downloads; failures → logo placeholder).
   // Big "All products" prints automatically switch to smaller, lighter thumbs so
-  // the PDF stays inside the share-upload budget.
+  // the PDF stays inside the share-upload budget — and beyond the image cap the
+  // downloads are skipped entirely (placeholder art) so whole-godown catalogs
+  // (2,000+ SKUs) still render inside the serverless time budget.
+  const skipImages = rows.length > BROCHURE_IMAGE_CAP;
   const thumbW = rows.length > 250 ? IMG_PLACEHOLDER_W_COMPACT : IMG_PLACEHOLDER_W;
   await runPool(rows, 8, async (p) => {
+    if (skipImages) { p.image = ""; return; }
     const thumb = cloudinaryThumb(p.image, thumbW);
     p.image = (thumb ? await fetchImage(thumb, "cover", thumbW) : p.image ? await fetchImage(p.image, "cover", thumbW) : null) || "";
   });

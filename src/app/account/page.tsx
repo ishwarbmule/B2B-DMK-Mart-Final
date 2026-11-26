@@ -12,7 +12,7 @@ import { StoreChrome } from "@/components/dmk/store-chrome";
 import StoreLocationPicker, { type PickedLocation } from "@/components/store-map/store-location-picker";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { formatINR } from "@/lib/store";
-import { clearCustomerToken, getCustomerToken, setCustomerToken } from "@/lib/customer-session";
+import { clearCustomerToken, ensureGateCookie, resetGateSync, getCustomerToken, setCustomerToken } from "@/lib/customer-session";
 import { useCustomerSession } from "@/lib/customer-client";
 import { MAHARASHTRA_GROUPS } from "@/lib/maharashtra";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -157,6 +157,9 @@ function AccountInner() {
   const finishLogin = async (token: string, shop: string) => {
     setCustomerToken(token, remember);
     useCustomerSession.getState().refresh(); // sync the global session store → header profile updates instantly
+    // mint the httpOnly storefront-gate cookie too — otherwise the very next
+    // page navigation (/account/orders, /choose-warehouse, home) bounced to /login
+    await ensureGateCookie();
     await loadMe(token);
     toast.success(`Welcome back, ${shop}!`);
     if (next && next.startsWith("/")) router.push(next);
@@ -164,6 +167,10 @@ function AccountInner() {
   };
 
   const logout = () => {
+    // clear the gate cookies server-side, not just the localStorage token —
+    // a stale dmk_sess/dmk_wh made the next visit half-logged-in
+    fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    resetGateSync();
     clearCustomerToken();
     // reset the global session store too, so the header flips back to Login / Signup
     useCustomerSession.setState({ customer: null, nearestWarehouse: null, warehouses: [], loaded: true, loading: false });

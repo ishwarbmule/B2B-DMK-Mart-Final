@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import {
   ChevronDown, ChevronRight, Printer, RefreshCcw, Search, MessageCircle, Barcode, KeyRound,
-  PackageCheck, Clock3, PencilLine, CheckCheck, IndianRupee, Wallet,
+  PackageCheck, Clock3, PencilLine, CheckCheck, IndianRupee, Wallet, Send, PackageOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api, ModuleHeader, StatusBadge } from "./ui-bits";
@@ -22,7 +22,7 @@ type StockLine = {
   perWarehouse: { warehouseId: string; name: string; qty: number }[];
 };
 type StockCheck = {
-  order: { id: string; invoiceNo: string; status: string; confirmedAt?: string; nextDeliveryAt?: string };
+  order: { id: string; invoiceNo: string; status: string; confirmedAt?: string; nextDeliveryAt?: string; editedAt?: string; editedBy?: string; customerNotifiedAt?: string };
   lines: StockLine[];
   warehouses: { id: string; name: string; isDefault: boolean }[];
   summary: { okCount: number; oosCount: number; oosAmount: number; hasCustomerId: boolean };
@@ -56,6 +56,12 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [nextDate, setNextDate] = useState("");
   const [busy, setBusy] = useState(false);
+  // vendor-acquiring plan (plan-oos) + send-updated-order-list
+  const [planOpen, setPlanOpen] = useState(false);
+  const [planNote, setPlanNote] = useState("");
+  const [planDate, setPlanDate] = useState("");
+  const [planLines, setPlanLines] = useState<Set<string>>(new Set());
+  const [sendBusy, setSendBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -161,6 +167,60 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Confirm failed");
     } finally { setBusy(false); }
+  };
+
+  const openPlan = () => {
+    if (!stock) return;
+    const oosIds = stock.lines.filter((l) => !l.ok || l.lineStatus === "NEXT_PLAN").map((l) => l.id);
+    setPlanLines(new Set(oosIds));
+    setPlanNote("");
+    setPlanDate(stock.order.nextDeliveryAt || "");
+    setPlanOpen(true);
+  };
+
+  const savePlan = async () => {
+    if (!stockFor) return;
+    setBusy(true);
+    try {
+      const d = await call("/api/admin/orders-flow", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "plan-oos", orderId: stockFor,
+          lineIds: Array.from(planLines),
+          note: planNote || undefined,
+          nextDeliveryDate: planDate || undefined,
+        }),
+      });
+      toast.success(`${d.planned ?? 0} lines planned for vendor acquiring${d.credited ? ` · ₹${d.credited} credited` : ""}`);
+      setPlanOpen(false);
+      const fresh = await call(`/api/admin/orders-flow?orderId=${stockFor}`) as StockCheck;
+      setStock(fresh);
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Plan failed");
+    } finally { setBusy(false); }
+  };
+
+  const sendUpdated = async (o: OrderRow) => {
+    setSendBusy(true);
+    try {
+      const d = await call("/api/admin/orders-flow", {
+        method: "POST",
+        body: JSON.stringify({ action: "send-updated", orderId: o.id }),
+      });
+      if (d.demo) {
+        toast.info(`Updated list ready for ${o.phone} — gateway is in demo mode, message logged (no marker shown to customer until this was sent)`);
+      } else {
+        toast.success(`Updated order list sent to ${o.phone} via ${d.channel}`);
+      }
+      if (stockFor === o.id && stock) {
+        const fresh = await call(`/api/admin/orders-flow?orderId=${o.id}`) as StockCheck;
+        setStock(fresh);
+      }
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Send failed");
+    } finally { setSendBusy(false); }
   };
 
   const toggleWa = (o: OrderRow) => {
@@ -410,16 +470,42 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
                                 {stock.summary.oosCount} out of stock{o.status === "PENDING" ? ` · ${formatINR(stock.summary.oosAmount)} will be credited` : ""}
                               </span>
                             )}
-                            <div className="ml-auto flex gap-1.5">
+                            <div className="ml-auto flex flex-wrap gap-1.5">
                               <button onClick={startEdit} className="flex items-center gap-1 rounded-lg border-2 border-gray-800 bg-white px-3 py-1.5 text-[11px] font-semibold hover:bg-gray-50">
                                 <PencilLine className="h-3.5 w-3.5" /> Edit Order
                               </button>
+                              {stock.summary.oosCount > 0 && (
+                                <button onClick={openPlan} className="flex items-center gap-1 rounded-lg border-2 border-blue-500 bg-blue-50 px-3 py-1.5 text-[11px] font-semibold text-blue-800 hover:bg-blue-100">
+                                  <PackageOpen className="h-3.5 w-3.5" /> Plan OOS · Vendor
+                                </button>
+                              )}
                               {o.status === "PENDING" && (
                                 <button onClick={() => { setNextDate(""); setConfirmOpen(true); }} className="flex items-center gap-1 rounded-lg bg-black px-3 py-1.5 text-[11px] font-semibold text-yellow-400 hover:bg-gray-800">
                                   <CheckCheck className="h-3.5 w-3.5" /> Confirm Order
                                 </button>
                               )}
+                              {(o.status === "PENDING" || o.status === "CONFIRMED") && (
+                                <button onClick={() => sendUpdated(o)} disabled={sendBusy} title="Send the updated order list to the customer — until sent, the customer sees no edit marker" className="flex items-center gap-1 rounded-lg border-2 border-emerald-500 bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50">
+                                  <Send className="h-3.5 w-3.5" /> {sendBusy ? "Sending…" : "Send Updated List"}
+                                </button>
+                              )}
                             </div>
+                          </div>
+                          {/* edit / notification stamps — internal only, never shown to the customer */}
+                          <div className="mt-1.5 flex flex-wrap gap-2 text-[10px] font-semibold">
+                            {stock.order.editedAt && (
+                              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">
+                                Edited {new Date(stock.order.editedAt).toLocaleString("en-IN")} · {stock.order.editedBy || "admin"}
+                              </span>
+                            )}
+                            {stock.order.editedAt && !stock.order.customerNotifiedAt && (
+                              <span className="rounded-full bg-red-100 px-2 py-0.5 text-red-700">Customer NOT yet notified</span>
+                            )}
+                            {stock.order.customerNotifiedAt && (
+                              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">
+                                Customer notified {new Date(stock.order.customerNotifiedAt).toLocaleString("en-IN")}
+                              </span>
+                            )}
                           </div>
                           {stock.warehouses.length > 0 && (
                             <p className="mt-1.5 text-[10px] text-gray-500">
@@ -478,7 +564,7 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
                                         <span className="rounded bg-red-100 px-1.5 py-0.5 text-[9px] font-semibold text-red-700">OOS · {sl?.available} left</span>
                                       )
                                     ) : ext.lineStatus === "NEXT_PLAN" ? (
-                                      <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-semibold text-blue-700">NEXT PLAN</span>
+                                      <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-semibold text-blue-700">NEXT PLAN{ext.plannedNote ? <span title={ext.plannedNote} className="ml-1 cursor-help">ⓘ</span> : null}</span>
                                     ) : (
                                       <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[9px] font-semibold text-gray-600">SHIPS NOW</span>
                                     )}
@@ -521,7 +607,7 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
       )}
 
       {/* ── Edit Order dialog ── */}
-      {editOpen && (
+      {editOpen && stock && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setEditOpen(false)}>
           <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <p className="flex items-center gap-2 text-sm font-semibold text-gray-900"><PencilLine className="h-4 w-4 text-yellow-600" /> Edit Order — pricing, quantity, remove lines</p>
@@ -595,6 +681,65 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
               <button onClick={() => setConfirmOpen(false)} className="rounded-lg border px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50">Cancel</button>
               <button onClick={confirmOrder} disabled={busy} className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
                 {busy ? "Confirming…" : "Confirm & Assign Serials"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Vendor / next-trip plan dialog (plan-oos) ── */}
+      {planOpen && stock && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setPlanOpen(false)}>
+          <div className="max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <p className="flex items-center gap-2 text-sm font-semibold text-gray-900"><PackageOpen className="h-4 w-4 text-blue-600" /> Plan out-of-stock lines — vendor acquiring / next trip</p>
+            <p className="mt-1 text-[11px] text-gray-500">
+              {stock.order.status === "CONFIRMED"
+                ? "Confirmed order: converting a shipped line back to plan restores its stock and credits the buyer automatically."
+                : "Planned lines are tagged before confirmation — Confirm Order will keep these notes and only ship what is in stock."}
+            </p>
+            <div className="mt-3 space-y-1.5">
+              {stock.lines.map((l) => {
+                const oos = !l.ok || l.lineStatus === "NEXT_PLAN";
+                const on = planLines.has(l.id);
+                return (
+                  <label key={l.id} className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-xs ${on ? "border-blue-300 bg-blue-50" : ""} ${oos ? "" : "opacity-60"}`}>
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() => setPlanLines((s) => { const n = new Set(s); if (n.has(l.id)) n.delete(l.id); else n.add(l.id); return n; })}
+                      className="h-3.5 w-3.5 accent-blue-600"
+                    />
+                    <span className="flex-1 truncate font-semibold">{l.name}</span>
+                    <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${l.ok ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>{l.ok ? `IN STOCK · ${l.available}` : `OOS · ${l.available} left`}</span>
+                    <span className="text-[10px] font-bold">{formatINR(l.total)}</span>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="mt-3 space-y-2">
+              <div>
+                <label className="mb-1 block text-[11px] font-bold text-gray-600">Vendor / acquiring note (prints on the line + Activity Log)</label>
+                <input
+                  value={planNote}
+                  onChange={(e) => setPlanNote(e.target.value)}
+                  placeholder="e.g. Acquire from Garden Needs distributor — next Pune trip"
+                  className="h-9 w-full rounded-lg border px-3 text-xs"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-bold text-gray-600">Next delivery date (optional)</label>
+                <input
+                  type="date"
+                  value={(() => { const m = planDate.match(/(\d{1,2})-([A-Za-z]{3})-(\d{4})/); if (!m) return ""; const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; const mi = months.indexOf(m[2]); return mi >= 0 ? `${m[3]}-${String(mi + 1).padStart(2, "0")}-${m[1].padStart(2, "0")}` : ""; })()}
+                  onChange={(e) => setPlanDate(e.target.value ? new Date(e.target.value).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "")}
+                  className="h-9 w-full rounded-lg border px-3 text-xs"
+                />
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => setPlanOpen(false)} className="rounded-lg border px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50">Cancel</button>
+              <button onClick={savePlan} disabled={busy || planLines.size === 0} className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
+                {busy ? "Planning…" : `Plan ${planLines.size} line${planLines.size === 1 ? "" : "s"}`}
               </button>
             </div>
           </div>

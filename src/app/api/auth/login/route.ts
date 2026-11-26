@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { db } from "@/lib/db";
-import { makeCustomerToken, normalizeIdentifier } from "@/lib/customer-auth";
+import { makeCustomerToken, normalizeIdentifier, isHttpsReq } from "@/lib/customer-auth";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     },
   });
   res.cookies.set("dmk_sess", token, {
-    httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production",
+    httpOnly: true, sameSite: "lax", secure: isHttpsReq(req),
     path: "/", maxAge: 60 * 60 * 24 * 30,
   });
   return res;

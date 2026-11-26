@@ -1,5 +1,5 @@
 /** POST /api/admin/upload — multipart image upload → Cloudinary.
- *  Folder form field picks the destination (default ads): ads | products | brands | categories.
+ *  Folder form field picks the destination (default ads): ads | products | brands | categories | warehouses.
  *  Returns { url }. Admin-only. Validations: image/* only, ≤ 8 MB. */
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
   if (file.size > MAX_BYTES) return jsonError("Image is larger than 8 MB.", 400);
 
   // Folder routing — product images go to dmk-mart/products, ads stay in dmk-mart/ads
-  const FOLDERS: Record<string, string> = { ads: "ads", products: "products", brands: "brands", categories: "categories" };
+  const FOLDERS: Record<string, string> = { ads: "ads", products: "products", brands: "brands", categories: "categories", warehouses: "warehouses" };
   const folderKey = FOLDERS[String(form.get("folder") || "ads").toLowerCase()] ? String(form.get("folder")).toLowerCase() : "ads";
   const folder = `dmk-mart/${FOLDERS[folderKey]}`;
 

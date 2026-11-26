@@ -8,7 +8,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { customerFromReq, verifyCustomerToken } from "@/lib/customer-auth";
+import { customerFromReq, verifyCustomerToken, isHttpsReq } from "@/lib/customer-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   const res = NextResponse.json({ ok: true, warehouse });
   res.cookies.set("dmk_wh", warehouse.id, {
     httpOnly: false, // JS-readable so the checkout/header can show the chosen location
-    sameSite: "lax", secure: process.env.NODE_ENV === "production",
+    sameSite: "lax", secure: isHttpsReq(req),
     path: "/", maxAge: 60 * 60 * 24 * 180,
   });
   return res;

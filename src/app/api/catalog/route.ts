@@ -35,7 +35,7 @@ export async function GET() {
     db.warehouse.findMany({
       where: { active: true },
       orderBy: [{ isDefault: "desc" }, { sortOrder: "asc" }],
-      select: { id: true, name: true, city: true, isDefault: true },
+      select: { id: true, name: true, city: true, image: true, isDefault: true },
     }),
     db.salesPerson.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);

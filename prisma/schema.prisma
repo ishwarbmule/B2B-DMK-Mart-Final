@@ -238,6 +238,9 @@ model Order {
   confirmedAt    DateTime?   // set when admin confirms the order (stock checked here)
   confirmedBy    String      @default("")
   nextDeliveryAt String      @default("") // planned next delivery date for out-of-stock lines
+  editedAt       DateTime?   // last time admin edited items/prices (customer is NOT told until sendUpdatedList)
+  editedBy       String      @default("") // who edited (Super Admin / manager name)
+  customerNotifiedAt DateTime? // set when admin sends the updated order list to the customer
   shippingStatus String      @default("PENDING")
   status         String      @default("PENDING")
   source         String      @default("WEB")
@@ -282,6 +285,7 @@ model Warehouse {
   address   String   @default("") @db.Text
   city      String   @default("")
   phone     String   @default("")
+  image     String   @default("") // godown photo shown on the customer warehouse-chooser (admin uploads/edits)
   isDefault Boolean  @default(false)
   active    Boolean  @default(true)
   sortOrder Int      @default(0)

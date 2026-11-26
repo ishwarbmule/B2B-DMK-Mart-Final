@@ -32,3 +32,32 @@ export function customerAuthHeaders(): Record<string, string> {
   const token = getCustomerToken();
   return token ? { "x-customer-token": token } : {};
 }
+
+/**
+ * Make sure the storefront-gate cookie (dmk_sess, httpOnly) exists for this
+ * buyer. The page gate (proxy.ts) trusts ONLY that cookie, while the login
+ * token lives in localStorage — if they drift apart (OTP login on /account,
+ * pre-gate buyers, cleared cookies), every gated page would bounce to /login.
+ * Callers fire this once per page mount: cheap, idempotent, self-healing.
+ * Returns true when the visitor holds a valid customer token.
+ */
+let gateSynced = false;
+export async function ensureGateCookie(): Promise<boolean> {
+  const token = getCustomerToken();
+  if (!token) return false;
+  if (gateSynced) return true;
+  gateSynced = true;
+  try {
+    const res = await fetch("/api/auth/session", { method: "POST", headers: { "x-customer-token": token } });
+    if (!res.ok) gateSynced = false; // allow retry after a failed sync (e.g. flaky network)
+    return res.ok;
+  } catch {
+    gateSynced = false;
+    return false;
+  }
+}
+
+/** Reset after logout so a fresh sign-in re-syncs the gate cookie. */
+export function resetGateSync() {
+  gateSynced = false;
+}

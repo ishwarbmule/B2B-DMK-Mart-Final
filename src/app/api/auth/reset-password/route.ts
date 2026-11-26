@@ -10,7 +10,8 @@ const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 
 export async function POST(req: NextRequest) {
   const { resetToken, password } = await req.json().catch(() => ({}) as Record<string, unknown>);
-  const customerId = verifyCustomerToken(typeof resetToken === "string" ? resetToken : null);
+  // RESET grants are purpose-bound (never a login token) and burn out after 15 minutes.
+  const customerId = verifyCustomerToken(typeof resetToken === "string" ? resetToken : null, { purpose: "RESET", maxAgeSec: 15 * 60 });
   if (!customerId) {
     return NextResponse.json({ error: "Reset session expired. Please start again." }, { status: 401 });
   }

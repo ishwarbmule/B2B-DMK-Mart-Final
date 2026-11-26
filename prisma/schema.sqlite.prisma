@@ -229,6 +229,9 @@ model Order {
   confirmedAt    DateTime?
   confirmedBy    String      @default("")
   nextDeliveryAt String      @default("")
+  editedAt       DateTime?
+  editedBy       String      @default("")
+  customerNotifiedAt DateTime?
   shippingStatus String      @default("PENDING")
   status         String      @default("PENDING")
   source         String      @default("WEB")
@@ -271,6 +274,7 @@ model Warehouse {
   address   String   @default("")
   city      String   @default("")
   phone     String   @default("")
+  image     String   @default("") // godown photo shown on the customer warehouse-chooser (admin uploads/edits)
   isDefault Boolean  @default(false)
   active    Boolean  @default(true)
   sortOrder Int      @default(0)

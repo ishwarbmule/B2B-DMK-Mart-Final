@@ -18,7 +18,17 @@ export const config = {
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico|dmk-logo.png|robots.txt|sitemap.xml|wh-pune.png|wh-kolhar.png).*)"],
 };
 
-const PUBLIC_PATHS = ["/login"];
+/**
+ * Public paths — pages that render without a customer session:
+ *  /login            the customer sign-in / signup door
+ *  /forgot-password  public reset wizard (OTP → new password); without this the
+ *                    "Forgot password?" link used to loop into the gated /account
+ *  /admin            the super-admin portal (own bearer auth)
+ *  /salesteam        salesperson portal (own staff login)
+ *  /warehouse        warehouse-manager portal (own staff login)
+ * APIs, Next internals and static assets are excluded via the matcher.
+ */
+const PUBLIC_PATHS = ["/login", "/forgot-password", "/salesteam", "/warehouse"];
 
 function isStaticAsset(pathname: string): boolean {
   return /\.[a-zA-Z0-9]{1,8}$/.test(pathname) && !pathname.endsWith(".php");

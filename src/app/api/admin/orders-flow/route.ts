@@ -2,19 +2,39 @@
  * /api/admin/orders-flow — admin order pipeline:
  *   GET  ?orderId=...            → auto stock-check per line (pieces needed vs available) + per-warehouse view
  *   POST { action: "edit", ... } → admin edits order lines (qty / unit price / remove lines) + recompute totals
+ *                                  (tracked: editedAt/editedBy — the customer is NOT told until send-updated)
  *   POST { action: "confirm" }   → confirm order: in-stock lines ship now (serials 1..n, stock + warehouse
  *                                  allocation decrement), out-of-stock lines → NEXT_PLAN (next delivery date,
  *                                  line amount credited to the buyer's credit balance)
+ *   POST { action: "plan-oos" }  → vendor-acquiring plan: mark lines (default: every out-of-stock line) as
+ *                                  NEXT_PLAN with a vendor note; on CONFIRMED orders the stock is restored
+ *                                  and the amount credited automatically
+ *   POST { action: "send-updated" } → send the updated order list to the customer (WhatsApp/SMS/demo) and
+ *                                  stamp customerNotifiedAt — until this fires the customer sees NO edit marker
  */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin, jsonError } from "@/lib/admin-auth";
-import { requireStaff } from "@/lib/staff-auth";
+import { requireStaff, staffIdentity } from "@/lib/staff-auth";
+import { notifyCustomer } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 function round2(n: number) { return Math.round(n * 100) / 100; }
+function num2(n: number) { return Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+/** Who is acting — for editedBy / confirmedBy stamps. */
+async function actorName(req: NextRequest): Promise<string> {
+  const identity = await staffIdentity(req);
+  if (!identity) return "Super Admin";
+  if (identity.role === "admin") return "Super Admin";
+  if (identity.role === "manager") {
+    const mgr = await db.warehouseManager.findUnique({ where: { id: identity.managerId }, select: { name: true } });
+    return mgr?.name || "Warehouse Manager";
+  }
+  return identity.name;
+}
 
 async function loadOrder(orderId: string) {
   return db.order.findUnique({ where: { id: orderId }, include: { items: { orderBy: { id: "asc" } } } });
@@ -74,7 +94,12 @@ export async function GET(req: NextRequest) {
 
   const oosLines = lines.filter((l) => !l.ok);
   return NextResponse.json({
-    order: { id: order.id, invoiceNo: order.invoiceNo, status: order.status, confirmedAt: order.confirmedAt, nextDeliveryAt: order.nextDeliveryAt },
+    order: {
+      id: order.id, invoiceNo: order.invoiceNo, status: order.status,
+      confirmedAt: order.confirmedAt, nextDeliveryAt: order.nextDeliveryAt,
+      editedAt: order.editedAt, editedBy: order.editedBy,
+      customerNotifiedAt: order.customerNotifiedAt,
+    },
     lines,
     warehouses: warehouses.map((w) => ({ id: w.id, name: w.name, isDefault: w.isDefault })),
     summary: {
@@ -193,6 +218,7 @@ export async function POST(req: NextRequest) {
       if (removeIds.length) await db.orderItem.deleteMany({ where: { id: { in: removeIds }, orderId: order.id } });
 
       const t = recomputeTotals(order, lines.map((l) => ({ total: l.total, pieces: l.pieces, qty: l.qty, unitType: l.unitType })));
+      const actor = await actorName(req);
       const updated = await db.order.update({
         where: { id: order.id },
         data: {
@@ -200,6 +226,9 @@ export async function POST(req: NextRequest) {
           deliveryFee: t.deliveryFee, grandTotal: t.grandTotal,
           totalUnits: t.totalUnits, totalCases: t.totalCases,
           note: body.note !== undefined ? String(body.note || "") : order.note,
+          // edit tracking — the customer is not notified until send-updated fires
+          editedAt: new Date(),
+          editedBy: actor,
         },
         include: { items: { orderBy: { id: "asc" } } },
       });
@@ -220,13 +249,13 @@ export async function POST(req: NextRequest) {
       ]);
       const pmap = new Map(products.map((p) => [p.id, p]));
 
-      const oos: Array<{ id: string; total: number; name: string }> = [];
+      const oos: Array<{ id: string; total: number; name: string; plannedNote: string }> = [];
       const shipNow: Array<{ id: string; pieces: number; productId: string; name: string }> = [];
       for (const it of order.items) {
         const p = pmap.get(it.productId);
         const available = p ? Math.max(0, Math.round(p.stock)) : 0;
         if (available >= it.pieces && it.pieces > 0) shipNow.push({ id: it.id, pieces: it.pieces, productId: it.productId, name: it.name });
-        else oos.push({ id: it.id, total: it.total, name: it.name });
+        else oos.push({ id: it.id, total: it.total, name: it.name, plannedNote: it.plannedNote });
       }
 
       // serial numbers for every line — shipping lines first, then next-plan lines
@@ -236,7 +265,9 @@ export async function POST(req: NextRequest) {
         await db.orderItem.update({ where: { id: l.id }, data: { serialNo: serial++, lineStatus: "OK", plannedNote: "" } });
       }
       for (const l of oos) {
-        await db.orderItem.update({ where: { id: l.id }, data: { serialNo: serial++, lineStatus: "NEXT_PLAN", plannedNote } });
+        // keep a vendor plan note the admin already wrote (plan-oos) — append the credit line only when blank
+        const note = l.plannedNote ? l.plannedNote : plannedNote;
+        await db.orderItem.update({ where: { id: l.id }, data: { serialNo: serial++, lineStatus: "NEXT_PLAN", plannedNote: note } });
       }
 
       // decrement product stock + warehouse allocation (default warehouse first)
@@ -261,10 +292,11 @@ export async function POST(req: NextRequest) {
         credited = oosAmount;
       }
 
+      const actor = await actorName(req);
       const updated = await db.order.update({
         where: { id: order.id },
         data: {
-          status: "CONFIRMED", confirmedAt: new Date(), confirmedBy: "Super Admin",
+          status: "CONFIRMED", confirmedAt: new Date(), confirmedBy: actor,
           nextDeliveryAt: oos.length ? nextDeliveryDate : "",
         },
         include: { items: { orderBy: { serialNo: "asc" } } },
@@ -286,7 +318,96 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    return jsonError("Unknown action — use edit | confirm | plan-next");
+    if (action === "plan-oos") {
+      // Vendor-acquiring plan — mark lines for the next trip / vendor purchase.
+      // PENDING order  → tag the chosen lines NEXT_PLAN with the vendor note (confirm keeps it).
+      // CONFIRMED order→ converting a shipped (OK) line restores stock + credits the buyer,
+      //                  exactly like removing it would — totals stay consistent.
+      const order = await loadOrder(body.orderId);
+      if (!order) return jsonError("Order not found", 404);
+      if (order.status !== "PENDING" && order.status !== "CONFIRMED") {
+        return jsonError(`Planning works on PENDING or CONFIRMED orders — this one is ${order.status}`);
+      }
+      const note = String(body.note || "").slice(0, 200) || "To be acquired from vendor — planned for the next trip";
+      const nextDeliveryDate = String(body.nextDeliveryDate || "").slice(0, 80);
+      const lineIds: string[] = Array.isArray(body.lineIds) && body.lineIds.length
+        ? body.lineIds.map(String)
+        : []; // empty = every line that is NOT already planned
+      const wasConfirmed = order.status === "CONFIRMED";
+
+      const targets = order.items.filter((it) =>
+        lineIds.length ? lineIds.includes(it.id) : it.lineStatus !== "NEXT_PLAN",
+      );
+      if (!targets.length) return jsonError("No lines to plan — the chosen lines are already on the next-trip plan");
+
+      let creditedDelta = 0;
+      if (wasConfirmed) {
+        const warehouses = await db.warehouse.findMany({ where: { active: true }, orderBy: [{ isDefault: "desc" }, { sortOrder: "asc" }], include: { stocks: true } });
+        for (const it of targets) {
+          if (it.lineStatus === "NEXT_PLAN") { creditedDelta += 0; continue; }
+          // shipped line → back to the shelves
+          await db.product.update({ where: { id: it.productId }, data: { stock: { increment: it.pieces } } }).catch(() => {});
+          const ws = warehouses.flatMap((w) => w.stocks).find((s) => s.productId === it.productId);
+          if (ws) await db.warehouseStock.update({ where: { id: ws.id }, data: { qty: { increment: Math.ceil(it.pieces) } } }).catch(() => {});
+          creditedDelta += it.total;
+        }
+        if (order.customerId && creditedDelta >= 0.01) {
+          await db.customer.update({ where: { id: order.customerId }, data: { creditBalance: { increment: round2(creditedDelta) } } }).catch(() => {});
+        }
+      }
+
+      for (const it of targets) {
+        await db.orderItem.update({ where: { id: it.id }, data: { lineStatus: "NEXT_PLAN", plannedNote: note } });
+      }
+      if (nextDeliveryDate) {
+        await db.order.update({ where: { id: order.id }, data: { nextDeliveryAt: nextDeliveryDate } }).catch(() => {});
+      }
+      const actor = await actorName(req);
+      await db.activityLog.create({
+        data: { action: "NEXT_PLAN", entity: "order", entityId: order.id, detail: `Vendor plan (${actor}) for ${order.invoiceNo}: ${targets.map((i) => `${i.name} ×${i.qty}`).join(", ")} — ${note}${creditedDelta ? ` · ₹${round2(creditedDelta)} credited` : ""}` },
+      });
+      const updated = await loadOrder(order.id);
+      return NextResponse.json({ ok: true, order: updated, planned: targets.length, credited: round2(creditedDelta) });
+    }
+
+    if (action === "send-updated") {
+      // Send the updated order list to the customer — until this fires, the
+      // customer-facing order shows NO sign of admin edits (plain new values).
+      const order = await loadOrder(body.orderId);
+      if (!order) return jsonError("Order not found", 404);
+      if (!order.phone) return jsonError("Order has no phone number to send to");
+
+      const extraNote = String(body.message || "").slice(0, 300);
+      const itemLines = order.items
+        .slice()
+        .sort((a, b) => (a.serialNo || 999) - (b.serialNo || 999))
+        .map((it, i) => `${i + 1}. ${it.name} × ${it.qty} ${it.unitType === "PACK" ? `pack(${it.packQty})` : "pcs"} — ₹${num2(it.total)}${it.lineStatus === "NEXT_PLAN" ? " (next delivery)" : ""}`)
+        .join("\n");
+      const text = [
+        `*DMK Mart — Updated Order ${order.invoiceNo}*`,
+        `Hello ${order.customerName},`,
+        extraNote ? `${extraNote}` : "Our team reviewed your order — here is the updated list:",
+        "",
+        itemLines,
+        "",
+        `Items: ₹${num2(order.itemTotal)}${order.discount ? ` · Discount: -₹${num2(order.discount)}` : ""}${order.deliveryFee ? ` · Delivery: ₹${num2(order.deliveryFee)}` : ""}`,
+        `*Grand Total: ₹${num2(order.grandTotal)}*`,
+        order.nextDeliveryAt ? `Next delivery for pending lines: ${order.nextDeliveryAt}` : "",
+        "",
+        "Thank you for ordering with DMK Mart!",
+      ].filter(Boolean).join("\n");
+
+      const wa = await notifyCustomer(order.phone, text);
+      const updated = await db.order.update({
+        where: { id: order.id },
+        data: { customerNotifiedAt: new Date() },
+        include: { items: { orderBy: { id: "asc" } } },
+      });
+      await db.activityLog.create({ data: { action: "UPDATE", entity: "order", entityId: order.id, detail: `Updated order list sent to ${order.phone} (${wa.channel}${wa.demo ? " · demo" : ""})` } });
+      return NextResponse.json({ ok: true, order: updated, channel: wa.channel, demo: wa.demo, preview: text });
+    }
+
+    return jsonError("Unknown action — use edit | confirm | plan-next | plan-oos | send-updated");
   } catch (e) {
     return jsonError(e instanceof Error ? e.message.slice(0, 300) : "Flow failed", 400);
   }

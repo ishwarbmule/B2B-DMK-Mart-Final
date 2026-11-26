@@ -1,13 +1,15 @@
 /**
  * A4 invoice print page — /admin/orders/[id]/invoice?token=...
  *
- * Redesigned to the owner's approved demo (Tally-style ESTIMATE stationery):
- *   centered ESTIMATE title + UPI "SCAN & PAY" QR, bordered firm/buyer block,
+ * Tally-style ESTIMATE stationery, standard alignment:
+ *   centered firm header → ESTIMATE title → bordered firm/buyer block with
  *   invoice meta grid (invoice no · dated · mode of payment · delivery note ·
  *   dispatched through · destination · terms of delivery), bordered goods table
  *   (SL · description+SKU · quantity · rate · per · amount), TOTAL / GRAND TOTAL /
- *   Previous Balance / Total Balance rows, amount chargeable in words, bank
- *   details, dashed delivery-verification OTP box, declaration + signatures.
+ *   Previous Balance / Total Balance rows, amount chargeable in words,
+ *   PAYMENT box (bank details left + UPI "SCAN & PAY" QR right — the QR lives
+ *   here, NOT floating over the title), dashed delivery-verification OTP box,
+ *   declaration + signatures.
  *
  * Long product lists flow onto page 2+ automatically (thead repeats, totals on
  * last page). No GST — DMK Mart does not charge or provide GST.
@@ -75,37 +77,41 @@ export default async function InvoicePage({
         <PrintButton label="Print Invoice (A4)" />
       </div>
 
-      {/* ── centered title + UPI QR (top-right) ── */}
-      <div className="relative">
-        <div className="text-center">
-          <p className="text-[24px] font-bold leading-none tracking-[0.05em]">ESTIMATE</p>
-          <p className="mt-1 text-[9.5px] text-neutral-600">(Original for Recipient)</p>
-        </div>
-        <div className="absolute right-0 top-0 flex w-[112px] flex-col items-center">
-          <div className="h-[82px] w-[82px] [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: qr }} />
-          <p className="mt-0.5 text-center text-[8.5px] font-bold leading-tight">SCAN &amp; PAY ₹{num2(payable)}</p>
-          <p className="text-center text-[7.5px] leading-tight text-neutral-600">· UPI {FIRM.upi}</p>
-        </div>
+      {/* ── centered firm header → ESTIMATE title ── */}
+      <div className="border-b-2 border-black pb-2 text-center">
+        <p className="text-[19px] font-black leading-tight tracking-wide">{FIRM.name}</p>
+        <p className="mt-0.5 text-[10px] leading-snug text-neutral-800">{FIRM.address}</p>
+        <p className="text-[10px] text-neutral-800">Ph : {FIRM.phone} · UPI : {FIRM.upi}</p>
+      </div>
+      <div className="mt-2 text-center">
+        <p className="text-[24px] font-bold leading-none tracking-[0.05em]">ESTIMATE</p>
+        <p className="mt-1 text-[9.5px] text-neutral-600">(Original for Recipient)</p>
       </div>
 
-      {/* ── firm / buyer block + invoice meta grid ── */}
-      <div className="mt-3 grid grid-cols-2 border border-black">
+      {/* ── buyer block + invoice meta grid ── */}
+      <div className="mt-2 grid grid-cols-2 border border-black">
         <div className="border-r border-black">
           <div className="p-2">
-            <p className="text-[13px] font-bold leading-tight">{FIRM.name}</p>
-            <p className="mt-0.5 text-[10px]">{FIRM.address}</p>
-            <p className="text-[10px]">State Name : {FIRM.stateName}, Code : {FIRM.stateCode}</p>
-            <p className="text-[10px]">Ph : {FIRM.phone}</p>
-          </div>
-          <div className="border-t border-black p-2">
             <p className="text-[9px] font-bold">BUYER (BILL TO)</p>
-            <p className="mt-0.5 text-[11.5px] font-bold">{order.customerName}</p>
+            <p className="mt-0.5 text-[12px] font-bold">{order.customerName}</p>
             <p className="text-[10px]">
               {[order.addressLine, order.city].filter(Boolean).join(", ")}
               {order.pincode ? ` — ${order.pincode}` : ""}
             </p>
             <p className="text-[10px]">State Name : {FIRM.stateName}, Code : {FIRM.stateCode}</p>
             <p className="text-[10px]">Ph : {order.phone}</p>
+            {order.customerType && order.customerType !== "GUEST" && (
+              <p className="text-[10px] text-neutral-700">Buyer type : {order.customerType}{order.salesPerson ? ` · Salesman : ${order.salesPerson}` : ""}</p>
+            )}
+          </div>
+          <div className="border-t border-black p-2">
+            <p className="text-[9px] font-bold">DISPATCH DETAILS</p>
+            <p className="mt-0.5 text-[10px]">
+              Fulfilment : <b>{order.fulfillment === "PICKUP" ? "Counter Pickup" : "Home Delivery"}</b>
+              {order.warehouseName || order.pickupWarehouseName ? ` — ${order.warehouseName || order.pickupWarehouseName}` : ""}
+            </p>
+            <p className="text-[10px]">Source : {order.source}</p>
+            <p className="text-[10px]">Dispatched Through : {order.fulfillment === "PICKUP" ? "Self pickup from godown" : "DMK Mart delivery"}</p>
           </div>
         </div>
         <div className="grid grid-cols-2">
@@ -228,12 +234,26 @@ export default async function InvoicePage({
         </div>
       </div>
 
-      {/* ── bank details ── */}
-      <div className="mt-2 border border-black px-2 py-1.5">
-        <p className="text-[8.5px] font-bold uppercase tracking-wide">Bank Details (NEFT/RTGS)</p>
-        <p className="mt-0.5 text-[10px]">
-          {FIRM.bankHolder} · {FIRM.bankName} · A/c {FIRM.bankAccount} · IFSC {FIRM.ifsc} · UPI {FIRM.upi}
-        </p>
+      {/* ── PAYMENT box — bank details left + UPI QR right (standard slot) ── */}
+      <div className="mt-2 grid grid-cols-[1.6fr_1fr] border border-black">
+        <div className="border-r border-black p-2">
+          <p className="text-[8.5px] font-bold uppercase tracking-wide">Bank Details (NEFT/RTGS)</p>
+          <p className="mt-1 text-[10px] leading-relaxed">
+            <b>{FIRM.bankHolder}</b><br />
+            {FIRM.bankName}<br />
+            A/c : {FIRM.bankAccount}<br />
+            IFSC : {FIRM.ifsc}<br />
+            UPI ID : <b>{FIRM.upi}</b>
+          </p>
+        </div>
+        <div className="flex items-center gap-2 p-2">
+          <div className="h-[72px] w-[72px] shrink-0 [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: qr }} />
+          <div>
+            <p className="text-[8.5px] font-bold uppercase tracking-wide">Scan &amp; Pay</p>
+            <p className="mt-0.5 text-[12px] font-black leading-tight">₹{num2(payable)}</p>
+            <p className="mt-0.5 text-[7.5px] leading-tight text-neutral-600">Scan with any UPI app</p>
+          </div>
+        </div>
       </div>
 
       {/* ── delivery verification OTP ── */}

@@ -1,6 +1,6 @@
 /**
  * /api/admin/warehouses/[id] — update / delete one warehouse.
- *   PATCH   { name?, code?, city?, address?, phone?, isDefault?, active?, sortOrder? }
+ *   PATCH   { name?, code?, city?, address?, phone?, image?, isDefault?, active?, sortOrder? }
  *           → isDefault=true unsets every other default (transaction);
  *             non-empty code must stay unique (409 on clash).
  *   DELETE  → removes the godown; if the row is still referenced (transfers, etc.)
@@ -25,7 +25,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const body = await req.json();
 
     const data: {
-      name?: string; code?: string; city?: string; address?: string; phone?: string;
+      name?: string; code?: string; city?: string; address?: string; phone?: string; image?: string;
       sortOrder?: number; active?: boolean;
     } = {};
     if (body.name !== undefined) {
@@ -44,6 +44,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     if (body.city !== undefined) data.city = String(body.city || "");
     if (body.address !== undefined) data.address = String(body.address || "");
     if (body.phone !== undefined) data.phone = String(body.phone || "");
+    if (body.image !== undefined) data.image = String(body.image || "");
     if (body.sortOrder !== undefined) data.sortOrder = Math.max(0, Math.round(Number(body.sortOrder) || 0));
     if (body.active !== undefined) data.active = Boolean(body.active);
 

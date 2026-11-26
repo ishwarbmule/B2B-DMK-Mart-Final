@@ -1,7 +1,9 @@
-/** POST /api/auth/otp/verify — verify 6-digit code → login (LOGIN) or password-reset grant (RESET). */
+/** POST /api/auth/otp/verify — verify 6-digit code → login (LOGIN) or password-reset grant (RESET).
+ *  LOGIN also sets the httpOnly storefront-gate cookie (dmk_sess) so the buyer is
+ *  never bounced back to /login on the next page navigation. */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { makeCustomerToken, normalizeIdentifier } from "@/lib/customer-auth";
+import { makeCustomerToken, makeCustomerResetToken, normalizeIdentifier, isHttpsReq } from "@/lib/customer-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -35,17 +37,29 @@ export async function POST(req: NextRequest) {
   }
 
   if (cleanPurpose === "RESET") {
-    // Short-lived grant token (same HMAC scheme) used only by /api/auth/reset-password.
-    return NextResponse.json({ ok: true, resetToken: makeCustomerToken(customer.id) });
+    // Purpose-bound short-lived grant — /api/auth/reset-password is the only consumer.
+    return NextResponse.json({ ok: true, resetToken: makeCustomerResetToken(customer.id) });
   }
 
-  return NextResponse.json({
+  // OTP login follows the same approval rules as password login: a PENDING
+  // account must never get a session (the admin has not approved it yet).
+  if (customer.status !== "APPROVED") {
+    return NextResponse.json({ error: "Your account is awaiting admin approval. The DMK Mart team verifies every B2B buyer — you will get a WhatsApp message as soon as it is approved." }, { status: 403 });
+  }
+
+  const token = makeCustomerToken(customer.id);
+  const res = NextResponse.json({
     ok: true,
-    token: makeCustomerToken(customer.id),
+    token,
     customer: {
       id: customer.id, name: customer.name, shopName: customer.shopName, phone: customer.phone,
       customerType: customer.customerType, tier: customer.tier, status: customer.status,
       city: customer.city, orders: customer.orders, totalSpent: customer.totalSpent,
     },
   });
+  res.cookies.set("dmk_sess", token, {
+    httpOnly: true, sameSite: "lax", secure: isHttpsReq(req),
+    path: "/", maxAge: 60 * 60 * 24 * 30,
+  });
+  return res;
 }

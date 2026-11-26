@@ -124,8 +124,8 @@ export async function POST(req: NextRequest) {
       includeOutOfStock: !!body.includeOutOfStock,
       showPrices: body.showPrices !== false,
       tier: typeof body.tier === "string" ? body.tier : "dealer",
-      // "all" = print everything that matches (up to the hard server cap);
-      // a picked productIds list always wins over the other filters
+      // "all" = print EVERYTHING that matches — the whole godown catalog, no
+      // product-count cap (owner's rule); numeric values clamp 10..250
       maxProducts: body.maxProducts === "all" ? "all" : Math.min(Number(body.maxProducts) || 120, 250),
       productIds: Array.isArray(body.productIds) ? body.productIds.map(String).filter(Boolean) : [],
     };

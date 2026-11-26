@@ -8,16 +8,66 @@ export function makeCustomerToken(customerId: string): string {
   return `${customerId}.${ts}.${sig}`;
 }
 
-export function verifyCustomerToken(token: string | null | undefined): string | null {
+/**
+ * Short-lived RESET grant issued after an OTP is verified for "forgot password".
+ * Different HMAC basis ("<id>.RESET.<ts>") from login tokens ("<id>.<ts>") so a
+ * reset grant can never be replayed as a login session and vice versa.
+ */
+export function makeCustomerResetToken(customerId: string): string {
+  const ts = Date.now().toString();
+  const sig = createHmac("sha256", SECRET).update(`${customerId}.RESET.${ts}`).digest("hex").slice(0, 32);
+  return `${customerId}.RESET.${ts}.${sig}`;
+}
+
+export type CustomerTokenVerifyOpts = { purpose?: "AUTH" | "RESET"; maxAgeSec?: number };
+
+export function verifyCustomerToken(token: string | null | undefined, opts?: CustomerTokenVerifyOpts): string | null {
   if (!token) return null;
-  const [customerId, ts, sig] = token.split(".");
+  const parts = token.split(".");
+
+  if (opts?.purpose === "RESET") {
+    // RESET grants are exactly 4 parts: <id>.RESET.<ts>.<sig>
+    if (parts.length !== 4 || parts[1] !== "RESET") return null;
+    const [customerId, , ts, sig] = parts;
+    if (!customerId || !ts || !sig) return null;
+    const expected = createHmac("sha256", SECRET).update(`${customerId}.RESET.${ts}`).digest("hex").slice(0, 32);
+    let ok = false;
+    try {
+      ok = timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
+    } catch {
+      return null;
+    }
+    if (!ok) return null;
+    const age = (Date.now() - Number(ts)) / 1000;
+    if (!Number.isFinite(age) || age < 0 || age > (opts.maxAgeSec ?? 15 * 60)) return null; // grants burn out
+    return customerId;
+  }
+
+  // AUTH (default): <id>.<ts>.<sig>
+  if (parts.length !== 3) return null;
+  const [customerId, ts, sig] = parts;
   if (!customerId || !ts || !sig) return null;
   const expected = createHmac("sha256", SECRET).update(`${customerId}.${ts}`).digest("hex").slice(0, 32);
+  let ok = false;
   try {
-    return timingSafeEqual(Buffer.from(sig), Buffer.from(expected)) ? customerId : null;
+    ok = timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
   } catch {
     return null;
   }
+  if (!ok) return null;
+  if (opts?.maxAgeSec) {
+    const age = (Date.now() - Number(ts)) / 1000;
+    if (!Number.isFinite(age) || age < 0 || age > opts.maxAgeSec) return null;
+  }
+  return customerId;
+}
+
+/** Cookie `secure` flag that follows the actual request protocol — production
+ *  runs HTTPS on Vercel, but plain-HTTP sandboxes/previews would silently drop
+ *  Secure cookies (the browser eats them and every gated page re-asks login). */
+export function isHttpsReq(req: Request): boolean {
+  const proto = req.headers.get("x-forwarded-proto") || "";
+  return proto.split(",")[0].trim() === "https";
 }
 
 export function extractCustomerToken(header: string | null): string | null {

@@ -16,14 +16,16 @@ import { useCustomerSession } from "@/lib/customer-client";
 
 const BTN = "h-11 w-full rounded-full bg-black text-sm font-bold uppercase tracking-wide text-yellow-400 transition hover:bg-gray-900 disabled:cursor-not-allowed disabled:opacity-50";
 
-/** Demo godown artwork per location (the owner's demo images). */
+/** Demo godown artwork per location — used only until the admin uploads a
+ *  Warehouse Image (Admin → Warehouses → edit → Image field, Cloudinary). */
 const WH_IMAGE: Record<string, string> = {
   PUNE: "/wh-pune.png",
   KOLHAR: "/wh-kolhar.png",
 };
-const whImage = (city: string) => WH_IMAGE[city.toUpperCase()] || "/dmk-logo.png";
+const whImage = (w: { city: string; image?: string | null }) =>
+  (w.image || "").trim() || WH_IMAGE[(w.city || "").toUpperCase()] || "/dmk-logo.png";
 
-interface WhRow { id: string; name: string; city: string; isDefault: boolean }
+interface WhRow { id: string; name: string; city: string; image?: string | null; isDefault: boolean }
 
 export default function ChooseWarehousePage() {
   return (
@@ -113,7 +115,7 @@ function Chooser() {
                 className="group overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition hover:border-yellow-400 hover:shadow-lg disabled:opacity-60"
               >
                 <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100">
-                  <Image src={whImage(w.city)} alt={`${w.name} godown`} fill sizes="(max-width: 640px) 100vw, 380px"
+                  <Image src={whImage(w)} alt={`${w.name} godown`} fill sizes="(max-width: 640px) 100vw, 380px"
                     className="object-cover transition duration-300 group-hover:scale-105" unoptimized />
                   <span className="absolute left-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-yellow-400">
                     <Warehouse className="mr-1 inline h-3 w-3" /> DMK Mart godown

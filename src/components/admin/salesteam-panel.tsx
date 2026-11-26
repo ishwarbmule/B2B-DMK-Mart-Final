@@ -342,13 +342,26 @@ function NewOrder({ token }: { token: string }) {
           {searching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-gray-400" />}
         </div>
         {hits.length > 0 && (
-          <div className="mt-2 max-h-56 space-y-0.5 overflow-y-auto rounded-lg border border-gray-200 p-2">
-            {hits.map((p) => (
-              <button key={p.id} onClick={() => addProduct(p)} className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-xs hover:bg-yellow-50">
-                <span className="min-w-0 truncate font-semibold text-gray-800">{p.name}</span>
-                <span className="ml-2 shrink-0 font-bold text-yellow-600">₹{p.dealerPrice ?? "—"} <Plus className="inline h-3 w-3" /></span>
-              </button>
-            ))}
+          <div className="mt-2 max-h-80 overflow-y-auto rounded-lg border border-gray-200 p-2">
+            <div className="grid grid-cols-2 gap-2">
+              {hits.map((p) => (
+                <button key={p.id} onClick={() => addProduct(p)} className="flex items-center gap-2.5 rounded-xl border border-gray-200 p-2 text-left transition hover:border-yellow-400 hover:bg-yellow-50">
+                  {p.image ? (
+                    <Image src={p.image} alt={p.name} width={72} height={72} className="h-[72px] w-[72px] shrink-0 rounded-lg bg-gray-50 object-cover" unoptimized />
+                  ) : (
+                    <span className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-lg bg-gray-100 text-[9px] font-bold text-gray-400">NO IMG</span>
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="line-clamp-2 block text-[11.5px] font-bold leading-tight text-gray-900">{p.name}</span>
+                    <span className="mt-0.5 block truncate text-[9.5px] text-gray-400">{p.sku}</span>
+                    <span className="mt-1 flex items-center justify-between">
+                      <span className="text-[11px] font-black text-yellow-600">₹{p.dealerPrice ?? "—"}</span>
+                      <span className="flex items-center gap-0.5 rounded-md bg-black px-1.5 py-0.5 text-[9px] font-bold text-yellow-400"><Plus className="h-2.5 w-2.5" /> ADD</span>
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -357,10 +370,14 @@ function NewOrder({ token }: { token: string }) {
             <p className="rounded-lg border border-dashed p-4 text-center text-xs text-gray-400">No products added yet — search above.</p>
           ) : (
             lines.map((l) => (
-              <div key={l.productId} className="flex items-center gap-2 rounded-xl border p-2">
-                <Image src={l.image} alt={l.name} width={40} height={40} className="h-10 w-10 shrink-0 rounded-lg object-cover" unoptimized />
+              <div key={l.productId} className="flex items-center gap-3 rounded-xl border p-2.5">
+                {l.image ? (
+                  <Image src={l.image} alt={l.name} width={80} height={80} className="h-20 w-20 shrink-0 rounded-xl bg-gray-50 object-cover" unoptimized />
+                ) : (
+                  <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-[9px] font-bold text-gray-400">NO IMG</span>
+                )}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-bold text-gray-900">{l.name}</p>
+                  <p className="line-clamp-2 text-xs font-bold leading-snug text-gray-900">{l.name}</p>
                   <p className="text-[10px] text-gray-500">{l.sku} · ₹{l.unitPrice}/pc</p>
                 </div>
                 <input

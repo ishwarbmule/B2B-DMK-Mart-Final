@@ -458,10 +458,11 @@ export const CONFIGS: Record<
     ],
   },
   warehouses: {
-    title: "Warehouses", sub: "Godowns & stock locations — order confirmation allocates from the default first", nameField: "name",
+    title: "Warehouses", sub: "Godowns & stock locations — order confirmation allocates from the default first. The image is the photo customers see on the warehouse chooser page.", nameField: "name",
     fields: [
       { key: "name", label: "Warehouse Name", type: "text" },
       { key: "code", label: "Code (e.g. W1)", type: "text", required: false },
+      { key: "image", label: "Warehouse Image — shown on the customer warehouse chooser (upload or pick from Cloudinary)", type: "image", required: false, folder: "warehouses" },
       { key: "address", label: "Address", type: "textarea", required: false },
       { key: "city", label: "City", type: "text", required: false },
       { key: "phone", label: "Phone", type: "text", required: false },
@@ -471,6 +472,7 @@ export const CONFIGS: Record<
     ],
     columns: [
       { key: "name", label: "Warehouse", render: (r) => <span className="font-semibold">{String(r.name)}{r.isDefault ? " ⭐" : ""}</span> },
+      { key: "image", label: "Photo", render: (r) => (r.image ? <img src={String(r.image)} alt="" className="h-10 w-14 rounded object-cover" /> : <span className="text-gray-300">—</span>) },
       { key: "code", label: "Code" },
       { key: "city", label: "City" },
       { key: "_count", label: "SKUs stocked", render: (r) => String(r._count?.stocks ?? 0) },
