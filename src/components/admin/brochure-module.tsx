@@ -225,7 +225,7 @@ export function BrochureModule({ token }: { token: string }) {
                 <option key={w.id} value={w.id}>{w.name}{w.city ? ` — ${w.city}` : ""}{w.skus ? ` (${w.skus} SKUs)` : ""}</option>
               ))}
             </select>
-            <p className="mt-1.5 text-[10px] leading-tight text-gray-500">The brochure prints only the products stocked in this godown, with this godown's own quantities on every line.</p>
+            <p className="mt-1.5 text-[10px] leading-tight text-gray-500">The brochure prints this godown's own quantities on every line. The picker below can add anything from the catalog — even items this godown doesn't stock (they print with qty 0).</p>
           </div>
 
           {/* products picker — every product THIS warehouse carries, hidden ones included */}
@@ -238,10 +238,10 @@ export function BrochureModule({ token }: { token: string }) {
             </div>
             <p className="mb-2 text-[10px] leading-tight text-gray-500">
               {whLoading
-                ? "Loading this warehouse's products…"
+                ? "Loading the catalog for this warehouse…"
                 : warehouseId
-                  ? <>All <b>{whProducts.length}</b> products of this warehouse — hidden ones too. Search, sort, tick what to print. Empty selection = the filters below decide.</>
-                  : "Pick a warehouse first — its full product list (hidden items included) appears here."}
+                  ? <>The whole catalog (<b>{whProducts.length}</b> products) through this godown's lens — its own qty on every line (0 = not stocked here), hidden items included. Search, sort, tick what to print. Empty selection = the filters below decide.</>
+                  : "Pick a warehouse first — the full catalog with its quantities (hidden items included) appears here."}
             </p>
             {warehouseId && !whLoading && (
               <>

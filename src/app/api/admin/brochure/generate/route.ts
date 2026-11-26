@@ -35,13 +35,13 @@ export async function GET(req: NextRequest) {
   const unauthorized = requireAdmin(req);
   if (unauthorized) return unauthorized;
   try {
-    // ?warehouseId=… → ALSO return that godown's product picker list: EVERY
-    // product carried by the warehouse — hidden/inactive ones included — with
-    // the godown's own quantities, so the admin can sort and pick exactly what
-    // goes into the brochure.
+    // ?warehouseId=… → ALSO return the picker list: the FULL catalog with that
+    // godown's own quantities (0 where it carries none), hidden products
+    // included, so the admin can sort and pick exactly what goes into the
+    // brochure.
     const pickWarehouseId = (req.nextUrl.searchParams.get("warehouseId") || "").trim();
 
-    const [companyGroups, tops, warehouses, settings, picked] = await Promise.all([
+    const [companyGroups, tops, warehouses, settings] = await Promise.all([
       db.product.groupBy({ by: ["company"], _count: { _all: true }, where: { active: true } }),
       db.topCategory.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true, mids: { select: { id: true, name: true, ends: { select: { id: true, name: true } } } } } }),
       // the godowns a brochure can be printed for — ERP godowns the admin still
@@ -52,9 +52,6 @@ export async function GET(req: NextRequest) {
         select: { id: true, name: true, city: true, isDefault: true, _count: { select: { stocks: { where: { qty: { gt: 0 } } } } } },
       }),
       db.setting.findMany({ where: { key: { in: ["firm_name", "firm_phone", "site_title"] } } }).catch(() => [] as { key: string; value: string }[]),
-      pickWarehouseId
-        ? db.warehouseStock.findMany({ where: { warehouseId: pickWarehouseId }, select: { productId: true, qty: true } })
-        : Promise.resolve([] as { productId: string; qty: number }[]),
     ]);
 
     // picker rows — brand-grouped order (company → name) so the brochure pops
@@ -68,19 +65,23 @@ export async function GET(req: NextRequest) {
       const wh = await db.warehouse.findUnique({ where: { id: pickWarehouseId }, select: { id: true, name: true, city: true } });
       if (!wh) return jsonError("That warehouse no longer exists — pick another one.", 400);
       warehouse = wh;
-      const ids = picked.map((s) => s.productId);
-      const qtyById = new Map(picked.map((s) => [s.productId, s.qty]));
-      const rows = ids.length
-        ? await db.product.findMany({
-            where: { id: { in: ids } },
-            select: { id: true, sku: true, name: true, company: true, dealerPrice: true, mrp: true, active: true, image: true, end: { select: { name: true } }, mid: { select: { name: true } }, top: { select: { name: true } } },
-            orderBy: [{ company: "asc" }, { name: "asc" }],
-          })
-        : [];
+      // THE FULL CATALOG through the godown lens: EVERY product — active or
+      // hidden — with THIS godown's own qty (0 when the source carries no
+      // stock row for it here). "Each warehouse's all products should be
+      // visible to print … all products means inactive products too": the
+      // owner sorts and picks exactly what goes into the print, stocked or not.
+      const rows = await db.product.findMany({
+        select: {
+          id: true, sku: true, name: true, company: true, dealerPrice: true, mrp: true, active: true, image: true,
+          end: { select: { name: true } }, mid: { select: { name: true } }, top: { select: { name: true } },
+          warehouseStocks: { where: { warehouseId: pickWarehouseId }, select: { qty: true } },
+        },
+        orderBy: [{ company: "asc" }, { name: "asc" }],
+      });
       products = rows.map((p) => ({
         id: p.id, sku: p.sku, name: p.name, company: p.company || "Unassigned",
         category: p.end?.name || p.mid?.name || p.top?.name || "General",
-        qty: qtyById.get(p.id) ?? 0,
+        qty: p.warehouseStocks?.[0]?.qty ?? 0,
         active: p.active,
         dealerPrice: p.dealerPrice,
         mrp: p.mrp,
