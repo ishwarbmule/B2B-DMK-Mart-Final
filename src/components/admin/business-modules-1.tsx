@@ -632,6 +632,21 @@ export function CustomersModule({ token }: { token: string }) {
 }
 
 /* ══════════════ PRICING (bulk editor) ══════════════ */
+/* friendly price-field names for the bulk pricing tools (owner is non-tech) */
+const FIELD_LABEL: Record<string, string> = {
+  dealerPrice: "Selling price (rate)",
+  tier1: "Tier 1 — Distributor",
+  tier2: "Tier 2 — Wholesale",
+  tier3: "Tier 3 — Semi-Wholesale",
+  tier4: "Tier 4 — Retailer",
+  tier5: "Tier 5 — Retail/MRP",
+  mrp: "MRP",
+  deliveryRate: "Delivery rate",
+  packPrice: "Pack price (pickup)",
+  basePrice: "Base price",
+  dealPrice: "Deal price",
+};
+
 export function PricingModule({ token }: { token: string }) {
   const [pricingTab, setPricingTab] = useState<"slab" | "location">("slab");
   return (
@@ -666,9 +681,11 @@ function SlabPricing({ token }: { token: string }) {
   const [topId, setTopId] = useState("");
   const [whId, setWhId] = useState("");
   const [basis, setBasis] = useState<"current" | "purchaseCost">("purchaseCost");
-  const [ops, setOps] = useState<{ field: string; mode: "percent" | "amount" | "set"; value: string }[]>([
-    { field: "mrp", mode: "percent", value: "35" },
-    { field: "dealerPrice", mode: "percent", value: "18" },
+  // owner-format operations: Increase / Decrease by % or fixed ₹, or Set exact —
+  // converted to the API's signed percent/amount/set modes in buildBody
+  const [ops, setOps] = useState<{ field: string; op: "incPct" | "decPct" | "incAmt" | "decAmt" | "set"; value: string }[]>([
+    { field: "mrp", op: "incPct", value: "35" },
+    { field: "dealerPrice", op: "incPct", value: "18" },
   ]);
   const [preview, setPreview] = useState<{ matched: number; totalChanges: number; changes: { sku: string; name: string; updates: Record<string, number> }[] } | null>(null);
   const [logs, setLogs] = useState<{ id: string; sku: string; field: string; oldVal: number; newVal: number; basis: string; createdAt: string }[]>([]);
@@ -690,6 +707,18 @@ function SlabPricing({ token }: { token: string }) {
 
   }, [token]);
 
+  /** UI op → API op: Increase stays positive, Decrease flips the sign, Set is exact */
+  const toApiOp = (op: { field: string; op: string; value: string }) => {
+    const v = Math.abs(Number(op.value) || 0);
+    switch (op.op) {
+      case "incPct": return { field: op.field, mode: "percent", value: v };
+      case "decPct": return { field: op.field, mode: "percent", value: -v };
+      case "incAmt": return { field: op.field, mode: "amount", value: v };
+      case "decAmt": return { field: op.field, mode: "amount", value: -v };
+      default: return { field: op.field, mode: "set", value: v };
+    }
+  };
+
   const buildBody = (isPreview: boolean) => ({
     target: target === "warehouse" ? "all" : target,
     warehouseId: target === "warehouse" ? whId : undefined,
@@ -697,7 +726,7 @@ function SlabPricing({ token }: { token: string }) {
     topId: target === "category" ? topId : undefined,
     basis,
     preview: isPreview,
-    ops: ops.map((o) => ({ field: o.field, mode: o.mode, value: Number(o.value) || 0 })),
+    ops: ops.map(toApiOp),
   });
 
   const doPreview = async () => {
@@ -793,19 +822,23 @@ function SlabPricing({ token }: { token: string }) {
             <div className="space-y-2">
               {ops.map((op, i) => (
                 <div key={i} className="flex gap-1.5">
-                  <select value={op.field} onChange={(e) => setOps((o) => o.map((x, j) => (j === i ? { ...x, field: e.target.value } : x)))} className="h-8 flex-1 rounded-lg border px-1.5 text-[11px]">
-                    {["mrp", "dealerPrice", "tier1", "tier2", "tier3", "tier4", "tier5", "dealPrice"].map((f) => <option key={f} value={f}>{f}</option>)}
+                  <select value={op.field} onChange={(e) => setOps((o) => o.map((x, j) => (j === i ? { ...x, field: e.target.value } : x)))} className="h-8 flex-[1.4] rounded-lg border px-1.5 text-[11px]">
+                    {["dealerPrice", "tier1", "tier2", "tier3", "tier4", "tier5", "mrp", "deliveryRate", "packPrice", "dealPrice"].map((f) => (
+                      <option key={f} value={f}>{FIELD_LABEL[f] ?? f}</option>
+                    ))}
                   </select>
-                  <select value={op.mode} onChange={(e) => setOps((o) => o.map((x, j) => (j === i ? { ...x, mode: e.target.value as typeof x.mode } : x)))} className="h-8 w-24 rounded-lg border px-1.5 text-[11px]">
-                    <option value="percent">% (±)</option>
-                    <option value="amount">₹ (±)</option>
-                    <option value="set">set =</option>
+                  <select value={op.op} onChange={(e) => setOps((o) => o.map((x, j) => (j === i ? { ...x, op: e.target.value as typeof x.op } : x)))} className="h-8 flex-1 rounded-lg border px-1.5 text-[11px]">
+                    <option value="incPct">Increase %</option>
+                    <option value="decPct">Decrease %</option>
+                    <option value="incAmt">Increase ₹</option>
+                    <option value="decAmt">Decrease ₹</option>
+                    <option value="set">Set exact ₹</option>
                   </select>
-                  <input value={op.value} onChange={(e) => setOps((o) => o.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))} className="h-8 w-16 rounded-lg border px-2 text-[11px]" />
+                  <input value={op.value} onChange={(e) => setOps((o) => o.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))} inputMode="decimal" placeholder="0" className="h-8 w-16 rounded-lg border px-2 text-[11px]" />
                   <button onClick={() => setOps((o) => o.filter((_, j) => j !== i))} className="text-gray-400 hover:text-red-500"><XCircle className="h-4 w-4" /></button>
                 </div>
               ))}
-              <button onClick={() => setOps((o) => [...o, { field: "tier4", mode: "percent", value: "0" }])} className="w-full rounded-lg border border-dashed py-1.5 text-[11px] font-bold text-gray-500 hover:border-yellow-400">+ Add operation</button>
+              <button onClick={() => setOps((o) => [...o, { field: "tier4", op: "incPct", value: "0" }])} className="w-full rounded-lg border border-dashed py-1.5 text-[11px] font-bold text-gray-500 hover:border-yellow-400">+ Add operation</button>
             </div>
           </div>
           <div className="flex gap-2">
@@ -882,10 +915,10 @@ function LocationPricing({ token }: { token: string }) {
   const [scope, setScope] = useState<"warehouse" | "company">("warehouse");
   const [companies, setCompanies] = useState<{ name: string; count: number }[]>([]);
   const [companySel, setCompanySel] = useState<string[]>([]);
-  const [op, setOp] = useState<{ field: "dealerPrice" | "mrp"; mode: "percent" | "amount" | "set"; value: string }[]>([
-    { field: "dealerPrice", mode: "percent", value: "0" },
+  const [op, setOp] = useState<{ field: "dealerPrice" | "mrp" | "deliveryRate"; op: "incPct" | "decPct" | "incAmt" | "decAmt" | "set"; value: string }[]>([
+    { field: "dealerPrice", op: "incPct", value: "0" },
   ]);
-  const [preview, setPreview] = useState<{ products: number; cities: string[]; sample: { sku: string; name: string; dealerPrice?: number; mrp?: number }[] } | null>(null);
+  const [preview, setPreview] = useState<{ products: number; cities: string[]; sample: { sku: string; name: string; dealerPrice?: number; mrp?: number; deliveryRate?: number }[] } | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -912,6 +945,18 @@ function LocationPricing({ token }: { token: string }) {
     return n;
   });
 
+  /** UI op → API op: Increase positive, Decrease flips the sign, Set exact */
+  const toApiOp = (o: { field: string; op: string; value: string }) => {
+    const v = Math.abs(Number(o.value) || 0);
+    switch (o.op) {
+      case "incPct": return { field: o.field, mode: "percent", value: v };
+      case "decPct": return { field: o.field, mode: "percent", value: -v };
+      case "incAmt": return { field: o.field, mode: "amount", value: v };
+      case "decAmt": return { field: o.field, mode: "amount", value: -v };
+      default: return { field: o.field, mode: "set", value: v };
+    }
+  };
+
   const buildBody = (isPreview: boolean, clear = false) => ({
     cities: [...cities],
     warehouseId: whId || undefined,
@@ -919,7 +964,7 @@ function LocationPricing({ token }: { token: string }) {
     companies: scope === "company" ? companySel : undefined,
     clear,
     preview: isPreview,
-    ops: clear ? undefined : op.map((o) => ({ field: o.field, mode: o.mode, value: Number(o.value) || 0 })).filter((o) => o.value !== 0 || o.mode === "set"),
+    ops: clear ? undefined : op.map(toApiOp).filter((o) => o.value !== 0 || o.mode === "set"),
   });
 
   const doPost = async (isPreview: boolean, clear = false) => {
@@ -1001,27 +1046,30 @@ function LocationPricing({ token }: { token: string }) {
           </div>
         )}
 
-        {/* step 4 — rates */}
+        {/* step 4 — rates: Increase / Decrease by % or fixed ₹, or set exact (owner format) */}
         <div className="mt-4">
           <p className="mb-1.5 text-[12px] font-medium text-gray-500">Step 4 — New rate</p>
           <div className="space-y-2">
             {op.map((o, i) => (
               <div key={i} className="flex flex-wrap items-center gap-1.5">
-                <select value={o.field} onChange={(e) => setOp((arr) => arr.map((x, j) => (j === i ? { ...x, field: e.target.value as "dealerPrice" | "mrp" } : x)))} className="h-9 rounded-lg border border-gray-200 px-2 text-[12px]">
+                <select value={o.field} onChange={(e) => setOp((arr) => arr.map((x, j) => (j === i ? { ...x, field: e.target.value as typeof x.field } : x)))} className="h-9 rounded-lg border border-gray-200 px-2 text-[12px]">
                   <option value="dealerPrice">Selling price (rate)</option>
                   <option value="mrp">MRP</option>
+                  <option value="deliveryRate">Delivery rate</option>
                 </select>
-                <select value={o.mode} onChange={(e) => setOp((arr) => arr.map((x, j) => (j === i ? { ...x, mode: e.target.value as "percent" | "amount" | "set" } : x)))} className="h-9 w-28 rounded-lg border border-gray-200 px-2 text-[12px]">
-                  <option value="percent">% change</option>
-                  <option value="amount">₹ change</option>
-                  <option value="set">set exact</option>
+                <select value={o.op} onChange={(e) => setOp((arr) => arr.map((x, j) => (j === i ? { ...x, op: e.target.value as typeof x.op } : x)))} className="h-9 w-32 rounded-lg border border-gray-200 px-2 text-[12px]">
+                  <option value="incPct">Increase %</option>
+                  <option value="decPct">Decrease %</option>
+                  <option value="incAmt">Increase ₹</option>
+                  <option value="decAmt">Decrease ₹</option>
+                  <option value="set">Set exact ₹</option>
                 </select>
-                <input value={o.value} onChange={(e) => setOp((arr) => arr.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))} inputMode="decimal" className="h-9 w-24 rounded-lg border border-gray-200 px-2 text-[12px]" />
+                <input value={o.value} onChange={(e) => setOp((arr) => arr.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))} inputMode="decimal" placeholder="0" className="h-9 w-24 rounded-lg border border-gray-200 px-2 text-[12px]" />
                 {op.length > 1 && <button onClick={() => setOp((arr) => arr.filter((_, j) => j !== i))} aria-label="Remove"><XCircle className="h-4 w-4 text-gray-400 transition-colors hover:text-red-500" /></button>}
               </div>
             ))}
             {op.length < 2 && (
-              <button onClick={() => setOp((arr) => [...arr, { field: "mrp", mode: "percent", value: "0" }])} className="rounded-lg border border-dashed border-gray-200 px-3 py-1.5 text-[12px] font-medium text-gray-500 transition-colors hover:border-gray-400">+ also change MRP</button>
+              <button onClick={() => setOp((arr) => [...arr, { field: "mrp", op: "incPct", value: "0" }])} className="rounded-lg border border-dashed border-gray-200 px-3 py-1.5 text-[12px] font-medium text-gray-500 transition-colors hover:border-gray-400">+ also change another rate</button>
             )}
           </div>
         </div>
@@ -1048,7 +1096,7 @@ function LocationPricing({ token }: { token: string }) {
                     <tr key={s.sku} className="border-b border-gray-100 last:border-0">
                       <td className="px-3 py-2 font-mono text-[11px] text-gray-500">{s.sku}</td>
                       <td className="max-w-[260px] truncate px-3 py-2">{s.name}</td>
-                      <td className="px-3 py-2 text-right">{s.dealerPrice != null ? formatINR(s.dealerPrice) : ""}{s.mrp != null ? ` · MRP ${formatINR(s.mrp)}` : ""}</td>
+                      <td className="px-3 py-2 text-right">{s.dealerPrice != null ? formatINR(s.dealerPrice) : ""}{s.mrp != null ? ` · MRP ${formatINR(s.mrp)}` : ""}{s.deliveryRate != null ? ` · Delivery ${formatINR(s.deliveryRate)}` : ""}</td>
                     </tr>
                   ))}
                 </tbody>

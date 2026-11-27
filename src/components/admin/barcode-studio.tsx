@@ -245,6 +245,7 @@ export function BarcodeStudio({ token }: { token: string }) {
                       <BarcodeLabel
                         value={`${r.sku}-${meta.suffix}${meta.pieces(r)}`}
                         name={r.name}
+                        sku={r.sku}
                         mrp={r.mrp}
                         price={meta.price(r)}
                         firmName={firm.name}

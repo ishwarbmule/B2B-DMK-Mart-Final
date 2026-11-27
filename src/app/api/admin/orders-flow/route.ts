@@ -22,6 +22,7 @@ import { db } from "@/lib/db";
 import { requireAdmin, jsonError } from "@/lib/admin-auth";
 import { requireStaff, staffIdentity } from "@/lib/staff-auth";
 import { notifyCustomer } from "@/lib/whatsapp";
+import { locationPriceFor, piecePriceOf } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -142,8 +143,15 @@ export async function POST(req: NextRequest) {
           return jsonError("This order belongs to a different warehouse", 403);
         }
       }
-      if (order.status === "CONFIRMED") return jsonError("Order already confirmed — verification no longer needed");
-      if (order.status !== "PENDING") return jsonError(`Orders can be verified while PENDING — this one is ${order.status}`);
+      if (order.status === "PENDING") {
+        // first verification before admin confirm
+      } else if (order.status === "CONFIRMED") {
+        // re-verification loop (owner workflow): admin refilled material → manager
+        // re-checks ONLY the planned (NEXT_PLAN) lines; shipped lines stay locked
+      } else {
+        return jsonError(`Orders can be verified while PENDING or CONFIRMED — this one is ${order.status}`);
+      }
+      const confirmedReverify = order.status === "CONFIRMED";
 
       const marks: Array<{ id: string; available: boolean }> = Array.isArray(body.lines) ? body.lines : [];
       const byId = new Map(order.items.map((it) => [it.id, it]));
@@ -153,6 +161,18 @@ export async function POST(req: NextRequest) {
       for (const m of marks) {
         const it = byId.get(String(m.id));
         if (!it) continue;
+        // on a confirmed order the re-check is ADVISORY: planned lines keep their
+        // NEXT_PLAN status (stock & credit still pending) — only the note changes;
+        // the Super Admin decides with "Confirm planned lines" (confirm-planned)
+        if (confirmedReverify) {
+          if (it.lineStatus !== "NEXT_PLAN") continue;
+          const lineNote = m.available
+            ? "✓ Verified available after refill — ready for the next trip"
+            : note ? `Still not available — ${note}` : "Still not available after refill";
+          await db.orderItem.update({ where: { id: it.id }, data: { plannedNote: lineNote } }).catch(() => {});
+          if (m.available) okCount++; else oosCount++;
+          continue;
+        }
         if (m.available) {
           okCount++;
           await db.orderItem.update({ where: { id: it.id }, data: { lineStatus: "OK", plannedNote: "" } }).catch(() => {});
@@ -162,7 +182,15 @@ export async function POST(req: NextRequest) {
           await db.orderItem.update({ where: { id: it.id }, data: { lineStatus: "NEXT_PLAN", plannedNote: lineNote } }).catch(() => {});
         }
       }
-      if (!okCount && !oosCount) return jsonError("No line marks received — tick at least one line");
+      if (!okCount && !oosCount) {
+        if (confirmedReverify) {
+          // re-verify touched nothing — acceptable (all planned lines unchanged)
+          const actor = await actorName(req);
+          await db.order.update({ where: { id: order.id }, data: { verifiedAt: new Date(), verifiedBy: actor } });
+          return NextResponse.json({ ok: true, order: await loadOrder(order.id), summary: { okCount: 0, oosCount: 0, reverified: true } });
+        }
+        return jsonError("No line marks received — tick at least one line");
+      }
 
       const actor = await actorName(req);
       await db.order.update({
@@ -456,6 +484,180 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, order: updated, planned: targets.length, credited: round2(creditedDelta) });
     }
 
+    if (action === "swap-product") {
+      // ADMIN PRODUCT SWAP — replace an out-of-stock (or any) line's product with
+      // another in-stock product, INTERNALLY: the customer is NOT notified (no
+      // WhatsApp, no notification stamp) — the updated list only goes out if the
+      // admin later presses "Send Updated List" on purpose. The replacement is
+      // priced at the buyer's own slab (the tier the order was billed at) plus
+      // their city override.
+      const identity = await staffIdentity(req);
+      if (identity?.role === "manager") return jsonError("Product swap is a Super Admin action", 403);
+      const order = await loadOrder(body.orderId);
+      if (!order) return jsonError("Order not found", 404);
+      if (order.status !== "PENDING" && order.status !== "CONFIRMED") {
+        return jsonError(`Swap works on PENDING or CONFIRMED orders — this one is ${order.status}`);
+      }
+      const line = order.items.find((i) => i.id === String(body.lineId || ""));
+      if (!line) return jsonError("Order line not found", 404);
+      const replacement = await db.product.findUnique({ where: { id: String(body.newProductId || "") } });
+      if (!replacement) return jsonError("Replacement product not found", 404);
+
+      // price the replacement for THIS buyer: order's slab tier + city override
+      const loc = locationPriceFor(replacement.locationPrices, order.city);
+      const tier = order.priceTier || "tier2";
+      const unitPrice = Math.max(0, piecePriceOf(
+        {
+          tier1: replacement.tier1, tier2: replacement.tier2, tier3: replacement.tier3,
+          tier4: replacement.tier4, tier5: replacement.tier5, dealerPrice: replacement.dealerPrice,
+          packPrice: replacement.packPrice ?? 0, packQty: replacement.packQty, piecesPerBox: replacement.piecesPerBox,
+          locPrice: loc,
+        },
+        tier,
+      ));
+      const qty = Number(body.qty) > 0 ? Number(body.qty) : line.qty;
+      const newPieces = round2(qty * line.packQty);
+      const newTotal = round2(qty * unitPrice);
+
+      // CONFIRMED order reconciliation — old line state moves to the new product:
+      //   shipped old line → restore its stock; planned old line → consume its credit;
+      //   the replacement ALWAYS ships (that is the point of the swap) → decrement its stock.
+      let creditedDelta = 0;
+      if (order.status === "CONFIRMED") {
+        const warehouses = await db.warehouse.findMany({
+          where: { active: true },
+          orderBy: [{ isDefault: "desc" }, { sortOrder: "asc" }],
+          include: { stocks: { where: { productId: { in: [line.productId, replacement.id] } } } },
+        });
+        const servingId = order.warehouseId || order.pickupWarehouseId;
+        const orderedWhs = servingId
+          ? [...warehouses].sort((a, b) => (a.id === servingId ? -1 : 0) - (b.id === servingId ? -1 : 0))
+          : warehouses;
+
+        // live-stock guard for the replacement
+        const live = Math.max(0, Math.round(replacement.stock));
+        if (live < newPieces) {
+          return jsonError(`Not enough stock for ${replacement.name} — only ${live} pcs left`, 400);
+        }
+
+        if (line.lineStatus !== "NEXT_PLAN") {
+          // old shipped product goes back to the shelves
+          await db.product.update({ where: { id: line.productId }, data: { stock: { increment: line.pieces } } }).catch(() => {});
+          const oldWs = orderedWhs.flatMap((w) => w.stocks).find((s) => s.productId === line.productId);
+          if (oldWs) await db.warehouseStock.update({ where: { id: oldWs.id }, data: { qty: { increment: Math.ceil(line.pieces) } } }).catch(() => {});
+        } else if (order.customerId) {
+          // the buyer was credited for this planned line — the swap consumes it
+          creditedDelta -= line.total;
+        }
+
+        // replacement ships now: decrement its stock, order's godown first
+        await db.product.update({ where: { id: replacement.id }, data: { stock: { decrement: newPieces } } }).catch(() => {});
+        let remaining = newPieces;
+        for (const w of orderedWhs) {
+          if (remaining <= 0) break;
+          const ws = w.stocks.find((s) => s.productId === replacement.id);
+          if (!ws || ws.qty <= 0) continue;
+          const dec = Math.min(ws.qty, Math.ceil(remaining));
+          await db.warehouseStock.update({ where: { id: ws.id }, data: { qty: { decrement: dec } } }).catch(() => {});
+          remaining -= dec;
+        }
+        if (order.customerId && Math.abs(creditedDelta) >= 0.01) {
+          await db.customer.update({ where: { id: order.customerId }, data: { creditBalance: { increment: round2(creditedDelta) } } }).catch(() => {});
+        }
+      }
+
+      await db.orderItem.update({
+        where: { id: line.id },
+        data: {
+          productId: replacement.id, sku: replacement.sku, name: replacement.name,
+          image: replacement.image, barcode: replacement.barcode, gst: replacement.gst, hsn: replacement.hsn,
+          unitPrice, qty, pieces: newPieces, total: newTotal,
+          // the replacement ships — plannedNote cleared, line becomes OK
+          lineStatus: "OK", plannedNote: "",
+        },
+      });
+
+      // recompute the order bill from the updated lines
+      const refreshed = await loadOrder(order.id);
+      const t = recomputeTotals(order, refreshed!.items.map((l) => ({ total: l.total, pieces: l.pieces, qty: l.qty, unitType: l.unitType })));
+      await db.order.update({
+        where: { id: order.id },
+        data: { itemTotal: t.itemTotal, discount: t.discount, gstAmount: t.gstAmount, deliveryFee: t.deliveryFee, grandTotal: t.grandTotal, totalUnits: t.totalUnits, totalCases: t.totalCases },
+      });
+      await db.activityLog.create({
+        data: { action: "UPDATE", entity: "order", entityId: order.id, detail: `Product swapped internally on ${order.invoiceNo}: "${line.name}" → "${replacement.name}" ×${qty} @ ₹${num2(unitPrice)} — customer not notified` },
+      });
+      const updated = await loadOrder(order.id);
+      return NextResponse.json({ ok: true, order: updated, swapped: { from: line.name, to: replacement.name, unitPrice, total: newTotal } });
+    }
+
+    if (action === "confirm-planned") {
+      // CONFIRM PLANNED LINES (next trip) — after the admin refilled material and the
+      // warehouse manager re-verified, this ships the planned (NEXT_PLAN) lines:
+      // serials continue, live stock decrements (order's godown first), the buyer
+      // credit that was granted at confirm time is consumed. Admin-only.
+      const identity = await staffIdentity(req);
+      if (identity?.role === "manager") return jsonError("Confirming planned lines is a Super Admin action", 403);
+      const order = await loadOrder(body.orderId);
+      if (!order) return jsonError("Order not found", 404);
+      if (order.status !== "CONFIRMED") return jsonError("Planned lines confirm on CONFIRMED orders — this one is " + order.status);
+      const planned = order.items.filter((it) => it.lineStatus === "NEXT_PLAN");
+      if (!planned.length) return jsonError("This order has no planned (next-trip) lines");
+
+      const shipIds = new Set<string>((Array.isArray(body.lineIds) ? body.lineIds : []).map(String));
+      const targets = shipIds.size ? planned.filter((it) => shipIds.has(it.id)) : planned;
+      if (!targets.length) return jsonError("No planned lines selected");
+
+      // live-stock guard for every target line
+      const productIds = targets.map((t2) => t2.productId);
+      const products = await db.product.findMany({ where: { id: { in: productIds } }, select: { id: true, name: true, stock: true } });
+      const pmap = new Map(products.map((p) => [p.id, p]));
+      for (const t2 of targets) {
+        const live = Math.max(0, Math.round(pmap.get(t2.productId)?.stock ?? 0));
+        if (live < t2.pieces) return jsonError(`Not enough stock for ${t2.name} — only ${live} pcs in stock. Refill the warehouse first.`, 400);
+      }
+
+      const warehouses = await db.warehouse.findMany({
+        where: { active: true },
+        orderBy: [{ isDefault: "desc" }, { sortOrder: "asc" }],
+        include: { stocks: { where: { productId: { in: productIds } } } },
+      });
+      const servingId = order.warehouseId || order.pickupWarehouseId;
+      const orderedWhs = servingId
+        ? [...warehouses].sort((a, b) => (a.id === servingId ? -1 : 0) - (b.id === servingId ? -1 : 0))
+        : warehouses;
+
+      let serial = order.items.reduce((mx, it) => Math.max(mx, it.serialNo || 0), 0) + 1;
+      let shippedAmount = 0;
+      for (const t2 of targets) {
+        await db.product.update({ where: { id: t2.productId }, data: { stock: { decrement: t2.pieces } } }).catch(() => {});
+        let remaining = t2.pieces;
+        for (const w of orderedWhs) {
+          if (remaining <= 0) break;
+          const ws = w.stocks.find((s) => s.productId === t2.productId);
+          if (!ws || ws.qty <= 0) continue;
+          const dec = Math.min(ws.qty, Math.ceil(remaining));
+          await db.warehouseStock.update({ where: { id: ws.id }, data: { qty: { decrement: dec } } }).catch(() => {});
+          remaining -= dec;
+        }
+        await db.orderItem.update({ where: { id: t2.id }, data: { serialNo: serial++, lineStatus: "OK", plannedNote: "" } });
+        shippedAmount += t2.total;
+      }
+
+      // consume the credit that was granted for these lines when the order was confirmed
+      if (order.customerId && shippedAmount > 0) {
+        await db.customer.update({ where: { id: order.customerId }, data: { creditBalance: { decrement: round2(shippedAmount) } } }).catch(() => {});
+      }
+
+      const stillPlanned = planned.length - targets.length;
+      const actor = await actorName(req);
+      await db.activityLog.create({
+        data: { action: "CONFIRM", entity: "order", entityId: order.id, detail: `Planned lines confirmed for next trip by ${actor} on ${order.invoiceNo} — ${targets.length} lines ship (₹${round2(shippedAmount)} credit consumed)${stillPlanned ? `, ${stillPlanned} still planned` : ""}` },
+      });
+      const updated = await loadOrder(order.id);
+      return NextResponse.json({ ok: true, order: updated, summary: { shipped: targets.length, stillPlanned, creditConsumed: round2(shippedAmount) } });
+    }
+
     if (action === "send-updated") {
       // Send the updated order list to the customer — until this fires, the
       // customer-facing order shows NO sign of admin edits (plain new values).
@@ -493,7 +695,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, order: updated, channel: wa.channel, demo: wa.demo, preview: text });
     }
 
-    return jsonError("Unknown action — use verify | edit | confirm | plan-next | plan-oos | send-updated");
+    return jsonError("Unknown action — use verify | edit | confirm | plan-next | plan-oos | swap-product | confirm-planned | send-updated");
   } catch (e) {
     return jsonError(e instanceof Error ? e.message.slice(0, 300) : "Flow failed", 400);
   }

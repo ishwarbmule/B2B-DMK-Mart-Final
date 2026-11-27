@@ -38,6 +38,20 @@ export async function GET(req: NextRequest) {
   if (shipping) where.shippingStatus = shipping;
   if (source) where.source = source;
   if (warehouseId) where.warehouseId = warehouseId;
+  // workflow sub-sections (owner request): dedicated lists for the verify → confirm →
+  // planned pipeline. `flow` narrows the same filtered query.
+  const flow = sp.get("flow") || "";
+  if (flow === "to_verify") {
+    where.status = "PENDING";
+    where.verifiedAt = null;
+  } else if (flow === "ready") {
+    // verified by the warehouse manager, waiting for the Super Admin to confirm + WhatsApp the invoice
+    where.status = "PENDING";
+    where.verifiedAt = { not: null };
+  } else if (flow === "planned") {
+    // every order with out-of-stock lines on the next-trip plan (pending or confirmed)
+    where.items = { some: { lineStatus: "NEXT_PLAN" } };
+  }
   // manager scope — a godown manager only ever sees orders routed to their warehouse
   const identity = await staffIdentity(req);
   if (identity?.role === "manager") where.warehouseId = identity.warehouseId;

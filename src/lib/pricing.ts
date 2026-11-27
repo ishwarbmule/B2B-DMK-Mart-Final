@@ -28,7 +28,7 @@ export const TIER_LABEL: Record<string, string> = {
 export type Fulfillment = "PICKUP" | "DELIVERY";
 
 /** per-city price override stored on Product.locationPrices (JSON string) */
-export interface LocationPrice { dealerPrice?: number; mrp?: number }
+export interface LocationPrice { dealerPrice?: number; mrp?: number; deliveryRate?: number }
 
 /** Parse a product's locationPrices JSON and return the override for a city/town
  *  (case-insensitive). Undefined = no override for that location. */
@@ -42,6 +42,7 @@ export function locationPriceFor(locationPrices: string | null | undefined, city
     const out: LocationPrice = {};
     if (typeof hit.dealerPrice === "number" && hit.dealerPrice > 0) out.dealerPrice = hit.dealerPrice;
     if (typeof hit.mrp === "number" && hit.mrp > 0) out.mrp = hit.mrp;
+    if (typeof hit.deliveryRate === "number" && hit.deliveryRate > 0) out.deliveryRate = hit.deliveryRate;
     return Object.keys(out).length ? out : undefined;
   } catch {
     return undefined;
@@ -56,6 +57,8 @@ export interface TieredProduct {
   /** retail-shelf (MRP) slab — synced from the ERP tier5Mrp column */
   tier5?: number;
   dealerPrice: number;
+  /** admin-set per-piece delivery rate (slab-independent); a city override wins */
+  deliveryRate?: number;
   packPrice?: number;
   packQty?: number;
   piecesPerBox?: number;
@@ -106,16 +109,19 @@ export function pickupUnitPrice(p: TieredProduct, tier: string, unitType: string
 
 /**
  * DELIVERY rate — SINGLE-PIECE pricing (flat slab piece rate, no pack economics):
- *   SINGLE → per-piece slab price (deal override handled by the caller)
- *   PACK   → piece × packQty
- *   BULK   → piece × casePieces (legacy rows only — bulk cases are no longer offered)
+ *   a city delivery-rate override (locPrice.deliveryRate) wins when set, else the
+ *   admin-set Product.deliveryRate, else the slab piece price.
+ *   SINGLE → per-piece delivery rate
+ *   PACK   → rate × packQty
+ *   BULK   → rate × casePieces (legacy rows only — bulk cases are no longer offered)
  */
 export function deliveryUnitPrice(p: TieredProduct, tier: string, unitType: string): number {
-  const piece = piecePriceOf(p, tier);
-  if (unitType === "SINGLE") return round2(piece);
-  if (unitType === "PACK") return round2(piece * Math.max(1, p.packQty || 1));
+  const cityRate = p.locPrice?.deliveryRate;
+  const base = cityRate && cityRate > 0 ? cityRate : p.deliveryRate && p.deliveryRate > 0 ? p.deliveryRate : piecePriceOf(p, tier);
+  if (unitType === "SINGLE") return round2(base);
+  if (unitType === "PACK") return round2(base * Math.max(1, p.packQty || 1));
   const casePieces = piecesForUnit("BULK", p.packQty, p.piecesPerBox);
-  return round2(piece * casePieces);
+  return round2(base * casePieces);
 }
 
 /** unit price for a line under a fulfillment mode */

@@ -21,6 +21,10 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   let warehouseId = sp.get("warehouseId") || "";
   const q = (sp.get("q") || "").trim();
+  // level filter — "1" = products WITH rows/qty in this godown, "0" = not stocked here
+  // (default "1": picking a warehouse shows THAT godown's assortment — the owner's
+  // complaint was that the warehouse filter showed every product with qty 0)
+  const level = sp.get("level") || "1";
   const page = Math.max(1, parseInt(sp.get("page") || "1"));
   const limit = 40;
 
@@ -31,9 +35,11 @@ export async function GET(req: NextRequest) {
   const warehouses = await db.warehouse.findMany({ where: { active: true }, orderBy: [{ isDefault: "desc" }, { sortOrder: "asc" }] });
   if (!warehouseId) return NextResponse.json({ warehouses, rows: [], total: 0, page, pages: 1 });
 
-  const where = q
-    ? { OR: [{ name: { contains: q } }, { sku: { contains: q } }] }
-    : {};
+  const where: Record<string, unknown> = {};
+  if (q) where.OR = [{ name: { contains: q } }, { sku: { contains: q } }];
+  // the warehouse selection actually narrows the list (products allocated to that godown)
+  if (level === "1") where.warehouseStocks = { some: { warehouseId } };
+  if (level === "0") where.warehouseStocks = { none: { warehouseId } };
   const [total, products] = await Promise.all([
     db.product.count({ where }),
     db.product.findMany({

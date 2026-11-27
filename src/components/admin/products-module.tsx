@@ -117,6 +117,9 @@ export function ProductsModule({ token }: { token: string }) {
   // warehouse-oriented management: manage products per godown
   const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>([]);
   const [whFilter, setWhFilter] = useState("");
+  // extra owner filters: image present/missing · priced/zero-priced
+  const [imgFilter, setImgFilter] = useState<"" | "1" | "0">("");
+  const [priceFilter, setPriceFilter] = useState<"" | "1" | "0">("");
   // stock sub-sections (In Stock / Out of Stock) + the auto Ready-to-Dispatch switch
   const [stocked, setStocked] = useState<"" | "1" | "0">("");
   const [counts, setCounts] = useState<{ all: number; in: number; out: number }>({ all: 0, in: 0, out: 0 });
@@ -134,6 +137,8 @@ export function ProductsModule({ token }: { token: string }) {
       if (catEnd) params.set("end", catEnd);
       if (whFilter) params.set("warehouseId", whFilter);
       if (stocked) params.set("stocked", stocked);
+      if (imgFilter) params.set("hasImage", imgFilter);
+      if (priceFilter) params.set("priced", priceFilter);
       const cp = new URLSearchParams();
       if (q) cp.set("q", q);
       if (company) cp.set("company", company);
@@ -142,6 +147,8 @@ export function ProductsModule({ token }: { token: string }) {
       if (catTop) cp.set("top", catTop);
       if (catEnd) cp.set("end", catEnd);
       if (whFilter) cp.set("warehouseId", whFilter);
+      if (imgFilter) cp.set("hasImage", imgFilter);
+      if (priceFilter) cp.set("priced", priceFilter);
       cp.set("counts", "1");
       const [d, c] = await Promise.all([
         call(`/api/admin/products?${params}`),
@@ -159,7 +166,7 @@ export function ProductsModule({ token }: { token: string }) {
       setLoading(false);
     }
 
-  }, [token, page, q, company, flag, status, catTop, catEnd, whFilter, stocked]);
+  }, [token, page, q, company, flag, status, catTop, catEnd, whFilter, stocked, imgFilter, priceFilter]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
@@ -197,6 +204,8 @@ export function ProductsModule({ token }: { token: string }) {
       if (catEnd) params.set("end", catEnd);
       if (whFilter) params.set("warehouseId", whFilter);
       if (stocked) params.set("stocked", stocked);
+      if (imgFilter) params.set("hasImage", imgFilter);
+      if (priceFilter) params.set("priced", priceFilter);
       const d = await call(`/api/admin/products?${params}`);
       const ids: string[] = d.ids ?? [];
       setSel(Object.fromEntries(ids.map((id) => [id, true])));
@@ -565,6 +574,16 @@ export function ProductsModule({ token }: { token: string }) {
           <option value="hot">Hot</option>
           <option value="deal">Deals</option>
         </select>
+        <select value={imgFilter} onChange={(e) => { setImgFilter(e.target.value as "" | "1" | "0"); setPage(1); }} className="h-9 rounded-lg border text-xs">
+          <option value="">All Images</option>
+          <option value="1">With image</option>
+          <option value="0">Without image</option>
+        </select>
+        <select value={priceFilter} onChange={(e) => { setPriceFilter(e.target.value as "" | "1" | "0"); setPage(1); }} className="h-9 rounded-lg border text-xs">
+          <option value="">All Pricing</option>
+          <option value="1">Priced (non-zero)</option>
+          <option value="0">Zero pricing</option>
+        </select>
         <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="h-9 rounded-lg border text-xs">
           <option value="active">Active</option>
           <option value="inactive">Hidden</option>
@@ -581,7 +600,7 @@ export function ProductsModule({ token }: { token: string }) {
         )}
         <button
           onClick={selectAllMatching}
-          title={q || company || flag || status || catTop || catEnd || whFilter ? "Selects EVERY product matching the current filters — across all pages" : "Selects the whole catalog"}
+          title={q || company || flag || status || catTop || catEnd || whFilter || imgFilter || priceFilter ? "Selects EVERY product matching the current filters — across all pages" : "Selects the whole catalog"}
           className="flex items-center gap-1 rounded-lg border border-yellow-400 bg-white px-2.5 py-1 text-[11px] font-bold text-gray-800 hover:bg-yellow-100"
         >
           <CheckSquare className="h-3.5 w-3.5 text-yellow-600" /> Select all{total ? ` ${total}` : ""} matching
@@ -616,6 +635,7 @@ export function ProductsModule({ token }: { token: string }) {
               <th className="px-2 py-2.5 text-right">Cost</th>
               <th className="px-2 py-2.5 text-right">Price</th>
               <th className="px-2 py-2.5 text-right">MRP</th>
+              <th className="px-2 py-2.5 text-center" title="Tier 1 Distributor · Tier 2 Wholesale · Tier 3 Semi-Wholesale · Tier 4 Retailer · Tier 5 Retail/MRP — the logged-in customer sees the price of their own tier (guests see Tier 2)">Tiers 1–5<br /><span className="text-[9px] font-normal text-gray-400">Dist · Whole · Semi · Retail · MRP</span></th>
               <th className="px-2 py-2.5 text-right">
                 {whFilter ? `${warehouses.find((w) => w.id === whFilter)?.name ?? "Godown"} qty` : "Stock"}
                 {whFilter && <span className="block text-[9px] font-normal text-gray-400">editable — type & press Enter</span>}
@@ -626,7 +646,7 @@ export function ProductsModule({ token }: { token: string }) {
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={11} className="px-4 py-10 text-center text-gray-400">Loading products…</td></tr>}
+            {loading && <tr><td colSpan={12} className="px-4 py-10 text-center text-gray-400">Loading products…</td></tr>}
             {rows.map((r) => (
               <tr key={r.id} className={`border-t ${sel[r.id] ? "bg-yellow-50/50" : "hover:bg-gray-50/60"}`}>
                 <td className="px-2 py-2"><input type="checkbox" checked={!!sel[r.id]} onChange={(e) => setSel((s) => ({ ...s, [r.id]: e.target.checked }))} /></td>
@@ -649,6 +669,15 @@ export function ProductsModule({ token }: { token: string }) {
                 <td className="px-2 py-2 text-right text-gray-500">{formatINR(r.purchaseCost)}</td>
                 <td className="px-2 py-2 text-right font-bold">{formatINR(r.dealerPrice)}</td>
                 <td className="px-2 py-2 text-right text-gray-500">{formatINR(r.mrp)}</td>
+                <td className="px-2 py-2 text-center">
+                  <span className="block whitespace-nowrap text-[10px] leading-4 text-gray-700" title="Tier 1 Distributor / Tier 2 Wholesale / Tier 3 Semi-Wholesale / Tier 4 Retailer / Tier 5 Retail (MRP)">
+                    {[r.tier1, r.tier2, r.tier3, r.tier4, r.tier5].map((v, i) => (
+                      <span key={i} className={v > 0 ? "" : "text-red-400"}>
+                        {i > 0 && <span className="text-gray-300"> / </span>}{v > 0 ? formatINR(v) : "0"}
+                      </span>
+                    ))}
+                  </span>
+                </td>
                 <td className={`px-2 py-2 text-right ${whFilter ? "" : `font-semibold ${r.stock <= 10 ? "text-red-500" : ""}`}`}>
                   {whFilter ? (
                     <input

@@ -71,6 +71,15 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
   const [verifyNote, setVerifyNote] = useState("");
   // admin confirm override — per-line ship / next-plan choices in the confirm dialog
   const [shipMarks, setShipMarks] = useState<Record<string, boolean>>({});
+  // workflow sub-sections (owner request): All / To Verify / Ready to Confirm / Planned
+  const [flow, setFlow] = useState<"" | "to_verify" | "ready" | "planned">("");
+  // product swap (admin swaps an out-of-stock line for an in-stock product, internally)
+  const [swapOpen, setSwapOpen] = useState<{ lineId: string; name: string } | null>(null);
+  const [swapQ, setSwapQ] = useState("");
+  const [swapHits, setSwapHits] = useState<Array<{ id: string; name: string; sku: string; image: string; dealerPrice: number; stock: number }>>([]);
+  const [swapBusy, setSwapBusy] = useState(false);
+  // planned-lines selection for "Confirm planned lines" (next trip)
+  const [plannedSel, setPlannedSel] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -79,6 +88,7 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
       if (q) params.set("q", q);
       if (status) params.set("status", status);
       if (source) params.set("source", source);
+      if (flow) params.set("flow", flow);
       if (lockedWarehouseId) params.set("warehouseId", lockedWarehouseId); // manager portal: only this godown
       const d = await call(`/api/admin/orders?${params}`);
       setRows(d.rows ?? []);
@@ -91,7 +101,7 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
       setLoading(false);
     }
 
-  }, [token, page, q, status, source, lockedWarehouseId]);
+  }, [token, page, q, status, source, flow, lockedWarehouseId]);
 
   useEffect(() => {
     load();
@@ -264,6 +274,72 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
     } finally { setSendBusy(false); }
   };
 
+  /* ── PRODUCT SWAP (owner workflow): replace an out-of-stock line with an in-stock
+     product, internally — the customer is NOT notified by the swap itself ── */
+  useEffect(() => {
+    if (!swapOpen) { setSwapHits([]); return; }
+    const t = setTimeout(() => {
+      const params = new URLSearchParams({ q: swapQ, stocked: "1", limit: "8" });
+      if (stock?.order.warehouseId) params.set("warehouseId", stock.order.warehouseId);
+      fetch(`/api/admin/products?${params}`, { headers: { authorization: `Bearer ${token}` } })
+        .then((r) => r.json())
+        .then((d) => setSwapHits((d.rows ?? []).map((r: Record<string, unknown>) => ({
+          id: String(r.id), name: String(r.name), sku: String(r.sku), image: String(r.image ?? ""),
+          dealerPrice: Number(r.dealerPrice ?? 0), stock: Number(r.stock ?? 0),
+        }))))
+        .catch(() => setSwapHits([]));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [swapOpen, swapQ, stock, token]);
+
+  const swapProduct = async (newProductId: string, newName: string) => {
+    if (!swapOpen || !stockFor) return;
+    if (!confirm(`Replace "${swapOpen.name}" with "${newName}"? The change is internal — the customer is not notified unless you press Send Updated List.`)) return;
+    setSwapBusy(true);
+    try {
+      const d = await call("/api/admin/orders-flow", {
+        method: "POST",
+        body: JSON.stringify({ action: "swap-product", orderId: stockFor, lineId: swapOpen.lineId, newProductId }),
+      });
+      toast.success(`Swapped: ${d.swapped?.from} → ${d.swapped?.to} @ ${formatINR(d.swapped?.unitPrice ?? 0)}`);
+      setSwapOpen(null);
+      setSwapQ("");
+      const fresh = await call(`/api/admin/orders-flow?orderId=${stockFor}`) as StockCheck;
+      setStock(fresh);
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Swap failed");
+    } finally { setSwapBusy(false); }
+  };
+
+  /** confirm planned (next-trip) lines after the admin refilled material + manager re-verified */
+  const confirmPlanned = async (o: OrderRow) => {
+    setBusy(true);
+    try {
+      const d = await call("/api/admin/orders-flow", {
+        method: "POST",
+        body: JSON.stringify({ action: "confirm-planned", orderId: o.id, lineIds: plannedSel.size ? Array.from(plannedSel) : undefined }),
+      });
+      toast.success(`Next trip confirmed — ${d.summary?.shipped ?? 0} line(s) ship now${d.summary?.creditConsumed ? `, ${formatINR(d.summary.creditConsumed)} credit consumed` : ""}`);
+      setPlannedSel(new Set());
+      const fresh = await call(`/api/admin/orders-flow?orderId=${o.id}`) as StockCheck;
+      setStock(fresh);
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Confirm failed");
+    } finally { setBusy(false); }
+  };
+
+  /** material refilled — log the plan entry so the warehouse manager knows to re-verify */
+  const notifyManagerRefill = async (o: OrderRow) => {
+    try {
+      await call("/api/admin/orders-flow", { method: "POST", body: JSON.stringify({ action: "plan-next", orderId: o.id }) });
+      toast.success(`Material-refill logged for ${o.invoiceNo} — the ${o.warehouseName || "warehouse"} manager sees this order in their panel for re-verification.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
+  };
+
   const toggleWa = (o: OrderRow) => {
     if (waPanel === o.id) { setWaPanel(null); return; }
     setWaPanel(o.id);
@@ -326,6 +402,31 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
           <RefreshCcw className="h-3.5 w-3.5" /> Refresh
         </button>
       </ModuleHeader>
+
+      {/* ── workflow sub-sections (owner request): verify → confirm → planned pipeline ── */}
+      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-gray-100 bg-white p-2.5">
+        {([
+          ["", "All Orders", "Order Management", "bg-black text-yellow-400"],
+          ["to_verify", "1 · To Verify", "Waiting for the warehouse check", "bg-amber-500 text-white"],
+          ["ready", "2 · Ready to Confirm", "Warehouse verified — confirm + WhatsApp the invoice", "bg-emerald-600 text-white"],
+          ["planned", "3 · Planned (Out of Stock)", "Next-trip lines — refill, re-verify, confirm", "bg-blue-600 text-white"],
+        ] as const).map(([v, label, hint, chip]) => (
+          <button
+            key={v}
+            onClick={() => { setFlow(v as "" | "to_verify" | "ready" | "planned"); setStatus(""); setPage(1); }}
+            title={hint}
+            className={`flex h-10 items-center rounded-xl px-4 text-[12.5px] font-bold transition ${flow === v ? chip : "border border-gray-200 bg-white text-gray-600 hover:border-yellow-400"}`}
+          >
+            {label}
+          </button>
+        ))}
+        <span className="ml-auto text-[11px] text-gray-400">
+          {flow === "to_verify" && "The warehouse manager ticks what is in stock — verified orders move to section 2."}
+          {flow === "ready" && "Confirm the order, then Send Invoice / Updated List on WhatsApp."}
+          {flow === "planned" && "Refill material in Warehouse Stock → manager re-verifies → Confirm Planned Lines → WhatsApp the customer for the next trip."}
+          {flow === "" && "Working sub-sections on the left — the pipeline: verify → confirm → planned."}
+        </span>
+      </div>
 
       <div className="overflow-x-auto rounded-xl border bg-white">
         <table className="w-full text-xs">
@@ -620,6 +721,69 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
                         </div>
                       )}
 
+                      {/* ── PLANNED (Out of Stock) — next-trip pipeline for confirmed orders ──
+                          refill material → manager re-verifies → confirm planned lines → WhatsApp */}
+                      {o.status === "CONFIRMED" && stockFor === o.id && stock && stock.lines.some((l) => l.lineStatus === "NEXT_PLAN") && (
+                        <div className="mt-2 rounded-xl border-2 border-blue-300 bg-blue-50/60 p-3">
+                          <p className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-gray-900">
+                            <PackageOpen className="h-4 w-4 text-blue-600" />
+                            Planned — Out of Stock (next trip){stock.order.warehouseName ? ` — ${stock.order.warehouseName}` : ""}
+                            {stock.order.verifiedAt && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-700">✓ re-verified by {stock.order.verifiedBy || "manager"} {stock.order.verifiedAt ? istDateTime(stock.order.verifiedAt) : ""}</span>}
+                          </p>
+                          <p className="mt-0.5 text-[10px] text-gray-500">
+                            Owner flow: refill the material in Warehouse Stock → the manager re-verifies this order in their panel → tick and confirm the ready lines → WhatsApp the customer for the next trip. Or swap any line for an in-stock product — internally, the customer is not told.
+                          </p>
+                          <div className="mt-2 space-y-1">
+                            {stock.lines.filter((l) => l.lineStatus === "NEXT_PLAN").map((l) => {
+                              const on = plannedSel.has(l.id);
+                              return (
+                                <div key={l.id} className={`flex flex-wrap items-center gap-2 rounded-lg border bg-white p-2 text-[11px] ${on ? "border-emerald-300" : "border-blue-200"}`}>
+                                  <input
+                                    type="checkbox"
+                                    checked={on}
+                                    onChange={() => setPlannedSel((s) => { const n = new Set(s); if (n.has(l.id)) n.delete(l.id); else n.add(l.id); return n; })}
+                                    className="h-3.5 w-3.5 accent-blue-600"
+                                    title="Tick when the material is refilled and verified — this line ships on the next trip"
+                                  />
+                                  <span className="min-w-0 flex-1 truncate font-semibold">{l.name}</span>
+                                  <span className="shrink-0 text-[10px] text-gray-500">need {l.pieces} pcs · in godown {l.atWarehouse} · all {l.available}</span>
+                                  <span className="shrink-0 font-bold">{formatINR(l.total)}</span>
+                                  <span className="w-full truncate text-[10px] text-blue-700" title={l.plannedNote}>{l.plannedNote || "awaiting refill"}</span>
+                                  <button
+                                    onClick={() => { setSwapOpen({ lineId: l.id, name: l.name }); setSwapQ(""); }}
+                                    className="shrink-0 rounded border border-yellow-400 bg-yellow-50 px-2 py-1 text-[10px] font-bold text-yellow-800 hover:bg-yellow-100"
+                                    title="Swap this out-of-stock product for an in-stock one — internal, customer not notified"
+                                  >
+                                    ⇄ Swap Product
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <button
+                              onClick={() => { setPlannedSel(new Set(stock.lines.filter((l) => l.lineStatus === "NEXT_PLAN").map((l) => l.id))); confirmPlanned(o); }}
+                              disabled={busy}
+                              className="rounded-lg bg-blue-600 px-3.5 py-2 text-[11px] font-bold text-white hover:bg-blue-700 disabled:opacity-50"
+                              title="Ship every planned line now — stock decrements and the buyer credit is consumed"
+                            >
+                              <CheckCheck className="mr-1 inline h-3.5 w-3.5" /> Confirm All Planned Lines
+                            </button>
+                            {plannedSel.size > 0 && (
+                              <button onClick={() => confirmPlanned(o)} disabled={busy} className="rounded-lg border border-blue-500 bg-white px-3.5 py-2 text-[11px] font-bold text-blue-700 hover:bg-blue-50 disabled:opacity-50">
+                                Confirm {plannedSel.size} ticked line{plannedSel.size === 1 ? "" : "s"}
+                              </button>
+                            )}
+                            <button onClick={() => notifyManagerRefill(o)} className="rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-[11px] font-bold text-gray-700 hover:bg-gray-50" title="Log that the material is refilled — the manager re-verifies in their panel">
+                              <PackageCheck className="mr-1 inline h-3.5 w-3.5" /> Material Refilled — Send Plan to Manager
+                            </button>
+                            <button onClick={() => sendUpdated(o)} disabled={sendBusy} className="rounded-lg border border-emerald-500 bg-emerald-50 px-3.5 py-2 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50">
+                              <MessageCircle className="mr-1 inline h-3.5 w-3.5" /> WhatsApp Customer — Next Trip
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
                       {/* ── confirmed buyer credit line ── */}
                       {creditShown === o.id && (
                         <p className="mt-2 flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-[11px] font-bold text-blue-800">
@@ -665,7 +829,16 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
                                       ok === null ? <span className="text-gray-300">…</span> : ok ? (
                                         <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">IN STOCK · {sl?.available}</span>
                                       ) : (
-                                        <span className="rounded bg-red-100 px-1.5 py-0.5 text-[9px] font-semibold text-red-700">OOS · {sl?.available} left</span>
+                                        <span className="inline-flex items-center gap-1">
+                                          <span className="rounded bg-red-100 px-1.5 py-0.5 text-[9px] font-semibold text-red-700">OOS · {sl?.available} left</span>
+                                          <button
+                                            onClick={() => { setSwapOpen({ lineId: it.id, name: it.name }); setSwapQ(""); }}
+                                            className="rounded border border-yellow-400 bg-yellow-50 px-1.5 py-0.5 text-[9px] font-bold text-yellow-800 hover:bg-yellow-100"
+                                            title="Swap for an in-stock product — internal, customer not notified"
+                                          >
+                                            ⇄ Swap
+                                          </button>
+                                        </span>
                                       )
                                     ) : ext.lineStatus === "NEXT_PLAN" ? (
                                       <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-semibold text-blue-700">NEXT PLAN{ext.plannedNote ? <span title={ext.plannedNote} className="ml-1 cursor-help">ⓘ</span> : null}</span>
@@ -869,6 +1042,48 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
               <button onClick={savePlan} disabled={busy || planLines.size === 0} className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
                 {busy ? "Planning…" : `Plan ${planLines.size} line${planLines.size === 1 ? "" : "s"}`}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── Product Swap dialog — replace a line with an in-stock product (internal, no customer notification) ── */}
+      {swapOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSwapOpen(null)}>
+          <div className="max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <p className="flex items-center gap-2 text-sm font-semibold text-gray-900">⇄ Swap Product — {swapOpen.name}</p>
+            <p className="mt-1 text-[11px] text-gray-500">
+              Pick an in-stock product{stock?.order.warehouseName ? ` at ${stock.order.warehouseName}` : ""}. The replacement is priced at this buyer's own slab and the order totals recompute automatically. Nothing is sent to the customer — share it only via "Send Updated List" if you choose to.
+            </p>
+            <div className="relative mt-3">
+              <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+              <input
+                autoFocus
+                value={swapQ}
+                onChange={(e) => setSwapQ(e.target.value)}
+                placeholder="Search in-stock products by name / SKU…"
+                className="h-9 w-full rounded-lg border pl-8 text-xs outline-none focus:border-yellow-400"
+              />
+            </div>
+            <div className="mt-2 max-h-72 space-y-1.5 overflow-y-auto">
+              {swapHits.length === 0 && <p className="rounded-lg border border-dashed p-4 text-center text-xs text-gray-400">No matching in-stock products.</p>}
+              {swapHits.map((h) => (
+                <button
+                  key={h.id}
+                  onClick={() => swapProduct(h.id, h.name)}
+                  disabled={swapBusy}
+                  className="flex w-full items-center gap-2.5 rounded-lg border p-2 text-left text-xs transition hover:border-yellow-400 hover:bg-yellow-50 disabled:opacity-50"
+                >
+                  {h.image && <Image src={h.image} alt="" width={36} height={36} className="h-9 w-9 shrink-0 rounded object-cover" unoptimized />}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-semibold">{h.name}</span>
+                    <span className="block text-[10px] text-gray-400">{h.sku} · {h.stock} pcs in stock</span>
+                  </span>
+                  <span className="shrink-0 font-black text-yellow-600">{formatINR(h.dealerPrice)}</span>
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button onClick={() => setSwapOpen(null)} className="rounded-lg border px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50">Cancel</button>
             </div>
           </div>
         </div>

@@ -193,6 +193,8 @@ function StockLevels({ token, warehouses }: { token: string; warehouses: Wh[] })
   const call = api(token);
   const [wh, setWh] = useState("");
   const [q, setQ] = useState("");
+  // assortment tabs: "1" = allocated to this godown, "" = everything, "0" = not stocked here
+  const [level, setLevel] = useState<"1" | "" | "0">("1");
   const [rows, setRows] = useState<WRow[]>([]);
   const [edits, setEdits] = useState<Record<string, number>>({});
   const [page, setPage] = useState(1);
@@ -208,6 +210,7 @@ function StockLevels({ token, warehouses }: { token: string; warehouses: Wh[] })
     try {
       const params = new URLSearchParams({ warehouseId: wh, page: String(page) });
       if (q) params.set("q", q);
+      if (level) params.set("level", level);
       const d = await call(`/api/admin/warehouse-stock?${params}`);
       setRows(d.rows ?? []);
       setPages(d.pages ?? 1);
@@ -217,7 +220,7 @@ function StockLevels({ token, warehouses }: { token: string; warehouses: Wh[] })
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to load warehouse stock");
     } finally { setLoading(false); }
-  }, [token, wh, q, page]);
+  }, [token, wh, q, page, level]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
@@ -254,7 +257,7 @@ function StockLevels({ token, warehouses }: { token: string; warehouses: Wh[] })
   return (
     <div>
       <ModuleHeader title="Warehouse Stock" sub={`${warehouses.length} warehouses · ${wh ? `${total} products · ${whTotal} units allocated in this warehouse` : "select a warehouse"}`}>
-        <select value={wh} onChange={(e) => { setWh(e.target.value); setPage(1); }} className="h-9 rounded-lg border px-2 text-xs font-semibold">
+        <select value={wh} onChange={(e) => { setWh(e.target.value); setPage(1); }} className="h-9 max-w-[190px] rounded-lg border px-2 text-xs font-semibold">
           <option value="">Select warehouse…</option>
           {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}{w.isDefault ? " (default)" : ""}</option>)}
         </select>
@@ -276,6 +279,26 @@ function StockLevels({ token, warehouses }: { token: string; warehouses: Wh[] })
           <WarehouseIcon className="mx-auto h-10 w-10 text-gray-300" />
           <p className="mt-2 text-sm font-bold text-gray-700">No warehouses yet</p>
           <p className="text-xs text-gray-400">Create your first warehouse in Website &amp; System → Warehouses, then come back here.</p>
+        </div>
+      )}
+
+      {wh && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-gray-100 bg-white p-2.5">
+          <span className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Showing:</span>
+          {([
+            ["1", "Stocked in this godown", "bg-emerald-600 text-white"],
+            ["", "All products", "bg-black text-yellow-400"],
+            ["0", "Not stocked here", "bg-red-500 text-white"],
+          ] as const).map(([v, label, chip]) => (
+            <button
+              key={v}
+              onClick={() => { setLevel(v as "1" | "" | "0"); setPage(1); }}
+              className={`flex h-9 items-center rounded-xl px-3.5 text-[12px] font-bold transition ${level === v ? chip : "border border-gray-200 bg-white text-gray-600 hover:border-yellow-400"}`}
+            >
+              {label}
+            </button>
+          ))}
+          <span className="ml-auto text-[11px] text-gray-400">Pick a warehouse — the list shows that godown's own products. Qty cells are editable.</span>
         </div>
       )}
 

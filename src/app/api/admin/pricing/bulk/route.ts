@@ -11,7 +11,7 @@ import { requireAdmin, jsonError } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
-const FIELDS = ["mrp", "dealerPrice", "tier1", "tier2", "tier3", "tier4", "tier5", "dealPrice"] as const;
+const FIELDS = ["mrp", "dealerPrice", "tier1", "tier2", "tier3", "tier4", "tier5", "dealPrice", "deliveryRate", "packPrice", "basePrice"] as const;
 type Field = (typeof FIELDS)[number];
 
 export async function POST(req: NextRequest) {

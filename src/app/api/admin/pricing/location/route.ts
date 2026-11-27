@@ -7,12 +7,12 @@
  *   warehouseId?: string,                  — optional scope: only products stocked at this godown
  *   target: "company" | "category" | "products" | "all",
  *   companies?: string[], topId?, midId?, endId?, ids?: string[],
- *   ops: [{ field: "dealerPrice" | "mrp", mode: "set" | "percent" | "amount", value: number }],
+ *   ops: [{ field: "dealerPrice" | "mrp" | "deliveryRate", mode: "set" | "percent" | "amount", value: number }],
  *   clear?: boolean,                       — remove overrides for the given cities instead of setting
  *   preview?: boolean
  * }
  *
- * Store: Product.locationPrices JSON — { "<city>": { dealerPrice?, mrp? } }.
+ * Store: Product.locationPrices JSON — { "<city>": { dealerPrice?, mrp?, deliveryRate? } }.
  * Resolution: lib/pricing.ts piecePriceOf() → a buyer whose Customer.city matches
  * sees the override; everyone else keeps the base slab prices untouched.
  */
@@ -23,7 +23,7 @@ import { requireAdmin, jsonError } from "@/lib/admin-auth";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const FIELDS = ["dealerPrice", "mrp"] as const;
+const FIELDS = ["dealerPrice", "mrp", "deliveryRate"] as const;
 type Field = (typeof FIELDS)[number];
 
 export async function POST(req: NextRequest) {
@@ -74,19 +74,24 @@ export async function POST(req: NextRequest) {
 
     const products = await db.product.findMany({
       where,
-      select: { id: true, sku: true, name: true, dealerPrice: true, mrp: true, locationPrices: true },
+      select: { id: true, sku: true, name: true, dealerPrice: true, mrp: true, deliveryRate: true, locationPrices: true },
       take: 3000,
     });
     if (!products.length) return NextResponse.json({ ok: true, changed: 0, products: 0, cities });
 
-    const changes: { sku: string; name: string; cityCount: number; dealerPrice?: number; mrp?: number }[] = [];
+    const changes: { sku: string; name: string; cityCount: number; dealerPrice?: number; mrp?: number; deliveryRate?: number }[] = [];
 
     if (body.preview) {
       for (const p of products.slice(0, 8)) {
         const first = body.ops?.[0];
-        const base = first?.field === "mrp" ? p.mrp : p.dealerPrice;
+        const base = first?.field === "mrp" ? p.mrp : first?.field === "deliveryRate" ? p.deliveryRate : p.dealerPrice;
         const val = first ? (first.mode === "set" ? first.value : first.mode === "percent" ? base * (1 + first.value / 100) : base + first.value) : base;
-        changes.push({ sku: p.sku, name: p.name, cityCount: cities.length, dealerPrice: first?.field === "dealerPrice" ? Math.round(val * 100) / 100 : undefined, mrp: first?.field === "mrp" ? Math.round(val * 100) / 100 : undefined });
+        changes.push({
+          sku: p.sku, name: p.name, cityCount: cities.length,
+          dealerPrice: first?.field === "dealerPrice" ? Math.round(val * 100) / 100 : undefined,
+          mrp: first?.field === "mrp" ? Math.round(val * 100) / 100 : undefined,
+          deliveryRate: first?.field === "deliveryRate" ? Math.round(val * 100) / 100 : undefined,
+        });
       }
       return NextResponse.json({ ok: true, preview: true, products: products.length, cities, sample: changes });
     }
@@ -97,7 +102,7 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < products.length; i += 250) {
       const batch = products.slice(i, i + 250);
       await Promise.all(batch.map(async (p) => {
-        let map: Record<string, { dealerPrice?: number; mrp?: number }> = {};
+        let map: Record<string, { dealerPrice?: number; mrp?: number; deliveryRate?: number }> = {};
         try { map = JSON.parse(p.locationPrices || "{}") as typeof map; } catch { map = {}; }
         map = map && typeof map === "object" ? map : {};
         for (const city of cities) {
@@ -107,10 +112,12 @@ export async function POST(req: NextRequest) {
           }
           const cur = { ...(map[city] ?? {}) };
           for (const op of body.ops!) {
-            const base = op.field === "mrp" ? p.mrp : p.dealerPrice;
+            const base = op.field === "mrp" ? p.mrp : op.field === "deliveryRate" ? p.deliveryRate : p.dealerPrice;
             const v = op.mode === "set" ? op.value : op.mode === "percent" ? base * (1 + op.value / 100) : base + op.value;
             const rounded = Math.round(v * 100) / 100;
-            if (op.field === "mrp") cur.mrp = rounded; else cur.dealerPrice = rounded;
+            if (op.field === "mrp") cur.mrp = rounded;
+            else if (op.field === "deliveryRate") cur.deliveryRate = rounded;
+            else cur.dealerPrice = rounded;
           }
           map[city] = cur;
         }

@@ -31,6 +31,19 @@ const SECTION_ICONS: Record<string, string> = {
   financial: "💰", reports: "📑", customers: "🤝", approvals: "✅",
 };
 
+/** one-line description under each section — managers are non-tech, the label alone
+ *  is not enough (owner request: clear, easy-to-understand manager panel) */
+const SECTION_HINTS: Record<string, string> = {
+  dashboard: "Today's numbers at a glance",
+  orders: "Verify stock → admin confirms",
+  warehouseStock: "Your godown's quantities",
+  products: "Catalog & prices (read-mostly)",
+  financial: "Payments & dues",
+  reports: "Export order & sales reports",
+  customers: "Shops & buyers",
+  approvals: "Approve new buyer signups",
+};
+
 export function WarehousePanel() {
   const [token, setToken] = useState<string | null>(null);
   const [profile, setProfile] = useState<ManagerProfile | null>(null);
@@ -169,10 +182,13 @@ export function WarehousePanel() {
               <button
                 key={s.id}
                 onClick={() => { setActive(s.id); setSidebarOpen(false); }}
-                className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-semibold transition ${active === s.id ? "bg-yellow-400 text-black" : "text-gray-400 hover:bg-gray-900 hover:text-white"}`}
+                className={`flex w-full items-start gap-2.5 rounded-xl px-3 py-2.5 text-left transition ${active === s.id ? "bg-yellow-400 text-black" : "text-gray-400 hover:bg-gray-900 hover:text-white"}`}
               >
-                <span aria-hidden>{SECTION_ICONS[s.id] ?? "•"}</span>
-                {s.label}
+                <span aria-hidden className="mt-0.5">{SECTION_ICONS[s.id] ?? "•"}</span>
+                <span className="min-w-0">
+                  <span className="block text-[13px] font-bold leading-tight">{s.label}</span>
+                  <span className={`block text-[10px] leading-tight ${active === s.id ? "text-black/60" : "text-gray-500"}`}>{SECTION_HINTS[s.id] ?? ""}</span>
+                </span>
               </button>
             ))}
             {sections.length === 0 && (

@@ -38,6 +38,10 @@ type CustomerRow = {
   lat?: number | null; lng?: number | null;
 };
 
+/* counter/POS scale — salespeople work on phones in shops: big touch targets, large text */
+const POS_INPUT = "h-12 w-full rounded-xl border-2 border-gray-200 px-3.5 text-[15px] font-medium outline-none focus:border-yellow-500 focus:border-[3px]";
+const POS_BTN = "flex items-center justify-center gap-2 rounded-xl bg-black text-[15px] font-black text-yellow-400 transition hover:bg-gray-800 active:scale-[0.98]";
+
 const emptyCustomer = {
   customerName: "", phone: "", shopName: "", gstin: "", addressLine: "", city: "", pincode: "", customerType: "RETAILER",
 };
@@ -100,7 +104,7 @@ export function SalesteamPanel() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Username or mobile"
-              className="h-11 w-full rounded-xl border border-gray-800 bg-gray-900 px-3.5 text-sm text-white outline-none placeholder:text-gray-600 focus:border-yellow-400"
+              className="h-13 w-full rounded-xl border-2 border-gray-800 bg-gray-900 px-4 text-[16px] text-white outline-none placeholder:text-gray-600 focus:border-yellow-400"
               required
             />
             <input
@@ -108,13 +112,13 @@ export function SalesteamPanel() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Password"
-              className="h-11 w-full rounded-xl border border-gray-800 bg-gray-900 px-3.5 text-sm text-white outline-none placeholder:text-gray-600 focus:border-yellow-400"
+              className="h-13 w-full rounded-xl border-2 border-gray-800 bg-gray-900 px-4 text-[16px] text-white outline-none placeholder:text-gray-600 focus:border-yellow-400"
               required
             />
             <button
               type="submit"
               disabled={signing}
-              className="h-11 w-full rounded-lg bg-yellow-400 text-sm font-semibold text-black transition-colors hover:bg-yellow-300 disabled:opacity-60"
+              className="h-13 w-full rounded-xl bg-yellow-400 text-[16px] font-black text-black transition-colors hover:bg-yellow-300 disabled:opacity-60"
             >
               {signing ? "Signing in…" : "Sign In"}
             </button>
@@ -154,21 +158,24 @@ export function SalesteamPanel() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-4xl p-4">
-        <div className="mb-4 flex gap-1.5 overflow-x-auto">
+      <div className="mx-auto max-w-4xl p-3 pb-24 md:p-4">
+        {/* counter/POS tabs — big touch targets for phones in the shop */}
+        <div className="mb-4 grid grid-cols-3 gap-2">
           {([
-            { id: "new", label: "New Order", icon: ClipboardList },
-            { id: "orders", label: "My Orders", icon: BookOpen },
-            { id: "customers", label: "My Customers", icon: Users },
-          ] as const).map(({ id, label, icon: Icon }) => (
+            { id: "new", label: "New Order", icon: ClipboardList, hint: "Book a shop's order" },
+            { id: "orders", label: "My Orders", icon: BookOpen, hint: "Order book" },
+            { id: "customers", label: "My Customers", icon: Users, hint: "Shops on my beat" },
+          ] as const).map(({ id, label, icon: Icon, hint }) => (
             <button
               key={id}
               onClick={() => setTab(id)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition ${
-                tab === id ? "bg-black text-yellow-400" : "border bg-white text-gray-600 hover:border-yellow-400"
+              className={`flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-2xl border-2 px-2 py-2.5 text-center transition active:scale-[0.98] ${
+                tab === id ? "border-black bg-black text-yellow-400 shadow-md" : "border-gray-200 bg-white text-gray-600 hover:border-yellow-400"
               }`}
             >
-              <Icon className="h-3.5 w-3.5" /> {label}
+              <Icon className="h-5 w-5" />
+              <span className="text-[13px] font-black leading-none">{label}</span>
+              <span className={`text-[9px] leading-none ${tab === id ? "text-yellow-400/70" : "text-gray-400"}`}>{hint}</span>
             </button>
           ))}
         </div>
@@ -279,7 +286,7 @@ function NewOrder({ token, whId }: { token: string; whId: string }) {
     }
   };
 
-  const input = "h-10 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-yellow-400";
+  const input = POS_INPUT;
 
   if (placed) {
     return (
@@ -365,26 +372,26 @@ function NewOrder({ token, whId }: { token: string; whId: string }) {
       <div className="rounded-2xl border bg-white p-4">
         <p className="mb-2 text-[12px] font-medium text-gray-600">Products required by the shop</p>
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search products by name / SKU…" className="h-10 w-full rounded-lg border border-gray-200 pl-8 pr-3 text-sm outline-none focus:border-yellow-400" />
+          <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search products by name / SKU…" className="h-12 w-full rounded-xl border-2 border-gray-200 pl-10 pr-3 text-[15px] font-medium outline-none focus:border-yellow-500" />
           {searching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-gray-400" />}
         </div>
         {hits.length > 0 && (
-          <div className="mt-2 max-h-96 overflow-y-auto rounded-lg border border-gray-200 p-2">
+          <div className="mt-2 max-h-96 overflow-y-auto rounded-xl border border-gray-200 p-2">
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {hits.map((p) => (
-                <button key={p.id} onClick={() => addProduct(p)} className="flex items-center gap-3 rounded-xl border border-gray-200 p-2.5 text-left transition hover:border-yellow-400 hover:bg-yellow-50">
+                <button key={p.id} onClick={() => addProduct(p)} className="flex items-center gap-3 rounded-xl border-2 border-gray-200 p-2.5 text-left transition hover:border-yellow-500 hover:bg-yellow-50 active:scale-[0.98]">
                   {p.image ? (
-                    <Image src={p.image} alt={p.name} width={112} height={112} className="h-28 w-28 shrink-0 rounded-lg bg-gray-50 object-cover" unoptimized />
+                    <Image src={p.image} alt={p.name} width={112} height={112} className="h-20 w-20 shrink-0 rounded-lg bg-gray-50 object-cover" unoptimized />
                   ) : (
-                    <span className="flex h-28 w-28 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-[9px] font-bold text-gray-400">NO IMG</span>
+                    <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-[9px] font-bold text-gray-400">NO IMG</span>
                   )}
                   <span className="min-w-0 flex-1">
-                    <span className="line-clamp-2 block text-[12.5px] font-bold leading-tight text-gray-900">{p.name}</span>
-                    <span className="mt-0.5 block truncate text-[10px] text-gray-400">{p.sku}{p.unit ? ` · ${p.unit}` : ""}</span>
+                    <span className="line-clamp-2 block text-[14px] font-bold leading-tight text-gray-900">{p.name}</span>
+                    <span className="mt-0.5 block truncate text-[11px] text-gray-400">{p.sku}{p.unit ? ` · ${p.unit}` : ""}</span>
                     <span className="mt-1.5 flex items-center justify-between">
-                      <span className="text-[13px] font-black text-yellow-600">₹{p.dealerPrice ?? "—"}</span>
-                      <span className="flex items-center gap-1 rounded-md bg-black px-2 py-1 text-[10px] font-bold text-yellow-400"><Plus className="h-3 w-3" /> ADD</span>
+                      <span className="text-[15px] font-black text-yellow-600">₹{p.dealerPrice ?? "—"}</span>
+                      <span className="flex items-center gap-1 rounded-lg bg-black px-3 py-1.5 text-[12px] font-black text-yellow-400"><Plus className="h-4 w-4" /> ADD</span>
                     </span>
                   </span>
                 </button>
@@ -413,11 +420,11 @@ function NewOrder({ token, whId }: { token: string; whId: string }) {
                   min={1}
                   value={l.qty}
                   onChange={(e) => setLines((ls) => ls.map((x) => (x.productId === l.productId ? { ...x, qty: Math.max(1, Number(e.target.value) || 1) } : x)))}
-                  className="h-8 w-16 rounded-lg border border-gray-200 text-center text-xs font-semibold outline-none focus:border-yellow-400"
+                  className="h-11 w-20 rounded-xl border-2 border-gray-200 text-center text-[15px] font-black outline-none focus:border-yellow-500"
                   aria-label={`Quantity for ${l.name}`}
                 />
-                <button onClick={() => setLines((ls) => ls.filter((x) => x.productId !== l.productId))} className="rounded-md bg-red-50 p-1.5 text-red-600 hover:bg-red-100" aria-label="Remove line">
-                  <Trash2 className="h-3.5 w-3.5" />
+                <button onClick={() => setLines((ls) => ls.filter((x) => x.productId !== l.productId))} className="rounded-lg bg-red-50 p-2.5 text-red-600 hover:bg-red-100" aria-label="Remove line">
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             ))
@@ -425,18 +432,18 @@ function NewOrder({ token, whId }: { token: string; whId: string }) {
         </div>
       </div>
 
-      {/* verify + confirm */}
-      <div className="sticky bottom-3 rounded-2xl border bg-white p-4 shadow-lg">
-        <div className="flex items-center justify-between text-sm">
-          <span className="font-semibold text-gray-900">{lines.length} line{lines.length !== 1 ? "s" : ""}</span>
-          <span className="font-semibold tabular-nums text-gray-900">≈ {formatINR(itemTotal)} <span className="text-[10px] font-semibold text-gray-400">(slab & delivery apply on invoice)</span></span>
+      {/* verify + confirm — sticky counter bar, thumb-friendly */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-yellow-400 bg-white p-3 shadow-[0_-6px_20px_rgba(0,0,0,0.12)] md:left-auto md:right-4 md:mx-auto md:max-w-4xl md:rounded-2xl md:border-2">
+        <div className="mx-auto flex max-w-4xl items-center justify-between text-[15px]">
+          <span className="font-black text-gray-900">{lines.length} line{lines.length !== 1 ? "s" : ""}</span>
+          <span className="font-black tabular-nums text-gray-900">≈ {formatINR(itemTotal)} <span className="text-[10px] font-semibold text-gray-400">(slab &amp; delivery apply on invoice)</span></span>
         </div>
         <button
           onClick={placeOrder}
           disabled={busy}
-          className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-lg bg-black py-3 text-sm font-semibold text-yellow-400 hover:bg-gray-800 disabled:opacity-60"
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-black py-4 text-[16px] font-black text-yellow-400 transition hover:bg-gray-800 active:scale-[0.99] disabled:opacity-60"
         >
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardList className="h-4 w-4" />}
+          {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <ClipboardList className="h-5 w-5" />}
           Verify Order List &amp; Confirm Order
         </button>
       </div>
@@ -548,7 +555,7 @@ function MyCustomers({ token }: { token: string }) {
     }
   };
 
-  const input = "h-10 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-yellow-400";
+  const input = POS_INPUT;
 
   return (
     <div>

@@ -45,19 +45,21 @@ const inr = (n: number) =>
   "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 
 /**
- * Task 15 — the DMK Mart product label, print-grade structure:
- *   ┌────────────────────────┐
- *   │      [ BARCODE ]       │  ← barcode at the TOP
- *   │   DMK0017-SP1          │  ← machine code, small mono
- *   │  Product Name Here     │  ← product name, larger & well-fonted
- *   │  MRP ₹199 · Sale ₹149  │  ← MRP + selling price, small
- *   │  DMK Mart · 98765 43210│  ← firm name + phone, tiny, bottom center
- *   └────────────────────────┘
+ * The DMK Mart product label — OWNER SPEC, identical layout on every printer size,
+ * everything centered:
+ *   ┌───────────────────────┬───┐
+ *   │       DMK Mart        │ S │
+ *   │     [ BARCODE ]       │ R │  ← SR + SKU printed SIDEWAYS in the right strip
+ *   │  ₹499   ₹599 (strike) │ · │  ← selling price BIG · MRP smaller, struck
+ *   │  DMK Mart · +91 93…   │ 1 │  ← brand + phone at the bottom
+ *   └───────────────────────┴───┘
  * Used by the Barcode Studio preview AND the order barcode print sheet.
  */
 export function BarcodeLabel({
   value,
   name,
+  sku,
+  serialNo,
   mrp,
   price,
   firmName = "DMK Mart",
@@ -68,6 +70,8 @@ export function BarcodeLabel({
 }: {
   value: string;
   name: string;
+  sku?: string; // printed sideways with the serial number
+  serialNo?: number; // per-order SR — printed sideways
   mrp: number;
   price: number;
   firmName?: string;
@@ -76,26 +80,33 @@ export function BarcodeLabel({
   height?: number;
   moduleWidth?: number;
 }) {
+  const firm = "DMK Mart"; // owner rule: labels always carry the DMK Mart brand
+  const strip = [serialNo ? `SR ${String(serialNo).padStart(3, "0")}` : "", sku || ""].filter(Boolean).join(" · ");
   return (
-    <div className="flex flex-col items-center justify-between gap-0.5 rounded-md border border-gray-300 bg-white px-1.5 py-1.5 text-center leading-tight">
-      {/* barcode at the top */}
-      <div className="flex w-full justify-center overflow-hidden">
-        <Code39Svg value={value} height={height} moduleWidth={moduleWidth} showText />
+    <div className="flex overflow-hidden rounded-md border border-gray-300 bg-white leading-tight">
+      <div className="flex min-w-0 flex-1 flex-col items-center justify-between gap-0.5 px-1.5 py-1.5 text-center">
+        <p className="text-[12px] font-black uppercase tracking-wide">{firm}</p>
+        <div className="flex w-full justify-center overflow-hidden">
+          <Code39Svg value={value} height={height} moduleWidth={moduleWidth} showText />
+        </div>
+        <p className="flex items-baseline justify-center gap-1.5 leading-none">
+          <span className="text-[15px] font-black text-gray-900">{inr(price)}</span>
+          {mrp > price && <span className="text-[10px] font-medium text-gray-500 line-through">{inr(mrp)}</span>}
+          {qtyLabel ? <span className="text-[9px] font-bold text-yellow-700">{qtyLabel}</span> : null}
+        </p>
+        <p className="w-full border-t border-dashed border-gray-300 pt-0.5 text-[8px] font-semibold uppercase tracking-wide text-gray-600">
+          {firm}{firmPhone ? ` · ${firmPhone}` : ""}
+        </p>
       </div>
-      {/* product name — larger, well-fonted */}
-      <p className="line-clamp-2 min-h-[26px] w-full px-0.5 text-[11px] font-bold leading-snug text-gray-900">
-        {name}
-      </p>
-      {/* MRP + selling price — small */}
-      <p className="w-full text-[9px] font-semibold text-gray-700">
-        MRP {inr(mrp)} <span className="mx-0.5 text-gray-400">·</span>{" "}
-        <span className="font-black text-gray-900">Sale {inr(price)}</span>
-        {qtyLabel ? <span className="ml-1 font-bold text-yellow-700">{qtyLabel}</span> : null}
-      </p>
-      {/* firm identity — tiny, bottom center */}
-      <p className="w-full border-t border-dashed border-gray-300 pt-0.5 text-[7.5px] font-medium uppercase tracking-wide text-gray-500">
-        {firmName}{firmPhone ? ` · ${firmPhone}` : ""}
-      </p>
+      {strip && (
+        <div className="flex w-[22px] shrink-0 items-center justify-center border-l border-dashed border-gray-400">
+          <span className="whitespace-nowrap font-mono text-[8px] font-bold leading-none text-gray-700" style={{ writingMode: "vertical-rl" }}>
+            {strip}
+          </span>
+        </div>
+      )}
+      {/* name kept for accessibility/tooltip only — the owner's label spec is brand+code+price+phone */}
+      <span className="hidden">{name}</span>
     </div>
   );
 }

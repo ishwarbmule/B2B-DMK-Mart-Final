@@ -2,17 +2,21 @@
  * /admin/orders/[id]/barcodes?token=...&size=a4|50x25|50x38|40x30|30x20&xd=0.25|0.375|0.5 —
  * printable barcode labels for a confirmed order, in STANDARD barcode-printer
  * formats:
- *  - a4   → A4 sticker sheet, 3-column grid (screen preview + full header)
+ *  - a4   → A4 sticker sheet, 3-column grid (order header + per-line labels)
  *  - 50x25 / 50x38 / 40x30 / 30x20 → THERMAL LABEL SIZES (one label per page,
  *    exact mm page size, zero margins) — prints edge-to-edge on a desktop
  *    barcode/label printer (50×25 mm is the standard one-hand label).
  *  - xd   → X-DIMENSION (narrow bar width) in mm: 0.25mm = 300dpi printers,
  *    0.375mm = 203dpi desktop printers (3 printer dots), 0.5mm = coarse/handheld
- *    scans. The SVG is rendered 1:1 in REAL millimetres — no browser scaling —
- *    with a ≥10× quiet zone and the Code39 3:1 wide:narrow ratio, so scanners
- *    latch onto the symbol on paper exactly like a pre-printed roll label.
- * Each label: order serial no (SR, embedded in the scannable code) · product
- * name · qty · MRP/sale (roomy sizes) · Code39 barcode DMK<SR><invoice digits>.
+ *    scans. The SVG is drawn 1:1 in REAL millimetres (no browser scaling) and
+ *    auto-shrinks its X-dimension to fit narrow labels while staying crisp.
+ *
+ * OWNER'S LABEL SPEC — identical layout on every printer size, all centered:
+ *   1. "DMK Mart"                       (brand at top)
+ *   2. the barcode
+ *   3. SKU + order serial no (SR)       (printed SIDEWAYS in a right-edge strip)
+ *   4. selling price (big) beside MRP   (smaller, strikethrough)
+ *   5. "DMK Mart" phone number          (bottom)
  * Browser print → PDF or straight to the label roll.
  */
 import { notFound } from "next/navigation";
@@ -20,7 +24,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { verifyToken } from "@/lib/admin-auth";
 import { PrintButton } from "@/components/admin/print-button";
-import { istDate, istDateTime } from "@/lib/ist";
+import { istDateTime } from "@/lib/ist";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +51,14 @@ function inr(n: number) {
   return "₹" + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 }
 
+/** per-size type scale so the SAME layout works from 30×20 micro to 50×38 roomy */
+const THERMAL_STYLE: Record<Exclude<LabelSize, "a4">, { brand: number; bar: number; sale: number; mrp: number; phone: number; strip: number }> = {
+  "50x25": { brand: 2.7, bar: 8, sale: 3.2, mrp: 2.1, phone: 1.9, strip: 1.7 },
+  "50x38": { brand: 3.3, bar: 12, sale: 4.2, mrp: 2.6, phone: 2.3, strip: 1.9 },
+  "40x30": { brand: 2.8, bar: 10, sale: 3.6, mrp: 2.3, phone: 2.0, strip: 1.8 },
+  "30x20": { brand: 2.3, bar: 6, sale: 2.7, mrp: 1.8, phone: 1.6, strip: 1.5 },
+};
+
 export default async function BarcodeSheetPage({
   params,
   searchParams,
@@ -64,22 +76,31 @@ export default async function BarcodeSheetPage({
   const order = await db.order.findUnique({ where: { id }, include: { items: { orderBy: { serialNo: "asc" } } } });
   if (!order) notFound();
 
-  const [firmName, firmPhone] = await Promise.all([
-    db.setting.findUnique({ where: { key: "firm_name" } }),
-    db.setting.findUnique({ where: { key: "firm_phone" } }),
-  ]);
-  const brand = firmName?.value || "DMK Mart";
-  const phone = firmPhone?.value || "+91 93095 75173";
+  const firmPhoneSetting = await db.setting.findUnique({ where: { key: "firm_phone" } });
+  // OWNER RULE: barcode labels always carry the DMK Mart brand + DMK Mart phone
+  // (never any ERP firm name)
+  const brand = "DMK Mart";
+  const phone = firmPhoneSetting?.value || "+91 93095 75173";
   const invoiceDigits = order.invoiceNo.replace(/[^0-9A-Z]/g, "").slice(-8);
+
+  // MRP for the strikethrough price — snapshotted from the product catalog
+  const productIds = [...new Set(order.items.map((it) => it.productId))];
+  const mrpRows = await db.product.findMany({ where: { id: { in: productIds } }, select: { id: true, mrp: true } });
+  const mrpById = new Map(mrpRows.map((p) => [p.id, p.mrp]));
 
   const thermal = size !== "a4";
   const dim = thermal ? SIZES[size as Exclude<LabelSize, "a4">] : null;
+  const ts = thermal ? THERMAL_STYLE[size as Exclude<LabelSize, "a4">] : null;
 
   const labels = order.items.map((it, i) => {
     const sr = it.serialNo || i + 1;
     const code = `DMK${String(sr).padStart(3, "0")}${invoiceDigits}`;
-    return { it, sr, code };
+    return { it, sr, code, mrp: mrpById.get(it.productId) ?? 0 };
   });
+
+  /** width available for the barcode inside a thermal label (mm):
+   *  label − padding − right sideways strip − small gaps */
+  const barFitMm = thermal ? dim!.w - 2 * 1.2 - 6.2 - 1.2 : 60;
 
   return (
     <div className={thermal ? "bg-white" : "mx-auto max-w-[900px] bg-white p-5 print:p-0"}>
@@ -105,7 +126,7 @@ export default async function BarcodeSheetPage({
       <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-3">
         <div>
           <p className="text-xs font-bold text-gray-700">Barcode labels · {order.invoiceNo} · {order.items.length} labels · format <b>{size === "a4" ? "A4 sheet" : `${dim!.w}×${dim!.h} mm thermal`}</b></p>
-          <p className="text-[10px] text-gray-400">Thermal sizes print ONE label per page at exact mm — load the matching roll in your barcode printer. A4 = sticker sheet.</p>
+          <p className="text-[10px] text-gray-400">Every label: DMK Mart → barcode → SKU + SR (sideways) → selling price + MRP → DMK Mart phone. Same layout on all sizes, centered.</p>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           {TOKEN_SIZES.map((s) => (
@@ -137,72 +158,70 @@ export default async function BarcodeSheetPage({
       </div>
 
       {thermal ? (
-        /* ── thermal labels — one per page, exact mm, edge-to-edge ── */
+        /* ── thermal labels — one per page, exact mm, edge-to-edge, all centered ── */
         <div>
-          {labels.map(({ it, sr, code }) => (
-            <div key={it.id} className="bc-label relative mx-auto flex flex-col justify-between overflow-hidden border border-dashed border-gray-300 print:border-0 print:border-none"
-              style={{ width: `${dim!.w}mm`, height: `${dim!.h}mm`, padding: "1.2mm" }}>
-              <div className="flex items-center justify-between" style={{ gap: "1mm" }}>
-                <p className="font-black leading-tight" style={{ fontSize: dim!.w >= 50 ? "2.4mm" : "2.1mm", maxWidth: `${dim!.w - 14}mm` }}>
-                  {it.name.length > 34 ? `${it.name.slice(0, 33)}…` : it.name}
-                </p>
-                <span className="shrink-0 rounded-sm bg-black font-black text-yellow-400" style={{ fontSize: "2mm", padding: "0.4mm 1mm" }}>
-                  {String(sr).padStart(3, "0")}
-                </span>
-              </div>
-              <div className="text-center" style={{ marginTop: "0.5mm" }}>
-                {/* exact-mm Code39 — X-dimension selectable, 1:1 on paper, ≥10× quiet zone */}
-                <div className="flex justify-center">
-                  <OrderBarcode value={code} xd={xd} barHeightMm={dim!.h >= 30 ? 10 : dim!.h >= 25 ? 8 : 6} compact />
+          {labels.map(({ it, sr, code, mrp }) => (
+            <div key={it.id} className="bc-label relative mx-auto flex overflow-hidden border border-dashed border-gray-300 print:border-0 print:border-none"
+              style={{ width: `${dim!.w}mm`, height: `${dim!.h}mm`, padding: "1.2mm", gap: "0.8mm" }}>
+              {/* main centered column: brand → barcode → price+MRP → phone */}
+              <div className="flex min-w-0 flex-1 flex-col items-center justify-between text-center">
+                <p className="font-black uppercase leading-none tracking-wide" style={{ fontSize: `${ts!.brand}mm` }}>{brand}</p>
+                <div className="flex justify-center" style={{ marginTop: "0.4mm" }}>
+                  <OrderBarcode value={code} xd={xd} barHeightMm={ts!.bar} compact fitMm={barFitMm} />
                 </div>
-                <p className="font-mono font-bold leading-none" style={{ fontSize: "1.9mm", marginTop: "0.4mm" }}>{code}</p>
-              </div>
-              <div className="flex items-center justify-between" style={{ marginTop: "0.5mm" }}>
-                <p className="font-semibold" style={{ fontSize: "1.9mm" }}>
-                  {it.unitType === "SINGLE" ? "Pcs" : `Pack ${it.packQty}`} · Qty {it.qty}
+                {/* selling price big · MRP smaller with strikethrough */}
+                <p className="flex items-baseline justify-center gap-1 leading-none" style={{ marginTop: "0.4mm" }}>
+                  <span className="font-black" style={{ fontSize: `${ts!.sale}mm` }}>{inr(it.unitPrice)}</span>
+                  {mrp > it.unitPrice && (
+                    <span className="font-medium text-gray-500 line-through" style={{ fontSize: `${ts!.mrp}mm` }}>{inr(mrp)}</span>
+                  )}
                 </p>
-                {dim!.h >= 25 && (
-                  <p className="font-bold" style={{ fontSize: "2mm" }}>MRP {inr(it.unitPrice)}</p>
-                )}
+                <p className="font-semibold leading-none" style={{ fontSize: `${ts!.phone}mm`, marginTop: "0.4mm" }}>{brand} {phone}</p>
+              </div>
+              {/* sideways strip: SKU + order serial number (SR) — reads top→bottom */}
+              <div className="flex shrink-0 items-center justify-center border-l border-dashed border-gray-400 print:border-gray-400" style={{ width: "5.4mm" }}>
+                <span
+                  className="whitespace-nowrap font-mono font-bold leading-none text-gray-800"
+                  style={{ writingMode: "vertical-rl", fontSize: `${ts!.strip}mm` }}
+                >
+                  SR {String(sr).padStart(3, "0")} · {it.sku}
+                </span>
               </div>
             </div>
           ))}
         </div>
       ) : (
-        /* ── A4 sticker sheet ── */
+        /* ── A4 sticker sheet — order header + per-line labels in the SAME layout ── */
         <>
           {/* order header label */}
           <div className="mb-4 rounded-xl border-2 border-black p-4 text-center">
-            <p className="text-lg font-black">{brand} · {phone}</p>
-            <p className="text-[11px] text-gray-600">ORDER {order.invoiceNo} · {order.customerName} · {order.phone} · {istDate(order.createdAt)}</p>
+            <p className="text-lg font-black uppercase">{brand} · {phone}</p>
+            <p className="text-[11px] text-gray-600">ORDER {order.invoiceNo} · {order.customerName} · {order.phone} · {order.items.length} labels</p>
             <div className="mt-2 flex justify-center"><OrderBarcode value={`DMK${invoiceDigits}`} xd={xd} barHeightMm={12} /></div>
-            <p className="mt-1 font-mono text-[10px] font-bold">DMK{invoiceDigits}</p>
           </div>
 
-          {/* per-line barcode cards — barcode TOP → name → qty/prices → firm footer */}
+          {/* per-line labels — identical layout to the thermal rolls, centered */}
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 print:grid-cols-3 print:gap-2">
-            {labels.map(({ it, sr, code }) => (
-              <div key={it.id} className={`bc-card relative flex flex-col items-center justify-between gap-1 rounded-xl border-2 p-2.5 text-center ${it.lineStatus === "NEXT_PLAN" ? "border-dashed border-blue-400 bg-blue-50" : "border-black"}`}>
-                {/* per-order serial number — prominent, one unique SR per product label */}
-                <span className="absolute right-1.5 top-1.5 rounded bg-black px-1.5 py-0.5 text-[10px] font-black tracking-wide text-yellow-400">SR {String(sr).padStart(3, "0")}</span>
-                {/* barcode at the top — code embeds the serial: DMK<SR 3-digit><invoice digits> */}
-                <div className="mt-1 flex w-full justify-center px-2"><OrderBarcode value={code} xd={xd} barHeightMm={11} /></div>
-                {/* product name — larger, well-fonted */}
-                <p className="line-clamp-2 min-h-[32px] text-[13px] font-black leading-tight">{it.name}</p>
-                <p className="text-[9px] text-gray-500">{it.sku} · {it.unitType === "SINGLE" ? "Piece" : `Pack of ${it.packQty}`} · Qty {it.qty} · SR {sr}</p>
-                {/* MRP + selling price — small */}
-                <p className="text-[10px] font-semibold text-gray-700">
-                  MRP <b>{inr(it.unitPrice > 0 ? it.unitPrice : 0)}</b>
-                  <span className="mx-1 text-gray-400">·</span>
-                  Sale <b className="text-[11px]">{inr(it.unitPrice)}</b>
-                </p>
-                {it.lineStatus === "NEXT_PLAN" && (
-                  <p className="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-black text-blue-700">NEXT DELIVERY{order.nextDeliveryAt ? ` · ${order.nextDeliveryAt}` : ""}</p>
-                )}
-                {/* firm identity — tiny, bottom center */}
-                <p className="w-full border-t border-dashed border-gray-300 pt-1 text-[8px] font-bold uppercase tracking-wide text-gray-600">
-                  {brand} · {phone}
-                </p>
+            {labels.map(({ it, sr, code, mrp }) => (
+              <div key={it.id} className={`bc-card relative flex overflow-hidden rounded-xl border-2 ${it.lineStatus === "NEXT_PLAN" ? "border-dashed border-blue-400 bg-blue-50" : "border-black"}`}>
+                <div className="flex min-w-0 flex-1 flex-col items-center justify-between gap-0.5 p-2 text-center">
+                  <p className="text-[13px] font-black uppercase tracking-wide">{brand}</p>
+                  <div className="flex w-full justify-center px-1"><OrderBarcode value={code} xd={xd} barHeightMm={10} compact fitMm={54} /></div>
+                  <p className="flex items-baseline justify-center gap-1.5 leading-none">
+                    <span className="text-[15px] font-black">{inr(it.unitPrice)}</span>
+                    {mrp > it.unitPrice && <span className="text-[10px] font-medium text-gray-500 line-through">{inr(mrp)}</span>}
+                  </p>
+                  <p className="text-[9px] font-semibold">{brand} {phone}</p>
+                  {it.lineStatus === "NEXT_PLAN" && (
+                    <p className="rounded bg-blue-100 px-1.5 py-0.5 text-[8px] font-black text-blue-700">NEXT DELIVERY{order.nextDeliveryAt ? ` · ${order.nextDeliveryAt}` : ""}</p>
+                  )}
+                </div>
+                {/* sideways strip: SKU + order serial (SR) */}
+                <div className="flex w-[9mm] shrink-0 items-center justify-center border-l border-dashed border-gray-400">
+                  <span className="whitespace-nowrap font-mono text-[9px] font-bold leading-none text-gray-800" style={{ writingMode: "vertical-rl" }}>
+                    SR {String(sr).padStart(3, "0")} · {it.sku}
+                  </span>
+                </div>
               </div>
             ))}
           </div>
@@ -224,12 +243,14 @@ export default async function BarcodeSheetPage({
  *               0.375mm = exactly 3 dots on a 203dpi desktop thermal printer,
  *               0.25mm = 3 dots at 300dpi — bars land on whole printer dots.
  *   barHeightMm bar height in mm (>=6mm so handheld laser scanners read it).
+ *   fitMm       optional max width in mm — when the symbol would overflow the
+ *               label the X-dimension shrinks so the WHOLE symbol still prints
+ *               1:1 crisp (no browser px scaling).
  * The 12-bit per-char patterns are run-length encodings ("11" = wide element,
- * 2 modules -> 2:1 wide:narrow, inside the Code39 spec's 2:1-3:1 range). Every
- * label keeps a >=10x module quiet zone per side, so the printed symbol behaves
- * like a pre-printed roll label — no px scaling, no browser shrink-fit.
+ * 2 modules -> 2:1 wide:narrow, inside the Code39 spec's 2:1-3:1 ratio range).
+ * Every label keeps a >=10x module quiet zone per side.
  */
-function OrderBarcode({ value, xd, barHeightMm = 10, compact = false }: { value: string; xd: number; barHeightMm?: number; compact?: boolean }) {
+function OrderBarcode({ value, xd, barHeightMm = 10, compact = false, fitMm }: { value: string; xd: number; barHeightMm?: number; compact?: boolean; fitMm?: number }) {
   const CODE39: Record<string, string> = {
     "0": "101001101101", "1": "110100101011", "2": "101100101011", "3": "110110010101",
     "4": "101001101011", "5": "110100110101", "6": "101100110101", "7": "101001011011",
@@ -247,6 +268,10 @@ function OrderBarcode({ value, xd, barHeightMm = 10, compact = false }: { value:
   // inter-character gap; runs of identical bits = elements (width = run length)
   const bits = raw.split("").map((c) => CODE39[c] || CODE39["-"]).join("0");
   const QUIET = 10; // quiet zone in modules (spec: >=10x)
+  const totalModules = QUIET * 2 + bits.length;
+  // auto-fit: shrink the X-dimension so the full symbol (quiet zones included)
+  // fits the available label width while every bar stays 1:1 mm on paper
+  const effXd = fitMm && totalModules * xd > fitMm ? fitMm / totalModules : xd;
   const runs: Array<{ x: number; w: number }> = [];
   let cursor = QUIET;
   let i = 0;
@@ -257,8 +282,7 @@ function OrderBarcode({ value, xd, barHeightMm = 10, compact = false }: { value:
     cursor += j - i;
     i = j;
   }
-  const totalModules = QUIET * 2 + bits.length;
-  const widthMm = totalModules * xd;
+  const widthMm = totalModules * effXd;
   const textMm = compact ? 0 : 3.2;
   const heightMm = barHeightMm + textMm;
   return (
@@ -268,11 +292,11 @@ function OrderBarcode({ value, xd, barHeightMm = 10, compact = false }: { value:
       viewBox={`0 0 ${widthMm} ${heightMm}`}
       role="img"
       aria-label={`Barcode ${value}`}
-      style={{ display: "block", maxWidth: "100%" }}
+      style={{ display: "block" }}
     >
       <rect width={widthMm} height={heightMm} fill="#fff" />
       {runs.map((r, k) => (
-        <rect key={k} x={r.x * xd} y={0} width={r.w * xd} height={barHeightMm} fill="#000" />
+        <rect key={k} x={r.x * effXd} y={0} width={r.w * effXd} height={barHeightMm} fill="#000" />
       ))}
       {!compact && (
         <text
