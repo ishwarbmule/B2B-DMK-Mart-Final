@@ -41,7 +41,7 @@ export function verifyStaffToken(kind: "SLS" | "WHM", token: string | null | und
 type StaffCheck =
   | { role: "admin" }
   | { role: "manager"; managerId: string; warehouseId: string; permissions: string[] }
-  | { role: "salesperson"; salesPersonId: string; name: string }
+  | { role: "salesperson"; salesPersonId: string; name: string; warehouseId: string }
   | null;
 
 /** Resolve the caller's staff identity: Super Admin token → admin; manager token → manager (+permissions). */
@@ -62,7 +62,7 @@ export async function staffIdentity(req: Request): Promise<StaffCheck> {
   const spId = verifyStaffToken("SLS", token);
   if (spId) {
     const sp = await db.salesPerson.findUnique({ where: { id: spId } });
-    if (sp && sp.active) return { role: "salesperson", salesPersonId: sp.id, name: sp.name };
+    if (sp && sp.active) return { role: "salesperson", salesPersonId: sp.id, name: sp.name, warehouseId: sp.warehouseId || "" };
   }
   return null;
 }

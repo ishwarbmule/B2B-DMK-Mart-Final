@@ -181,7 +181,7 @@ export async function saveSelectedWarehouseIds(ids: string[]): Promise<void> {
   await setSetting(KEY_SELECTED_WAREHOUSE_IDS, JSON.stringify(clean));
 }
 
-async function loadWhNeonMap(): Promise<Record<string, string>> {
+export async function loadWhNeonMap(): Promise<Record<string, string>> {
   try { return JSON.parse(await getSetting(KEY_WH_NEON_MAP, "{}")) as Record<string, string>; } catch { return {}; }
 }
 async function saveWhNeonMap(m: Record<string, string>): Promise<void> {
@@ -1196,15 +1196,16 @@ export type DeepStockResult = { warehouses: DeepStockWarehouse[]; totals: { rows
  * at the end across every touched SKU, preserving the owner's manual
  * Ready-to-Dispatch picks for SKUs whose quantity did not actually change.
  */
-export async function syncStockDeep(opts?: { onProgress?: (line: string) => void }): Promise<DeepStockResult> {
+export async function syncStockDeep(opts?: { onProgress?: (line: string) => void; /** ERP godown id — scan ONLY this warehouse (per-warehouse deep scan) */ whId?: string }): Promise<DeepStockResult> {
   const t0 = Date.now();
   const sm = await getStockMapping();
   if (!sm) throw new Error("Stock mapping not configured — tick columns in Admin → ERP Data first");
   const say = (line: string) => { try { opts?.onProgress?.(line); } catch { /* progress is best-effort */ } };
 
-  // ONLY the godowns the admin picked (shown = active ERP warehouses)
+  // ONLY the godowns the admin picked (shown = active ERP warehouses); with opts.whId
+  // just that ONE godown is scanned (the picker's per-warehouse "Deep scan" button)
   const warehouses = await db.warehouse.findMany({
-    where: { source: "ERP", active: true },
+    where: { source: "ERP", active: true, ...(opts?.whId ? { id: opts.whId } : {}) },
     select: { id: true, name: true, code: true },
     orderBy: [{ isDefault: "desc" }, { sortOrder: "asc" }],
   });
@@ -1484,11 +1485,13 @@ export async function fullResyncChunk(pageSize = 300, stage?: "warehouses" | "st
  * mapping rebuilt from them is the execution layer.
  */
 const GROUP_DEFS: { id: string; label: string; keys: (keyof ProductMapping)[]; locked?: boolean }[] = [
-  { id: "pricing", label: "Selling price", keys: ["rateCol", "tier4Col"], locked: true },
-  { id: "mrp", label: "MRP", keys: ["mrpCol", "tier5Col"] },
+  { id: "pricing", label: "Selling price", keys: ["rateCol"], locked: true },
+  { id: "mrp", label: "MRP", keys: ["mrpCol"] },
   { id: "tier1", label: "Tier 1 price — Distributor", keys: ["tier1Col"] },
   { id: "tier2", label: "Tier 2 price — Wholesale", keys: ["tier2Col"] },
   { id: "tier3", label: "Tier 3 price — Semi-wholesale", keys: ["tier3Col"] },
+  { id: "tier4", label: "Tier 4 price — Retailer (shops)", keys: ["tier4Col"] },
+  { id: "tier5", label: "Tier 5 price — MRP (retail shelf)", keys: ["tier5Col"] },
   { id: "delivery", label: "Delivery rate", keys: ["deliveryRateCol"] },
   { id: "stock", label: "Stock quantity", keys: ["stockCol"] },
   { id: "unitPack", label: "Unit & pack size", keys: ["unitCol", "packQtyCol", "piecesPerBoxCol"] },

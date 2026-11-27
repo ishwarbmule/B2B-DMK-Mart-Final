@@ -24,10 +24,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid credentials — ask admin for your sales-team login" }, { status: 401 });
     }
 
+    // assigned godown — the admin picks which warehouse this salesperson books orders for
+    let warehouse: { id: string; name: string; city: string } | null = null;
+    if (sp.warehouseId) {
+      const wh = await db.warehouse.findUnique({ where: { id: sp.warehouseId } });
+      if (wh) warehouse = { id: wh.id, name: wh.name, city: wh.city };
+    }
+
     return NextResponse.json({
       ok: true,
       token: makeStaffToken("SLS", sp.id),
-      profile: { id: sp.id, name: sp.name, mobile: sp.mobile, area: sp.area, email: sp.email, historyAccess: sp.historyAccess },
+      profile: { id: sp.id, name: sp.name, mobile: sp.mobile, area: sp.area, email: sp.email, historyAccess: sp.historyAccess, warehouse },
     });
   } catch {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });

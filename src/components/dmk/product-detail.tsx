@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { BadgeCheck, Flame, Minus, Package, Plus, ShoppingCart, Star, Store, TrendingUp, Truck, Zap } from "lucide-react";
+import { BadgeCheck, Flame, Minus, Package, Plus, ShoppingCart, Star, Store, TrendingUp, Truck, Warehouse, Zap } from "lucide-react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import { useCartStore, formatINR, lineKey, unitPriceFor } from "@/lib/store";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { discountPct, type DProduct } from "@/lib/types";
@@ -14,6 +15,7 @@ import { toCartItem, ProductCard, QtyInput, StockDot } from "./product-card";
 
 export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[] }) {
   const hydrated = useHydrated();
+  const router = useRouter();
   const addItem = useCartStore((s) => s.addItem);
   const openCart = useCartStore((s) => s.openCart);
   const items = useCartStore((s) => s.items);
@@ -29,6 +31,39 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
   const [mode, setMode] = useState<Fulfillment>("DELIVERY");
   useEffect(() => { if (hydrated) setMode(cartFulfillment); }, [cartFulfillment, hydrated]);
   const pickMode = (m: Fulfillment) => { setMode(m); setCartFulfillment(m); };
+
+  // A⑧ — the pricing section carries the PICKUP WAREHOUSE selector: the buyer sees
+  // WHICH godown they collect from (their /choose-warehouse pick, dmk_wh cookie) and
+  // can switch it right here — pickup copy, cart and checkout all follow the cookie.
+  type WhOpt = { id: string; name: string; city: string; isDefault: boolean };
+  const [whs, setWhs] = useState<WhOpt[]>([]);
+  const [whId, setWhId] = useState("");
+  useEffect(() => {
+    const m = document.cookie.match(/(?:^|;\s*)dmk_wh=([^;]*)/);
+    setWhId(m ? decodeURIComponent(m[1]) : "");
+    fetch("/api/catalog")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setWhs(d?.warehouses ?? []))
+      .catch(() => {});
+  }, []);
+  const chosenWh = whs.find((w) => w.id === whId) ?? null;
+  const changeWh = async (id: string) => {
+    setWhId(id);
+    try {
+      const token = typeof window !== "undefined" ? window.localStorage.getItem("dmk-customer-token") ?? window.sessionStorage.getItem("dmk-customer-token") : null;
+      const res = await fetch("/api/auth/select-warehouse", {
+        method: "POST",
+        headers: { "content-type": "application/json", ...(token ? { "x-customer-token": token } : {}) },
+        body: JSON.stringify({ warehouseId: id }),
+      });
+      if (!res.ok) throw new Error("Could not switch warehouse");
+      const w = whs.find((x) => x.id === id);
+      toast.success(`Pickup warehouse set to ${w?.name ?? "the chosen godown"}`);
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not switch warehouse");
+    }
+  };
 
   const gallery: string[] = (() => {
     try {
@@ -127,7 +162,7 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
             >
               <p className={`flex items-center gap-1 whitespace-nowrap text-[10px] font-black uppercase tracking-wide ${mode === "PICKUP" ? "text-yellow-700" : "text-gray-500"}`}><Store className="h-3.5 w-3.5 shrink-0" /> Pickup pricing</p>
               <p className="mt-0.5 flex items-baseline gap-1 whitespace-nowrap tabular-nums text-xl font-black text-gray-900">{formatINR(pickupRate)} <span className="text-[11px] font-semibold text-gray-500">/pc</span></p>
-              <p className="mt-0.5 text-[10px] leading-snug text-gray-500">Pack rate — collect from your nearest warehouse</p>
+              <p className="mt-0.5 truncate text-[10px] leading-snug text-gray-500">Pack rate — collect from {chosenWh ? chosenWh.name : "your nearest warehouse"}</p>
             </button>
             <button
               type="button"
@@ -141,6 +176,23 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
             </button>
           </div>
           <p className="mt-1.5 text-center text-[10px] font-semibold text-gray-400">Tap a card — the price below follows your choice (cart &amp; checkout too)</p>
+
+          {/* pickup-warehouse selector — which godown the buyer collects from */}
+          {whs.length > 0 && (
+            <div className="mt-2 flex items-center gap-2 rounded-xl border bg-white px-3 py-2">
+              <Warehouse className="h-4 w-4 shrink-0 text-yellow-600" />
+              <label className="shrink-0 text-[11px] font-semibold text-gray-600" htmlFor="pd-wh">Pickup from</label>
+              <select
+                id="pd-wh"
+                value={whId}
+                onChange={(e) => changeWh(e.target.value)}
+                className="h-8 min-w-0 flex-1 rounded-lg border border-gray-200 px-2 text-[12px] outline-none focus:border-yellow-400"
+              >
+                {!whId && <option value="">Nearest / default warehouse</option>}
+                {whs.map((w) => <option key={w.id} value={w.id}>{w.name}{w.city ? ` · ${w.city}` : ""}</option>)}
+              </select>
+            </div>
+          )}
 
           {/* price block */}
           <div className="mt-4 flex flex-wrap items-end gap-3 rounded-2xl border bg-white p-4">

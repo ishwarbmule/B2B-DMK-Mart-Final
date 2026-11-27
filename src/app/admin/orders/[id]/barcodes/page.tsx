@@ -1,21 +1,26 @@
 /**
- * /admin/orders/[id]/barcodes?token=...&size=a4|50x25|50x38|40x30|30x20 —
+ * /admin/orders/[id]/barcodes?token=...&size=a4|50x25|50x38|40x30|30x20&xd=0.25|0.375|0.5 —
  * printable barcode labels for a confirmed order, in STANDARD barcode-printer
  * formats:
  *  - a4   → A4 sticker sheet, 3-column grid (screen preview + full header)
  *  - 50x25 / 50x38 / 40x30 / 30x20 → THERMAL LABEL SIZES (one label per page,
  *    exact mm page size, zero margins) — prints edge-to-edge on a desktop
  *    barcode/label printer (50×25 mm is the standard one-hand label).
+ *  - xd   → X-DIMENSION (narrow bar width) in mm: 0.25mm = 300dpi printers,
+ *    0.375mm = 203dpi desktop printers (3 printer dots), 0.5mm = coarse/handheld
+ *    scans. The SVG is rendered 1:1 in REAL millimetres — no browser scaling —
+ *    with a ≥10× quiet zone and the Code39 3:1 wide:narrow ratio, so scanners
+ *    latch onto the symbol on paper exactly like a pre-printed roll label.
  * Each label: order serial no (SR, embedded in the scannable code) · product
- * name · qty · MRP/sale (roomy sizes) · Code39 barcode DMK<SR><invoice digits>
- * with proper quiet zones. Browser print → PDF or straight to the label roll.
+ * name · qty · MRP/sale (roomy sizes) · Code39 barcode DMK<SR><invoice digits>.
+ * Browser print → PDF or straight to the label roll.
  */
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { verifyToken } from "@/lib/admin-auth";
 import { PrintButton } from "@/components/admin/print-button";
-import { istDate } from "@/lib/ist";
+import { istDate, istDateTime } from "@/lib/ist";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +35,14 @@ const SIZES: Record<Exclude<LabelSize, "a4">, { w: number; h: number; label: str
 
 const TOKEN_SIZES: LabelSize[] = ["a4", "50x25", "50x38", "40x30", "30x20"];
 
+/** X-dimension (narrow bar width) options in mm — thermal-printer dots friendly */
+const XD_OPTIONS = [0.25, 0.375, 0.5] as const;
+type XD = (typeof XD_OPTIONS)[number];
+function parseXD(raw?: string): XD {
+  const v = Number(raw);
+  return (XD_OPTIONS as readonly number[]).includes(v) ? (v as XD) : 0.375;
+}
+
 function inr(n: number) {
   return "₹" + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 }
@@ -39,13 +52,14 @@ export default async function BarcodeSheetPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ token?: string; size?: string }>;
+  searchParams: Promise<{ token?: string; size?: string; xd?: string }>;
 }) {
-  const { token, size: sizeParam } = await searchParams;
+  const { token, size: sizeParam, xd: xdParam } = await searchParams;
   if (!verifyToken(token)) {
     return <p className="p-10 text-center text-sm text-red-500">Unauthorized — open from the admin Orders module.</p>;
   }
   const size: LabelSize = TOKEN_SIZES.includes(sizeParam as LabelSize) ? (sizeParam as LabelSize) : "a4";
+  const xd = parseXD(xdParam);
   const { id } = await params;
   const order = await db.order.findUnique({ where: { id }, include: { items: { orderBy: { serialNo: "asc" } } } });
   if (!order) notFound();
@@ -97,12 +111,27 @@ export default async function BarcodeSheetPage({
           {TOKEN_SIZES.map((s) => (
             <Link
               key={s}
-              href={`/admin/orders/${id}/barcodes?token=${encodeURIComponent(token || "")}&size=${s}`}
+              href={`/admin/orders/${id}/barcodes?token=${encodeURIComponent(token || "")}&size=${s}&xd=${xd}`}
               className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition ${s === size ? "bg-black text-yellow-400" : "border border-gray-300 bg-white text-gray-600 hover:border-yellow-400"}`}
             >
               {s === "a4" ? "A4 sheet" : `${SIZES[s as Exclude<LabelSize, "a4">].w}×${SIZES[s as Exclude<LabelSize, "a4">].h}`}
             </Link>
           ))}
+          {thermal && (
+            <>
+              <span className="ml-1 text-[10px] font-bold text-gray-400">X-dim:</span>
+              {XD_OPTIONS.map((x) => (
+                <Link
+                  key={x}
+                  href={`/admin/orders/${id}/barcodes?token=${encodeURIComponent(token || "")}&size=${size}&xd=${x}`}
+                  title={x === 0.25 ? "300 dpi printers" : x === 0.375 ? "203 dpi desktop thermal (3 dots)" : "coarse / handheld scans"}
+                  className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition ${x === xd ? "bg-yellow-400 text-black" : "border border-gray-300 bg-white text-gray-600 hover:border-yellow-400"}`}
+                >
+                  {x}mm
+                </Link>
+              ))}
+            </>
+          )}
           <PrintButton label="Print Labels" />
         </div>
       </div>
@@ -122,8 +151,9 @@ export default async function BarcodeSheetPage({
                 </span>
               </div>
               <div className="text-center" style={{ marginTop: "0.5mm" }}>
-                <div style={{ width: `${dim!.w - 3}mm`, margin: "0 auto" }}>
-                  <OrderBarcode value={code} height={dim!.h >= 30 ? 34 : 24} compact />
+                {/* exact-mm Code39 — X-dimension selectable, 1:1 on paper, ≥10× quiet zone */}
+                <div className="flex justify-center">
+                  <OrderBarcode value={code} xd={xd} barHeightMm={dim!.h >= 30 ? 10 : dim!.h >= 25 ? 8 : 6} compact />
                 </div>
                 <p className="font-mono font-bold leading-none" style={{ fontSize: "1.9mm", marginTop: "0.4mm" }}>{code}</p>
               </div>
@@ -145,7 +175,7 @@ export default async function BarcodeSheetPage({
           <div className="mb-4 rounded-xl border-2 border-black p-4 text-center">
             <p className="text-lg font-black">{brand} · {phone}</p>
             <p className="text-[11px] text-gray-600">ORDER {order.invoiceNo} · {order.customerName} · {order.phone} · {istDate(order.createdAt)}</p>
-            <div className="mt-2 flex justify-center"><OrderBarcode value={`DMK${invoiceDigits}`} height={46} /></div>
+            <div className="mt-2 flex justify-center"><OrderBarcode value={`DMK${invoiceDigits}`} xd={xd} barHeightMm={12} /></div>
             <p className="mt-1 font-mono text-[10px] font-bold">DMK{invoiceDigits}</p>
           </div>
 
@@ -156,7 +186,7 @@ export default async function BarcodeSheetPage({
                 {/* per-order serial number — prominent, one unique SR per product label */}
                 <span className="absolute right-1.5 top-1.5 rounded bg-black px-1.5 py-0.5 text-[10px] font-black tracking-wide text-yellow-400">SR {String(sr).padStart(3, "0")}</span>
                 {/* barcode at the top — code embeds the serial: DMK<SR 3-digit><invoice digits> */}
-                <div className="mt-1 flex w-full justify-center px-2"><OrderBarcode value={code} height={44} /></div>
+                <div className="mt-1 flex w-full justify-center px-2"><OrderBarcode value={code} xd={xd} barHeightMm={11} /></div>
                 {/* product name — larger, well-fonted */}
                 <p className="line-clamp-2 min-h-[32px] text-[13px] font-black leading-tight">{it.name}</p>
                 <p className="text-[9px] text-gray-500">{it.sku} · {it.unitType === "SINGLE" ? "Piece" : `Pack of ${it.packQty}`} · Qty {it.qty} · SR {sr}</p>
@@ -178,7 +208,7 @@ export default async function BarcodeSheetPage({
           </div>
 
           <p className="mt-4 text-center text-[9px] text-gray-400">
-            {brand} · {phone} · Scannable Code39 labels — order {order.invoiceNo} · generated {new Date().toLocaleString("en-IN")}
+            {brand} · {phone} · Scannable Code39 labels — order {order.invoiceNo} · generated {istDateTime(new Date())}
           </p>
         </>
       )}
@@ -186,13 +216,20 @@ export default async function BarcodeSheetPage({
   );
 }
 
+
 /**
- * Inline Code39 SVG for the server component (self-contained, no deps).
- * `compact` drops the human-readable text (thermal labels print it separately),
- * `height` scales the bars; every label keeps a 10× module quiet zone per side
- * so real barcode scanners latch onto the symbol reliably.
+ * Inline Code39 SVG for the server component (self-contained, no deps) —
+ * THERMAL-PRINTER SPEC: the symbol is drawn 1:1 in REAL millimetres.
+ *   xd          X-dimension (narrow bar width) in mm — 0.25 / 0.375 / 0.5.
+ *               0.375mm = exactly 3 dots on a 203dpi desktop thermal printer,
+ *               0.25mm = 3 dots at 300dpi — bars land on whole printer dots.
+ *   barHeightMm bar height in mm (>=6mm so handheld laser scanners read it).
+ * The 12-bit per-char patterns are run-length encodings ("11" = wide element,
+ * 2 modules -> 2:1 wide:narrow, inside the Code39 spec's 2:1-3:1 range). Every
+ * label keeps a >=10x module quiet zone per side, so the printed symbol behaves
+ * like a pre-printed roll label — no px scaling, no browser shrink-fit.
  */
-function OrderBarcode({ value, height = 44, compact = false }: { value: string; height?: number; compact?: boolean }) {
+function OrderBarcode({ value, xd, barHeightMm = 10, compact = false }: { value: string; xd: number; barHeightMm?: number; compact?: boolean }) {
   const CODE39: Record<string, string> = {
     "0": "101001101101", "1": "110100101011", "2": "101100101011", "3": "110110010101",
     "4": "101001101011", "5": "110100110101", "6": "101100110101", "7": "101001011011",
@@ -206,23 +243,48 @@ function OrderBarcode({ value, height = 44, compact = false }: { value: string; 
     "-": "100101011011",
   };
   const raw = `*${value.replace(/[^0-9A-Z-]/g, "")}*`;
+  // whole symbol as a run-length stream: char patterns joined by a 1-module
+  // inter-character gap; runs of identical bits = elements (width = run length)
   const bits = raw.split("").map((c) => CODE39[c] || CODE39["-"]).join("0");
-  const QUIET = 10; // quiet zone in modules (spec says ≥10)
-  const mw = 1.7;
-  const width = (bits.length + QUIET * 2) * mw;
-  let x = QUIET * mw;
-  const bars: Array<{ x: number; w: number }> = [];
-  for (const b of bits) {
-    if (b === "1") bars.push({ x, w: mw });
-    x += mw;
+  const QUIET = 10; // quiet zone in modules (spec: >=10x)
+  const runs: Array<{ x: number; w: number }> = [];
+  let cursor = QUIET;
+  let i = 0;
+  while (i < bits.length) {
+    let j = i;
+    while (j < bits.length && bits[j] === bits[i]) j++;
+    if (bits[i] === "1") runs.push({ x: cursor, w: j - i });
+    cursor += j - i;
+    i = j;
   }
-  const textH = compact ? 0 : 10;
+  const totalModules = QUIET * 2 + bits.length;
+  const widthMm = totalModules * xd;
+  const textMm = compact ? 0 : 3.2;
+  const heightMm = barHeightMm + textMm;
   return (
-    <svg width="100%" height={height} viewBox={`0 0 ${width} ${height + textH}`} preserveAspectRatio="xMidYMid meet" role="img" aria-label={`Barcode ${value}`}>
-      <rect width={width} height={height + textH} fill="#fff" />
-      {bars.map((b, i) => <rect key={i} x={b.x} y={0} width={b.w} height={height} fill="#111" />)}
+    <svg
+      width={`${widthMm}mm`}
+      height={`${heightMm}mm`}
+      viewBox={`0 0 ${widthMm} ${heightMm}`}
+      role="img"
+      aria-label={`Barcode ${value}`}
+      style={{ display: "block", maxWidth: "100%" }}
+    >
+      <rect width={widthMm} height={heightMm} fill="#fff" />
+      {runs.map((r, k) => (
+        <rect key={k} x={r.x * xd} y={0} width={r.w * xd} height={barHeightMm} fill="#000" />
+      ))}
       {!compact && (
-        <text x={width / 2} y={height + textH - 1} textAnchor="middle" fontSize="9" fontFamily="monospace" fill="#111">{raw.replaceAll("*", "")}</text>
+        <text
+          x={widthMm / 2}
+          y={heightMm - 0.4}
+          textAnchor="middle"
+          fontSize="2.4"
+          fontFamily="monospace"
+          fill="#000"
+        >
+          {raw.replaceAll("*", "")}
+        </text>
       )}
     </svg>
   );

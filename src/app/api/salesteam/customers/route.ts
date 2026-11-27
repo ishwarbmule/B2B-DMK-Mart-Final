@@ -23,6 +23,10 @@ const createSchema = z.object({
   city: z.string().min(2),
   pincode: z.string().regex(/^\d{6}$/),
   customerType: z.enum(["RETAILER", "WHOLESALE", "SEMI_WHOLESALE", "DISTRIBUTOR"]).optional(),
+  // store location pin — the same map-point the customer create flow requires (N3)
+  lat: z.number().optional(),
+  lng: z.number().optional(),
+  geoSource: z.enum(["MAP", "GPS", "SALESTEAM", "ADMIN"]).optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -86,6 +90,9 @@ export async function POST(req: NextRequest) {
         status: "PENDING",
         source: "WEB",
         createdBy: identity.name,
+        ...(typeof d.lat === "number" && typeof d.lng === "number"
+          ? { lat: d.lat, lng: d.lng, geoSource: d.geoSource || "SALESTEAM", geoUpdatedAt: new Date() }
+          : {}),
       },
     });
 

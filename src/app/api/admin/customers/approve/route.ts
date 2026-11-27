@@ -22,6 +22,7 @@ const TIER_LABEL: Record<string, string> = {
   tier2: "Tier 2 (Wholesale)",
   tier3: "Tier 3 (Semi-Wholesale)",
   tier4: "Tier 4 (Retail)",
+  tier5: "Tier 5 (MRP / retail shelf)",
 };
 const DEFAULT_LIMIT: Record<string, number> = {
   RETAILER: 50000, SEMI_WHOLESALE: 100000, WHOLESALE: 200000, DISTRIBUTOR: 500000,
@@ -80,7 +81,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, customer: updated });
     }
 
-    const finalTier = ["tier1", "tier2", "tier3", "tier4"].includes(tier) ? tier : "tier4";
+    const finalTier = ["tier1", "tier2", "tier3", "tier4", "tier5"].includes(tier) ? tier : "tier4";
     const finalType = ["RETAILER", "WHOLESALE", "SEMI_WHOLESALE", "DISTRIBUTOR"].includes(customerType) ? customerType : customer.customerType;
     const support = (await db.setting.findUnique({ where: { key: "support_phone" } }))?.value || "+91 93095 75173";
 

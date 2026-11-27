@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import {
   ChevronDown, ChevronRight, Printer, RefreshCcw, Search, MessageCircle, Barcode, KeyRound,
-  PackageCheck, Clock3, PencilLine, CheckCheck, IndianRupee, Wallet, Send, PackageOpen,
+  PackageCheck, Clock3, PencilLine, CheckCheck, IndianRupee, Wallet, Send, PackageOpen, ClipboardCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api, ModuleHeader, StatusBadge } from "./ui-bits";
@@ -19,11 +19,14 @@ type StockLine = {
   id: string; productId: string; sku: string; name: string; image: string;
   unitType: string; packQty: number; qty: number; pieces: number;
   unitPrice: number; total: number; serialNo: number; lineStatus: string;
+  plannedNote?: string;
   available: number; ok: boolean;
+  /** pieces sitting in the order's own serving godown — what the manager verifies against */
+  atWarehouse: number;
   perWarehouse: { warehouseId: string; name: string; qty: number }[];
 };
 type StockCheck = {
-  order: { id: string; invoiceNo: string; status: string; confirmedAt?: string; nextDeliveryAt?: string; editedAt?: string; editedBy?: string; customerNotifiedAt?: string };
+  order: { id: string; invoiceNo: string; status: string; warehouseId?: string; warehouseName?: string; confirmedAt?: string; nextDeliveryAt?: string; editedAt?: string; editedBy?: string; verifiedAt?: string; verifiedBy?: string; customerNotifiedAt?: string };
   lines: StockLine[];
   warehouses: { id: string; name: string; isDefault: boolean }[];
   summary: { okCount: number; oosCount: number; oosAmount: number; hasCustomerId: boolean };
@@ -63,6 +66,11 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
   const [planDate, setPlanDate] = useState("");
   const [planLines, setPlanLines] = useState<Set<string>>(new Set());
   const [sendBusy, setSendBusy] = useState(false);
+  // warehouse-manager verification (N4) — per-line available marks for the serving godown
+  const [verifyMarks, setVerifyMarks] = useState<Record<string, boolean>>({});
+  const [verifyNote, setVerifyNote] = useState("");
+  // admin confirm override — per-line ship / next-plan choices in the confirm dialog
+  const [shipMarks, setShipMarks] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -111,6 +119,9 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
         setStock(d);
         setStockFor(o.id);
         setEditLines(d.lines.map((l) => ({ id: l.id, qty: l.qty, unitPrice: l.unitPrice, name: l.name })));
+        // pre-fill the manager's verification marks from the current line statuses
+        setVerifyMarks(Object.fromEntries(d.lines.map((l) => [l.id, l.lineStatus !== "NEXT_PLAN"])));
+        setVerifyNote("");
         if (o.status === "PENDING" && !d.summary.hasCustomerId) toast.info("Guest order — out-of-stock credit needs a buyer account");
       } catch { /* detail still renders */ }
     }
@@ -157,7 +168,11 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
     try {
       const d = await call("/api/admin/orders-flow", {
         method: "POST",
-        body: JSON.stringify({ action: "confirm", orderId: stockFor, nextDeliveryDate: nextDate }),
+        body: JSON.stringify({
+          action: "confirm", orderId: stockFor, nextDeliveryDate: nextDate,
+          // per-line ship / next-plan choices made in the dialog win over the auto check
+          lines: Object.entries(shipMarks).map(([id, ship]) => ({ id, ship })),
+        }),
       });
       const s = d.summary ?? {};
       toast.success(`Order confirmed — ${s.shipNow ?? "?"} lines ship now${s.nextPlan ? `, ${s.nextPlan} → next delivery${s.credited ? ` (₹${s.credited} credited)` : ""}` : ""}`);
@@ -167,6 +182,31 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
       load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Confirm failed");
+    } finally { setBusy(false); }
+  };
+
+  /** submit the warehouse-manager verification (available / not-available per line) */
+  const submitVerify = async () => {
+    if (!stockFor || !stock) return;
+    setBusy(true);
+    try {
+      const d = await call("/api/admin/orders-flow", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "verify", orderId: stockFor,
+          lines: Object.entries(verifyMarks).map(([id, available]) => ({ id, available })),
+          note: verifyNote || undefined,
+        }),
+      });
+      const s = d.summary ?? {};
+      toast.success(`Verification saved — ${s.okCount ?? 0} available, ${s.oosCount ?? 0} not available. The Super Admin sees this on the order.`);
+      const fresh = await call(`/api/admin/orders-flow?orderId=${stockFor}`) as StockCheck;
+      setStock(fresh);
+      setVerifyMarks(Object.fromEntries(fresh.lines.map((l) => [l.id, l.lineStatus !== "NEXT_PLAN"])));
+      setVerifyNote("");
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Verification failed");
     } finally { setBusy(false); }
   };
 
@@ -354,6 +394,11 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
                       {STATUSES.map((s) => <option key={s}>{s}</option>)}
                     </select>
                     {o.status === "PENDING" && <p className="mt-1 text-[9px] font-bold text-amber-600">stock check pending</p>}
+                    {o.status === "PENDING" && o.verifiedAt && (
+                      <p className="mt-1 rounded bg-sky-100 px-1 py-0.5 text-[9px] font-bold text-sky-700" title={`Verified by ${o.verifiedBy} at ${o.verifiedAt ? istDateTime(o.verifiedAt) : ""}`}>
+                        ✓ verified by {o.verifiedBy || "warehouse"}
+                      </p>
+                    )}
                     {o.status === "CONFIRMED" && o.items?.some((i) => (i as OrderItemRow & { lineStatus?: string }).lineStatus === "NEXT_PLAN") && (
                       <p className="mt-1 text-[9px] font-bold text-blue-600">has next-delivery lines</p>
                     )}
@@ -481,7 +526,13 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
                                 </button>
                               )}
                               {o.status === "PENDING" && (
-                                <button onClick={() => { setNextDate(""); setConfirmOpen(true); }} className="flex items-center gap-1 rounded-lg bg-black px-3 py-1.5 text-[11px] font-semibold text-yellow-400 hover:bg-gray-800">
+                                <button onClick={() => {
+                                  setNextDate("");
+                                  // pre-fill the confirm dialog's ship choices: verification marks first,
+                                  // then the auto stock check
+                                  setShipMarks(Object.fromEntries(stock.lines.map((l) => [l.id, l.lineStatus === "NEXT_PLAN" ? false : l.ok])));
+                                  setConfirmOpen(true);
+                                }} className="flex items-center gap-1 rounded-lg bg-black px-3 py-1.5 text-[11px] font-semibold text-yellow-400 hover:bg-gray-800">
                                   <CheckCheck className="h-3.5 w-3.5" /> Confirm Order
                                 </button>
                               )}
@@ -492,8 +543,13 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
                               )}
                             </div>
                           </div>
-                          {/* edit / notification stamps — internal only, never shown to the customer */}
+                          {/* edit / verification / notification stamps — internal only, never shown to the customer */}
                           <div className="mt-1.5 flex flex-wrap gap-2 text-[10px] font-semibold">
+                            {stock.order.verifiedAt && (
+                              <span className="rounded-full bg-sky-100 px-2 py-0.5 text-sky-800">
+                                ✓ Verified {istDateTime(stock.order.verifiedAt)} · {stock.order.verifiedBy || "warehouse manager"}
+                              </span>
+                            )}
                             {stock.order.editedAt && (
                               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">
                                 Edited {istDateTime(stock.order.editedAt)} · {stock.order.editedBy || "admin"}
@@ -510,9 +566,56 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
                           </div>
                           {stock.warehouses.length > 0 && (
                             <p className="mt-1.5 text-[10px] text-gray-500">
-                              Warehouses: {stock.warehouses.map((w) => `${w.name}${w.isDefault ? " (default)" : ""}`).join(" · ")} — allocation pulls from the default first.
+                              Warehouses: {stock.warehouses.map((w) => `${w.name}${w.isDefault ? " (default)" : ""}`).join(" · ")} — confirm pulls from the order's own godown first.
                               {o.status === "CONFIRMED" && " Edits to this confirmed order reconcile live stock and buyer credits automatically."}
                             </p>
+                          )}
+
+                          {/* ── warehouse-manager verification panel (PENDING orders) — the serving
+                              godown marks what it can dispatch / pick up now and what it cannot ── */}
+                          {o.status === "PENDING" && (
+                            <div className="mt-2 rounded-xl border-2 border-sky-300 bg-sky-50/60 p-3">
+                              <p className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-gray-900">
+                                <ClipboardCheck className="h-4 w-4 text-sky-600" />
+                                Warehouse verification {stock.order.warehouseName ? `— ${stock.order.warehouseName}` : ""}
+                                {stock.order.verifiedAt && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-700">✓ verified by {stock.order.verifiedBy || "manager"}</span>}
+                              </p>
+                              <p className="mt-0.5 text-[10px] text-gray-500">
+                                Tick every line the godown can dispatch / hand over for pickup NOW; untick what is not available. The Super Admin confirms based on this check.
+                              </p>
+                              <div className="mt-2 space-y-1">
+                                {stock.lines.map((l) => {
+                                  const avail = verifyMarks[l.id] ?? true;
+                                  return (
+                                    <div key={l.id} className={`flex items-center gap-2 rounded-lg border bg-white p-2 text-[11px] ${avail ? "border-emerald-200" : "border-red-200 bg-red-50/50"}`}>
+                                      <button
+                                        onClick={() => setVerifyMarks((m) => ({ ...m, [l.id]: !avail }))}
+                                        className={`w-20 shrink-0 rounded px-1.5 py-1 text-[9px] font-bold ${avail ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" : "bg-red-100 text-red-700 hover:bg-red-200"}`}
+                                        title="Toggle available / not available at this warehouse"
+                                      >
+                                        {avail ? "AVAILABLE" : "NOT AVAIL."}
+                                      </button>
+                                      <span className="min-w-0 flex-1 truncate font-semibold">{l.name}</span>
+                                      <span className="shrink-0 text-[10px] text-gray-500" title={`Pieces needed: ${l.pieces}`}>need {l.pieces} pcs</span>
+                                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold ${l.atWarehouse >= l.pieces ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+                                        in godown: {l.atWarehouse}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              <div className="mt-2 flex flex-wrap items-center gap-2">
+                                <input
+                                  value={verifyNote}
+                                  onChange={(e) => setVerifyNote(e.target.value)}
+                                  placeholder="Note for unavailable lines (optional) — e.g. arriving with next stock"
+                                  className="h-8 min-w-0 flex-1 rounded-lg border px-2.5 text-[11px]"
+                                />
+                                <button onClick={submitVerify} disabled={busy} className="shrink-0 rounded-lg bg-sky-600 px-3.5 py-1.5 text-[11px] font-bold text-white hover:bg-sky-700 disabled:opacity-50">
+                                  {busy ? "Saving…" : "Submit Verification"}
+                                </button>
+                              </div>
+                            </div>
                           )}
                         </div>
                       )}
@@ -657,6 +760,30 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setConfirmOpen(false)}>
           <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <p className="flex items-center gap-2 text-sm font-semibold text-gray-900"><CheckCheck className="h-4 w-4 text-emerald-600" /> Confirm Order — final check</p>
+            {stock.order.verifiedAt && (
+              <p className="mt-1.5 rounded-lg bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-700">
+                ✓ Warehouse verified by {stock.order.verifiedBy || "manager"} — {istDateTime(stock.order.verifiedAt)}. Adjust any line below if you decide differently.
+              </p>
+            )}
+            <div className="mt-3 max-h-56 space-y-1 overflow-y-auto rounded-xl border bg-gray-50 p-3 text-xs">
+              <p className="text-[10px] font-bold uppercase text-gray-400">Ship now / next plan — per line</p>
+              {stock.lines.map((l) => {
+                const ship = shipMarks[l.id] ?? l.ok;
+                return (
+                  <button
+                    key={l.id}
+                    onClick={() => setShipMarks((m) => ({ ...m, [l.id]: !ship }))}
+                    className={`flex w-full items-center gap-2 rounded-lg border p-1.5 text-left ${ship ? "border-emerald-200 bg-emerald-50" : "border-blue-200 bg-blue-50"}`}
+                    title="Toggle ship now / next delivery plan"
+                  >
+                    <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${ship ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"}`}>{ship ? "SHIP NOW" : "NEXT PLAN"}</span>
+                    <span className="min-w-0 flex-1 truncate font-semibold">{l.name}</span>
+                    <span className="text-[10px] text-gray-400">godown {l.atWarehouse} · all {l.available}</span>
+                    <span className="text-[10px] font-bold">{formatINR(l.total)}</span>
+                  </button>
+                );
+              })}
+            </div>
             <div className="mt-3 space-y-1.5 rounded-xl border bg-gray-50 p-3 text-xs">
               <p className="flex justify-between"><span className="font-semibold text-emerald-700">Ship now (in stock)</span><span className="font-semibold">{stock.summary.okCount} lines</span></p>
               <p className="flex justify-between"><span className="font-semibold text-blue-700">Next delivery plan (out of stock)</span><span className="font-semibold">{stock.summary.oosCount} lines · {formatINR(stock.summary.oosAmount)}</span></p>
@@ -676,7 +803,7 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
                   </p>
                 </>
               )}
-              <p className="mt-2 border-t pt-2 text-[10px] text-gray-500">On confirm: serial numbers are assigned to every line, in-stock lines decrement live stock (default warehouse first), and the invoice becomes ready to print with barcodes.</p>
+              <p className="mt-2 border-t pt-2 text-[10px] text-gray-500">On confirm: serial numbers are assigned to every line, shipped lines decrement live stock (the order's own godown first), and the invoice becomes ready to print with barcodes.</p>
             </div>
             <div className="mt-4 flex justify-end gap-2">
               <button onClick={() => setConfirmOpen(false)} className="rounded-lg border px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50">Cancel</button>

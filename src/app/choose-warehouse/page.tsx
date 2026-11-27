@@ -17,12 +17,12 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, ArrowRight, Building2, CheckCircle2, Loader2, MapPin, Package, Warehouse, X } from "lucide-react";
 import { toast } from "sonner";
-import { getCustomerToken, clearCustomerToken } from "@/lib/customer-session";
+import { getCustomerToken, clearCustomerToken, ensureGateCookie } from "@/lib/customer-session";
 import { useCustomerSession } from "@/lib/customer-client";
 import { LIVE_DEFAULTS } from "@/lib/live-content";
 
-const BTN = "flex h-12 w-full items-center justify-center gap-1.5 rounded-xl bg-black text-[13px] font-bold uppercase tracking-wide text-yellow-400 transition hover:bg-gray-900 disabled:cursor-not-allowed disabled:opacity-50";
-const BTN_DONE = "flex h-12 w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 text-[13px] font-bold text-gray-400";
+const BTN = "flex h-13 min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-black text-[13px] font-bold uppercase tracking-wide text-yellow-400 transition group-hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50";
+const BTN_DONE = "flex h-13 min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 text-[13px] font-bold text-emerald-600";
 
 /** Demo godown artwork per location — used only until the admin uploads a
  *  Warehouse Image (Admin → Warehouses → edit → Image field, Cloudinary). */
@@ -62,6 +62,9 @@ function Chooser() {
 
   useEffect(() => {
     loadSession();
+    // self-heal the storefront-gate cookie on this gated page too — a drifted/
+    // evicted dmk_sess cookie would otherwise bounce the NEXT navigation to /login
+    ensureGateCookie().catch(() => {});
     fetch("/api/site-content")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setContent(d?.overrides ?? {}))
@@ -155,6 +158,11 @@ function Chooser() {
                   <span className="absolute left-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-yellow-400">
                     <Warehouse className="mr-1 inline h-3 w-3" /> {ct("wh.badge")}
                   </span>
+                  {nearest?.id === w.id && (
+                    <span className="absolute right-3 top-3 rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
+                      <CheckCircle2 className="mr-1 inline h-3 w-3" /> Recommended
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-1 flex-col p-4">
                   <p className="text-base font-black text-gray-900">{w.name}</p>

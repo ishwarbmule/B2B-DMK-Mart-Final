@@ -120,6 +120,7 @@ export function ApprovalsModule({ token }: { token: string }) {
                       <option value="tier2">Tier 2 (Wholesale rates)</option>
                       <option value="tier3">Tier 3 (Semi-wholesale)</option>
                       <option value="tier4">Tier 4 (Retail)</option>
+                      <option value="tier5">Tier 5 (MRP / retail shelf)</option>
                     </select>
                   </div>
                   <button

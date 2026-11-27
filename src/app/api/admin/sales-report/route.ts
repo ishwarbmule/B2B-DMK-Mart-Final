@@ -39,8 +39,10 @@ export async function GET(req: NextRequest) {
     if (!lastBy.has(o.salesPerson)) lastBy.set(o.salesPerson, { at: o.createdAt, invoiceNo: o.invoiceNo });
   }
 
-  const team = await db.salesPerson.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, mobile: true, area: true, active: true, username: true, password: true } });
+  const team = await db.salesPerson.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, mobile: true, area: true, active: true, username: true, password: true, warehouseId: true } });
   const recentMap = new Map(recent.map((r) => [r.salesPerson, r]));
+  const whs = await db.warehouse.findMany({ select: { id: true, name: true } });
+  const whById = new Map(whs.map((w) => [w.id, w.name]));
 
   const rows = group
     .map((g) => {
@@ -53,6 +55,7 @@ export async function GET(req: NextRequest) {
         area: sp?.area ?? "",
         mobile: sp?.mobile ?? "",
         active: sp?.active ?? true,
+        warehouse: sp?.warehouseId ? (whById.get(sp.warehouseId) ?? "") : "",
         orders: g._count._all,
         revenue: Math.round(g._sum.grandTotal ?? 0),
         orders30d: r?._count._all ?? 0,
@@ -66,7 +69,7 @@ export async function GET(req: NextRequest) {
   // salespeople with portal access but no orders yet
   for (const t of team) {
     if (!rows.some((r) => r.name === t.name)) {
-      rows.push({ name: t.name, portalReady: Boolean(t.username && t.password), area: t.area, mobile: t.mobile, active: t.active, orders: 0, revenue: 0, orders30d: 0, revenue30d: 0, lastOrderAt: null, lastInvoice: "" });
+      rows.push({ name: t.name, portalReady: Boolean(t.username && t.password), area: t.area, mobile: t.mobile, active: t.active, warehouse: t.warehouseId ? (whById.get(t.warehouseId) ?? "") : "", orders: 0, revenue: 0, orders30d: 0, revenue30d: 0, lastOrderAt: null, lastInvoice: "" });
     }
   }
 

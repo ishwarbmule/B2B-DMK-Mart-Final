@@ -21,7 +21,7 @@ import { istDate } from "@/lib/ist";
 /* ══════════════ SALESPERSON MANAGEMENT ══════════════ */
 
 type SalesReportRow = {
-  name: string; portalReady: boolean; area: string; mobile: string; active: boolean;
+  name: string; portalReady: boolean; area: string; mobile: string; active: boolean; warehouse?: string;
   orders: number; revenue: number; orders30d: number; revenue30d: number;
   lastOrderAt: string | null; lastInvoice: string;
 };
@@ -63,6 +63,7 @@ export function SalesTeamModule({ token }: { token: string }) {
             <tr className="border-b bg-gray-50 text-[12px] font-medium text-gray-500">
               <th className="px-3 py-2.5 font-bold">Salesperson</th>
               <th className="px-3 py-2.5 font-bold">Area</th>
+              <th className="px-3 py-2.5 font-bold">Warehouse</th>
               <th className="px-3 py-2.5 text-right font-bold">Orders</th>
               <th className="px-3 py-2.5 text-right font-bold">Revenue</th>
               <th className="px-3 py-2.5 text-right font-bold">30d Orders</th>
@@ -73,9 +74,9 @@ export function SalesTeamModule({ token }: { token: string }) {
           </thead>
           <tbody>
             {report === null ? (
-              <tr><td colSpan={8} className="px-3 py-10 text-center text-gray-400"><Loader2 className="mx-auto h-5 w-5 animate-spin" /></td></tr>
+              <tr><td colSpan={9} className="px-3 py-10 text-center text-gray-400"><Loader2 className="mx-auto h-5 w-5 animate-spin" /></td></tr>
             ) : report.length === 0 ? (
-              <tr><td colSpan={8} className="px-3 py-10 text-center text-gray-400">No orders flow through a salesperson yet — add salespeople below.</td></tr>
+              <tr><td colSpan={9} className="px-3 py-10 text-center text-gray-400">No orders flow through a salesperson yet — add salespeople below.</td></tr>
             ) : (
               report.map((r) => (
                 <tr key={r.name} className="border-b last:border-0 hover:bg-yellow-50/40">
@@ -85,6 +86,11 @@ export function SalesTeamModule({ token }: { token: string }) {
                     <p className="text-[10px] text-gray-400">{r.mobile}</p>
                   </td>
                   <td className="px-3 py-2.5">{r.area || "—"}</td>
+                  <td className="px-3 py-2.5">
+                    {r.warehouse
+                      ? <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">{r.warehouse}</span>
+                      : <span className="text-[10px] text-orange-500">not assigned</span>}
+                  </td>
                   <td className="px-3 py-2.5 text-right font-bold tabular-nums">{r.orders}</td>
                   <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{formatINR(r.revenue)}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums">{r.orders30d}</td>

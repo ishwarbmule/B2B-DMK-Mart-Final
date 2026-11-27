@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { api, ModuleHeader } from "./ui-bits";
+import { istDateTime } from "@/lib/ist";
 import { Button } from "@/components/ui/button";
 
 type Wh = { id: string; name: string; city: string; active: boolean; products: number };
@@ -266,6 +267,29 @@ export function ErpDirectModule({ token }: { token: string }) {
     }
   };
 
+  /** PER-WAREHOUSE deep scan (C⑫) — scan ONLY the godown the admin clicked, so one
+   *  fresh godown can be refreshed without waiting for the full multi-warehouse pass. */
+  const deepScanOne = async (whId: string, whName: string) => {
+    setSyncing(true);
+    setLog([]);
+    try {
+      setLog([`Deep scan — ${whName} only…`]);
+      const d = await call("/api/admin/erp-direct/sync", { method: "POST", body: JSON.stringify({ action: "deep-stock", whId }) });
+      const lines: string[] = (d.warehouses ?? []).map((w: { name: string; rows: number; upserted: number; staleRemoved: number; errors: string[] }) =>
+        `${w.name}: ${w.rows} rows · ${w.upserted} upserted · ${w.staleRemoved} stale removed${w.errors.length ? ` · ERROR: ${w.errors[0]}` : ""}`,
+      );
+      setLog([...lines, `Totals: ${d.totals?.rows ?? 0} rows, ${d.totals?.upserted ?? 0} upserted, ${d.totals?.productsUpdated ?? 0} product stock totals updated`]);
+      const failed = (d.warehouses ?? []).some((w: { errors: string[] }) => w.errors.length);
+      if (failed) toast.error(`${whName} deep scan had errors — check the log`);
+      else toast.success(`${whName} scanned — ${d.totals?.upserted ?? 0} stock rows updated`);
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Deep scan failed");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center gap-2 py-16 text-sm text-gray-400">
@@ -339,14 +363,24 @@ export function ErpDirectModule({ token }: { token: string }) {
               const savedOn = savedIds.has(w.id);
               const change = stagedOn !== savedOn;
               return (
-                <label key={w.id} className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 transition-colors ${stagedOn ? "border-gray-900 bg-gray-50" : "border-gray-200 hover:bg-gray-50"}`}>
-                  <input type="checkbox" className="h-4 w-4 accent-gray-900" checked={stagedOn} onChange={() => toggleWh(w.id)} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-medium text-gray-900">{w.name}</span>
-                    <span className="block truncate text-[12px] text-gray-500">{w.city || "—"} · {nf(w.products)} products</span>
-                  </span>
+                <div key={w.id} className={`flex items-center gap-2.5 rounded-lg border px-3 py-2.5 transition-colors ${stagedOn ? "border-gray-900 bg-gray-50" : "border-gray-200 hover:bg-gray-50"}`}>
+                  <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5">
+                    <input type="checkbox" className="h-4 w-4 accent-gray-900" checked={stagedOn} onChange={() => toggleWh(w.id)} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px] font-medium text-gray-900">{w.name}</span>
+                      <span className="block truncate text-[12px] text-gray-500">{w.city || "—"} · {nf(w.products)} products</span>
+                    </span>
+                  </label>
                   {change && <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${stagedOn ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-600"}`}>{stagedOn ? "Will show" : "Will hide"}</span>}
-                </label>
+                  <button
+                    onClick={() => deepScanOne(w.id, w.name)}
+                    disabled={busy || !savedOn}
+                    title={savedOn ? `Scan ONLY ${w.name} — refresh this godown's stock alone` : "Save this warehouse in the selection first (press Update Products / Save selection)"}
+                    className="shrink-0 rounded-md border border-gray-300 px-2 py-1 text-[10px] font-bold text-gray-600 hover:border-gray-900 hover:bg-white disabled:opacity-40"
+                  >
+                    Deep scan
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -488,7 +522,7 @@ export function ErpDirectModule({ token }: { token: string }) {
           <div className={`max-h-56 overflow-y-auto p-4 text-[12px] text-gray-600 ${slimScroll}`}>
             {history.map((h) => (
               <p key={h.id} className="border-b border-gray-100 py-1.5 last:border-0">
-                <span className="mr-2 font-mono text-[10px] text-gray-400">{new Date(h.createdAt).toLocaleString()}</span>
+                <span className="mr-2 font-mono text-[10px] text-gray-400">{istDateTime(h.createdAt)}</span>
                 <span className={h.status === "OK" ? "text-gray-700" : "text-amber-700"}>{h.message}</span>
               </p>
             ))}

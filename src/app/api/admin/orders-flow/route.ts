@@ -1,11 +1,16 @@
 /**
  * /api/admin/orders-flow — admin order pipeline:
  *   GET  ?orderId=...            → auto stock-check per line (pieces needed vs available) + per-warehouse view
+ *   POST { action: "verify" }    → WAREHOUSE MANAGER verification (N4): the serving godown's manager marks
+ *                                  each line available / not-available from THEIR warehouse BEFORE the
+ *                                  Super Admin confirms — stamps Order.verifiedAt/verifiedBy
  *   POST { action: "edit", ... } → admin edits order lines (qty / unit price / remove lines) + recompute totals
  *                                  (tracked: editedAt/editedBy — the customer is NOT told until send-updated)
  *   POST { action: "confirm" }   → confirm order: in-stock lines ship now (serials 1..n, stock + warehouse
- *                                  allocation decrement), out-of-stock lines → NEXT_PLAN (next delivery date,
- *                                  line amount credited to the buyer's credit balance)
+ *                                  allocation decrement — the ORDER's godown first, then the rest),
+ *                                  out-of-stock lines → NEXT_PLAN (next delivery date, line amount credited
+ *                                  to the buyer's credit balance). Optional lines[] override lets admin
+ *                                  ship/next-plan individual lines regardless of the auto stock check.
  *   POST { action: "plan-oos" }  → vendor-acquiring plan: mark lines (default: every out-of-stock line) as
  *                                  NEXT_PLAN with a vendor note; on CONFIRMED orders the stock is restored
  *                                  and the amount credited automatically
@@ -87,7 +92,10 @@ export async function GET(req: NextRequest) {
       id: it.id, productId: it.productId, sku: it.sku, name: it.name, image: it.image,
       unitType: it.unitType, packQty: it.packQty, qty: it.qty, pieces: it.pieces,
       unitPrice: it.unitPrice, total: it.total, serialNo: it.serialNo, lineStatus: it.lineStatus,
+      plannedNote: it.plannedNote,
       available, ok,
+      // qty sitting in the ORDER's own serving godown — the warehouse manager verifies against this
+      atWarehouse: order.warehouseId ? (wsMap.get(`${it.productId}:${order.warehouseId}`) ?? 0) : (wsMap.get(`${it.productId}:${order.pickupWarehouseId}`) ?? 0),
       perWarehouse: warehouses.map((w) => ({ warehouseId: w.id, name: w.name, qty: wsMap.get(`${it.productId}:${w.id}`) ?? 0 })),
     };
   });
@@ -96,8 +104,10 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     order: {
       id: order.id, invoiceNo: order.invoiceNo, status: order.status,
+      warehouseId: order.warehouseId, warehouseName: order.warehouseName,
       confirmedAt: order.confirmedAt, nextDeliveryAt: order.nextDeliveryAt,
       editedAt: order.editedAt, editedBy: order.editedBy,
+      verifiedAt: order.verifiedAt, verifiedBy: order.verifiedBy,
       customerNotifiedAt: order.customerNotifiedAt,
     },
     lines,
@@ -119,9 +129,63 @@ export async function POST(req: NextRequest) {
     const action = String(body.action || "");
     if (!body.orderId) return jsonError("Missing orderId");
 
-    if (action === "edit") {
+    if (action === "verify") {
+      // WAREHOUSE-MANAGER VERIFICATION — the serving godown's manager walks the order
+      // lines and marks what they can dispatch/pick up NOW and what is not available.
+      // The result is advisory input for the Super Admin's confirm decision.
+      const identity = await staffIdentity(req);
       const order = await loadOrder(body.orderId);
       if (!order) return jsonError("Order not found", 404);
+      if (identity?.role === "manager") {
+        const servingId = order.warehouseId || order.pickupWarehouseId;
+        if (servingId && servingId !== identity.warehouseId) {
+          return jsonError("This order belongs to a different warehouse", 403);
+        }
+      }
+      if (order.status === "CONFIRMED") return jsonError("Order already confirmed — verification no longer needed");
+      if (order.status !== "PENDING") return jsonError(`Orders can be verified while PENDING — this one is ${order.status}`);
+
+      const marks: Array<{ id: string; available: boolean }> = Array.isArray(body.lines) ? body.lines : [];
+      const byId = new Map(order.items.map((it) => [it.id, it]));
+      const note = String(body.note || "").slice(0, 200);
+      let okCount = 0;
+      let oosCount = 0;
+      for (const m of marks) {
+        const it = byId.get(String(m.id));
+        if (!it) continue;
+        if (m.available) {
+          okCount++;
+          await db.orderItem.update({ where: { id: it.id }, data: { lineStatus: "OK", plannedNote: "" } }).catch(() => {});
+        } else {
+          oosCount++;
+          const lineNote = note ? `${note} — marked by warehouse check` : "Not available at this warehouse — awaiting stock / next plan";
+          await db.orderItem.update({ where: { id: it.id }, data: { lineStatus: "NEXT_PLAN", plannedNote: lineNote } }).catch(() => {});
+        }
+      }
+      if (!okCount && !oosCount) return jsonError("No line marks received — tick at least one line");
+
+      const actor = await actorName(req);
+      await db.order.update({
+        where: { id: order.id },
+        data: { verifiedAt: new Date(), verifiedBy: actor },
+      });
+      await db.activityLog.create({
+        data: { action: "VERIFY", entity: "order", entityId: order.id, detail: `Warehouse verification by ${actor} for ${order.invoiceNo} — ${okCount} available, ${oosCount} not available${order.warehouseName ? ` at ${order.warehouseName}` : ""}` },
+      });
+      const updated = await loadOrder(order.id);
+      return NextResponse.json({ ok: true, order: updated, summary: { okCount, oosCount } });
+    }
+
+    if (action === "edit") {
+      const identity = await staffIdentity(req);
+      const order = await loadOrder(body.orderId);
+      if (!order) return jsonError("Order not found", 404);
+      if (identity?.role === "manager") {
+        const servingId = order.warehouseId || order.pickupWarehouseId;
+        if (servingId && servingId !== identity.warehouseId) {
+          return jsonError("This order belongs to a different warehouse", 403);
+        }
+      }
       const wasConfirmed = order.status === "CONFIRMED";
       if (order.status !== "PENDING" && !wasConfirmed) {
         return jsonError(`Orders can be edited while PENDING or CONFIRMED — this one is ${order.status}`);
@@ -237,8 +301,15 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "confirm") {
+      const identity = await staffIdentity(req);
       const order = await loadOrder(body.orderId);
       if (!order) return jsonError("Order not found", 404);
+      if (identity?.role === "manager") {
+        const servingId = order.warehouseId || order.pickupWarehouseId;
+        if (servingId && servingId !== identity.warehouseId) {
+          return jsonError("This order belongs to a different warehouse", 403);
+        }
+      }
       if (order.status !== "PENDING") return jsonError("Order is already confirmed");
 
       const nextDeliveryDate = String(body.nextDeliveryDate || "").slice(0, 80);
@@ -249,12 +320,22 @@ export async function POST(req: NextRequest) {
       ]);
       const pmap = new Map(products.map((p) => [p.id, p]));
 
+      // Admin per-line override ({ id, ship }) — when the dialog sends explicit
+      // ship/next-plan choices they win over the auto stock check.
+      const overrides = new Map<string, boolean>(
+        (Array.isArray(body.lines) ? body.lines : [])
+          .filter((l: { id?: unknown; ship?: unknown }) => l && typeof l.id === "string" && typeof l.ship === "boolean")
+          .map((l: { id: string; ship: boolean }) => [l.id, l.ship]),
+      );
+
       const oos: Array<{ id: string; total: number; name: string; plannedNote: string }> = [];
       const shipNow: Array<{ id: string; pieces: number; productId: string; name: string }> = [];
       for (const it of order.items) {
         const p = pmap.get(it.productId);
         const available = p ? Math.max(0, Math.round(p.stock)) : 0;
-        if (available >= it.pieces && it.pieces > 0) shipNow.push({ id: it.id, pieces: it.pieces, productId: it.productId, name: it.name });
+        const autoOk = available >= it.pieces && it.pieces > 0;
+        const ship = overrides.get(it.id) ?? autoOk;
+        if (ship && it.pieces > 0) shipNow.push({ id: it.id, pieces: it.pieces, productId: it.productId, name: it.name });
         else oos.push({ id: it.id, total: it.total, name: it.name, plannedNote: it.plannedNote });
       }
 
@@ -270,11 +351,16 @@ export async function POST(req: NextRequest) {
         await db.orderItem.update({ where: { id: l.id }, data: { serialNo: serial++, lineStatus: "NEXT_PLAN", plannedNote: note } });
       }
 
-      // decrement product stock + warehouse allocation (default warehouse first)
+      // decrement product stock + warehouse allocation — THE ORDER'S OWN GODOWN FIRST
+      // (the warehouse manager verified availability there), then every other godown
+      const servingId = order.warehouseId || order.pickupWarehouseId;
+      const orderedWhs = servingId
+        ? [...warehouses].sort((a, b) => (a.id === servingId ? -1 : 0) - (b.id === servingId ? -1 : 0))
+        : warehouses;
       for (const l of shipNow) {
         await db.product.update({ where: { id: l.productId }, data: { stock: { decrement: l.pieces } } }).catch(() => {});
         let remaining = l.pieces;
-        for (const w of warehouses) {
+        for (const w of orderedWhs) {
           if (remaining <= 0) break;
           const ws = w.stocks.find((s) => s.productId === l.productId);
           if (!ws || ws.qty <= 0) continue;
@@ -407,7 +493,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, order: updated, channel: wa.channel, demo: wa.demo, preview: text });
     }
 
-    return jsonError("Unknown action — use edit | confirm | plan-next | plan-oos | send-updated");
+    return jsonError("Unknown action — use verify | edit | confirm | plan-next | plan-oos | send-updated");
   } catch (e) {
     return jsonError(e instanceof Error ? e.message.slice(0, 300) : "Flow failed", 400);
   }

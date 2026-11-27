@@ -32,6 +32,21 @@ const STATEMENTS: Array<{ table: string; sql: string; column: string }> = [
     column: "customerNotifiedAt",
     sql: `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "customerNotifiedAt" TIMESTAMP(3)`,
   },
+  {
+    table: "Order",
+    column: "verifiedAt",
+    sql: `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "verifiedAt" TIMESTAMP(3)`,
+  },
+  {
+    table: "Order",
+    column: "verifiedBy",
+    sql: `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "verifiedBy" TEXT NOT NULL DEFAULT ''`,
+  },
+  {
+    table: "SalesPerson",
+    column: "warehouseId",
+    sql: `ALTER TABLE "SalesPerson" ADD COLUMN IF NOT EXISTS "warehouseId" TEXT NOT NULL DEFAULT ''`,
+  },
 ];
 
 export async function GET(req: NextRequest) {

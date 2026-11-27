@@ -12,13 +12,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import {
-  BadgeCheck, BookOpen, ClipboardList, Loader2, LogOut, Plus, Search, Store, Trash2, UserPlus, Users,
+  BadgeCheck, BookOpen, ClipboardList, Loader2, LogOut, MapPin, Plus, Search, Store, Trash2, UserPlus, Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatINR } from "@/lib/store";
 import { istDate } from "@/lib/ist";
+import StoreLocationPicker, { type PickedLocation } from "@/components/store-map/store-location-picker";
 
-type Profile = { id: string; name: string; mobile: string; area: string; email?: string };
+type Profile = { id: string; name: string; mobile: string; area: string; email?: string; warehouse?: { id: string; name: string; city: string } | null };
 
 type ProductHit = { id: string; name: string; sku: string; image: string; brand?: { name?: string }; dealerPrice?: number; mrp?: number; unit?: string; packQty?: number };
 type Line = { productId: string; name: string; sku: string; image: string; unitType: "SINGLE" | "PACK"; qty: number; unitPrice: number };
@@ -32,6 +33,7 @@ type OrderRow = {
 type CustomerRow = {
   id: string; name: string; shopName: string; phone: string; city: string; pincode: string;
   address: string; customerType: string; status: string; mine?: boolean; createdAt: string;
+  lat?: number | null; lng?: number | null;
 };
 
 const emptyCustomer = {
@@ -123,17 +125,31 @@ export function SalesteamPanel() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="sticky top-0 z-40 flex h-14 items-center justify-between border-b bg-black px-4">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <Image src="/dmk-logo.png" alt="DMK" width={30} height={30} className="h-[30px] w-[30px] rounded-full" unoptimized />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-white">{profile.name}</p>
-            <p className="truncate text-[10px] text-yellow-400">{profile.area ? `Area: ${profile.area}` : "Sales Team"} · {profile.mobile}</p>
+      <div className="sticky top-0 z-40 bg-black px-4 pt-2.5 pb-2">
+        <div className="mx-auto flex h-10 max-w-4xl items-center justify-between">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <Image src="/dmk-logo.png" alt="DMK" width={30} height={30} className="h-[30px] w-[30px] rounded-full" unoptimized />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-white">{profile.name}</p>
+              <p className="truncate text-[10px] text-yellow-400">{profile.area ? `Area: ${profile.area}` : "Sales Team"} · {profile.mobile}</p>
+            </div>
           </div>
+          <button onClick={signOut} className="flex shrink-0 items-center gap-1.5 rounded-lg bg-yellow-400 px-3 py-1.5 text-xs font-semibold text-black hover:bg-yellow-300">
+            <LogOut className="h-3.5 w-3.5" /> Logout
+          </button>
         </div>
-        <button onClick={signOut} className="flex shrink-0 items-center gap-1.5 rounded-lg bg-yellow-400 px-3 py-1.5 text-xs font-semibold text-black hover:bg-yellow-300">
-          <LogOut className="h-3.5 w-3.5" /> Logout
-        </button>
+        {/* assigned godown — set by the admin; every order books for THIS warehouse */}
+        <div className="mx-auto mt-1.5 max-w-4xl">
+          {profile.warehouse ? (
+            <p className="flex items-center gap-1.5 rounded-lg bg-yellow-400/10 px-2.5 py-1.5 text-[11px] font-semibold text-yellow-400 ring-1 ring-yellow-400/30">
+              <Store className="h-3.5 w-3.5" /> Ordering for: {profile.warehouse.name}{profile.warehouse.city ? ` · ${profile.warehouse.city}` : ""}
+            </p>
+          ) : (
+            <p className="rounded-lg bg-orange-400/10 px-2.5 py-1.5 text-[11px] font-semibold text-orange-300 ring-1 ring-orange-400/30">
+              No warehouse assigned yet — orders route to the nearest godown. Ask the admin to assign one.
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="mx-auto max-w-4xl p-4">
@@ -155,7 +171,7 @@ export function SalesteamPanel() {
           ))}
         </div>
 
-        {tab === "new" ? <NewOrder token={token} /> : tab === "orders" ? <MyOrders token={token} /> : <MyCustomers token={token} />}
+        {tab === "new" ? <NewOrder token={token} whId={profile.warehouse?.id || ""} /> : tab === "orders" ? <MyOrders token={token} /> : <MyCustomers token={token} />}
       </div>
     </div>
   );
@@ -163,8 +179,10 @@ export function SalesteamPanel() {
 
 /* ══════════════ NEW ORDER ══════════════ */
 
-function NewOrder({ token }: { token: string }) {
+function NewOrder({ token, whId }: { token: string; whId: string }) {
   const [cust, setCust] = useState({ ...emptyCustomer });
+  const [email, setEmail] = useState("");
+  const [pin, setPin] = useState<PickedLocation | null>(null);
   const [lookup, setLookup] = useState("");
   const [found, setFound] = useState<CustomerRow | null>(null);
   const [q, setQ] = useState("");
@@ -175,20 +193,22 @@ function NewOrder({ token }: { token: string }) {
   const [placed, setPlaced] = useState<{ invoiceNo: string; total: number; warehouseName?: string } | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // debounced product search
+  // debounced product search — scoped to the salesperson's assigned warehouse so the
+  // panel only offers what that godown can actually dispatch
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
     if (!q.trim()) { setHits([]); return; }
     searchTimer.current = setTimeout(() => {
       setSearching(true);
-      fetch(`/api/products?q=${encodeURIComponent(q.trim())}&limit=8`)
+      const scope = whId ? `&warehouseId=${encodeURIComponent(whId)}` : "";
+      fetch(`/api/products?q=${encodeURIComponent(q.trim())}&limit=8${scope}`)
         .then((r) => r.json())
         .then((d) => setHits(d.products ?? []))
         .catch(() => setHits([]))
         .finally(() => setSearching(false));
     }, 300);
     return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
-  }, [q]);
+  }, [q, whId]);
 
   // find existing shop by phone → autofill
   const lookupCustomer = async () => {
@@ -230,6 +250,7 @@ function NewOrder({ token }: { token: string }) {
   const placeOrder = async () => {
     if (!cust.customerName.trim() || !/^[6-9]\d{9}$/.test(cust.phone)) return toast.error("Customer name and valid 10-digit mobile are required");
     if (!cust.addressLine.trim() || !cust.city.trim() || !/^\d{6}$/.test(cust.pincode)) return toast.error("Full location (address, city, 6-digit pincode) is required");
+    if (!found && !pin) return toast.error("Pin the shop location on the map — the admin uses it for delivery planning");
     if (lines.length === 0) return toast.error("Add at least one product");
     if (!confirm(`Verify order list:\n${lines.map((l) => `• ${l.name} × ${l.qty}`).join("\n")}\n\nPlace this order for ${cust.customerName}?`)) return;
     setBusy(true);
@@ -239,6 +260,8 @@ function NewOrder({ token }: { token: string }) {
         headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
         body: JSON.stringify({
           ...cust,
+          email,
+          ...(pin ? { lat: pin.lat, lng: pin.lng, geoSource: pin.source } : {}),
           items: lines.map((l) => ({ id: l.productId, unitType: l.unitType, qty: Number(l.qty) })),
         }),
       });
@@ -247,6 +270,8 @@ function NewOrder({ token }: { token: string }) {
       setPlaced({ invoiceNo: d.invoiceNo, total: d.bill?.grandTotal ?? 0, warehouseName: d.bill?.warehouseName });
       setLines([]);
       setCust({ ...emptyCustomer });
+      setEmail("");
+      setPin(null);
       setFound(null);
       toast.success(`Order ${d.invoiceNo} placed — visible in the admin Orders section`);
     } catch (e) {
@@ -313,6 +338,10 @@ function NewOrder({ token }: { token: string }) {
             <label className="text-xs font-semibold text-gray-700">GSTIN</label>
             <input value={cust.gstin} onChange={(e) => setCust({ ...cust, gstin: e.target.value.toUpperCase() })} className={input} placeholder="optional" />
           </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-700">Email</label>
+            <input value={email} onChange={(e) => setEmail(e.target.value)} className={input} inputMode="email" placeholder="optional" />
+          </div>
           <div className="sm:col-span-2">
             <label className="text-xs font-semibold text-gray-700">Shop address *</label>
             <input value={cust.addressLine} onChange={(e) => setCust({ ...cust, addressLine: e.target.value })} className={input} placeholder="Street, area, landmark" />
@@ -332,6 +361,19 @@ function NewOrder({ token }: { token: string }) {
             </select>
           </div>
         </div>
+        {/* store map pin — same requirement as the website's customer create form */}
+        <div className="mt-3 rounded-xl border border-yellow-200 bg-yellow-50 p-3">
+          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold text-yellow-800"><MapPin className="h-3.5 w-3.5" /> Pin the shop location {found ? "(optional — only if the shop has no pin yet)" : "*"}</p>
+          <p className="mb-2 text-[10px] text-yellow-700">Tap the exact shop spot on the map (or use search / GPS). The admin panel shows this pin on the store map.</p>
+          <StoreLocationPicker
+            lat={pin?.lat ?? null}
+            lng={pin?.lng ?? null}
+            onChange={setPin}
+            autoQuery={[cust.city, cust.pincode].filter(Boolean).join(" ")}
+            compact
+          />
+          {pin && <p className="mt-1.5 text-[10px] font-semibold text-emerald-700">Pinned at {pin.lat.toFixed(5)}, {pin.lng.toFixed(5)}</p>}
+        </div>
       </div>
 
       {/* products */}
@@ -343,21 +385,21 @@ function NewOrder({ token }: { token: string }) {
           {searching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-gray-400" />}
         </div>
         {hits.length > 0 && (
-          <div className="mt-2 max-h-80 overflow-y-auto rounded-lg border border-gray-200 p-2">
-            <div className="grid grid-cols-2 gap-2">
+          <div className="mt-2 max-h-96 overflow-y-auto rounded-lg border border-gray-200 p-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {hits.map((p) => (
-                <button key={p.id} onClick={() => addProduct(p)} className="flex items-center gap-2.5 rounded-xl border border-gray-200 p-2 text-left transition hover:border-yellow-400 hover:bg-yellow-50">
+                <button key={p.id} onClick={() => addProduct(p)} className="flex items-center gap-3 rounded-xl border border-gray-200 p-2.5 text-left transition hover:border-yellow-400 hover:bg-yellow-50">
                   {p.image ? (
-                    <Image src={p.image} alt={p.name} width={72} height={72} className="h-[72px] w-[72px] shrink-0 rounded-lg bg-gray-50 object-cover" unoptimized />
+                    <Image src={p.image} alt={p.name} width={112} height={112} className="h-28 w-28 shrink-0 rounded-lg bg-gray-50 object-cover" unoptimized />
                   ) : (
-                    <span className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-lg bg-gray-100 text-[9px] font-bold text-gray-400">NO IMG</span>
+                    <span className="flex h-28 w-28 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-[9px] font-bold text-gray-400">NO IMG</span>
                   )}
                   <span className="min-w-0 flex-1">
-                    <span className="line-clamp-2 block text-[11.5px] font-bold leading-tight text-gray-900">{p.name}</span>
-                    <span className="mt-0.5 block truncate text-[9.5px] text-gray-400">{p.sku}</span>
-                    <span className="mt-1 flex items-center justify-between">
-                      <span className="text-[11px] font-black text-yellow-600">₹{p.dealerPrice ?? "—"}</span>
-                      <span className="flex items-center gap-0.5 rounded-md bg-black px-1.5 py-0.5 text-[9px] font-bold text-yellow-400"><Plus className="h-2.5 w-2.5" /> ADD</span>
+                    <span className="line-clamp-2 block text-[12.5px] font-bold leading-tight text-gray-900">{p.name}</span>
+                    <span className="mt-0.5 block truncate text-[10px] text-gray-400">{p.sku}{p.unit ? ` · ${p.unit}` : ""}</span>
+                    <span className="mt-1.5 flex items-center justify-between">
+                      <span className="text-[13px] font-black text-yellow-600">₹{p.dealerPrice ?? "—"}</span>
+                      <span className="flex items-center gap-1 rounded-md bg-black px-2 py-1 text-[10px] font-bold text-yellow-400"><Plus className="h-3 w-3" /> ADD</span>
                     </span>
                   </span>
                 </button>
@@ -373,9 +415,9 @@ function NewOrder({ token }: { token: string }) {
             lines.map((l) => (
               <div key={l.productId} className="flex items-center gap-3 rounded-xl border p-2.5">
                 {l.image ? (
-                  <Image src={l.image} alt={l.name} width={80} height={80} className="h-20 w-20 shrink-0 rounded-xl bg-gray-50 object-cover" unoptimized />
+                  <Image src={l.image} alt={l.name} width={96} height={96} className="h-24 w-24 shrink-0 rounded-xl bg-gray-50 object-cover" unoptimized />
                 ) : (
-                  <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-[9px] font-bold text-gray-400">NO IMG</span>
+                  <span className="flex h-24 w-24 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-[9px] font-bold text-gray-400">NO IMG</span>
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="line-clamp-2 text-xs font-bold leading-snug text-gray-900">{l.name}</p>
@@ -484,6 +526,7 @@ function MyCustomers({ token }: { token: string }) {
   const [customers, setCustomers] = useState<CustomerRow[] | null>(null);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ name: "", shopName: "", phone: "", email: "", gstin: "", address: "", city: "", pincode: "", customerType: "RETAILER" });
+  const [pin, setPin] = useState<PickedLocation | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
@@ -498,18 +541,20 @@ function MyCustomers({ token }: { token: string }) {
   const create = async () => {
     if (!form.name.trim() || !/^[6-9]\d{9}$/.test(form.phone)) return toast.error("Name and valid 10-digit mobile are required");
     if (!form.address.trim() || !form.city.trim() || !/^\d{6}$/.test(form.pincode)) return toast.error("Full shop location is required");
+    if (!pin) return toast.error("Pin the shop location on the map — same as the website's sign-up form");
     setBusy(true);
     try {
       const res = await fetch("/api/salesteam/customers", {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, lat: pin.lat, lng: pin.lng, geoSource: pin.source }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "Create failed");
       toast.success(`${d.customer.name} added to your shop book`);
       setAdding(false);
       setForm({ name: "", shopName: "", phone: "", email: "", gstin: "", address: "", city: "", pincode: "", customerType: "RETAILER" });
+      setPin(null);
       load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Create failed");
@@ -572,6 +617,19 @@ function MyCustomers({ token }: { token: string }) {
               <input value={form.pincode} onChange={(e) => setForm({ ...form, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) })} className={input} inputMode="numeric" />
             </div>
           </div>
+          {/* store map pin — the same options the customer create form collects */}
+          <div className="mt-3 rounded-xl border border-yellow-200 bg-yellow-50 p-3">
+            <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold text-yellow-800"><MapPin className="h-3.5 w-3.5" /> Pin the shop location *</p>
+            <p className="mb-2 text-[10px] text-yellow-700">Tap the exact shop spot (search by city/pincode or use GPS). The pin shows on the admin store map.</p>
+            <StoreLocationPicker
+              lat={pin?.lat ?? null}
+              lng={pin?.lng ?? null}
+              onChange={setPin}
+              autoQuery={[form.city, form.pincode].filter(Boolean).join(" ")}
+              compact
+            />
+            {pin && <p className="mt-1.5 text-[10px] font-semibold text-emerald-700">Pinned at {pin.lat.toFixed(5)}, {pin.lng.toFixed(5)}</p>}
+          </div>
           <button onClick={create} disabled={busy} className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-black py-2.5 text-xs font-semibold text-yellow-400 hover:bg-gray-800 disabled:opacity-60">
             {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />} Create Customer Account
           </button>
@@ -592,7 +650,21 @@ function MyCustomers({ token }: { token: string }) {
               </div>
               <p className="text-[11px] text-gray-500">{c.name} · {c.phone}</p>
               <p className="mt-0.5 line-clamp-2 text-[10px] text-gray-400">{[c.address, c.city, c.pincode].filter(Boolean).join(", ")}</p>
-              <p className="mt-1 text-[10px] font-semibold text-gray-500">{c.customerType.replace(/_/g, " ")} · {c.status}</p>
+              <div className="mt-1 flex items-center justify-between">
+                <p className="text-[10px] font-semibold text-gray-500">{c.customerType.replace(/_/g, " ")} · {c.status}</p>
+                {typeof c.lat === "number" && typeof c.lng === "number" ? (
+                  <a
+                    href={`https://www.google.com/maps?q=${c.lat},${c.lng}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700 hover:bg-emerald-100"
+                  >
+                    <MapPin className="h-2.5 w-2.5" /> Pinned
+                  </a>
+                ) : (
+                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[9px] font-bold text-gray-400">No pin</span>
+                )}
+              </div>
             </div>
           ))}
         </div>

@@ -143,15 +143,19 @@ function AccountInner() {
   const loadMe = async (token: string) => {
     try {
       const r = await fetch("/api/auth/me", { headers: { "x-customer-token": token } });
-      if (!r.ok) return clearCustomerToken();
+      // ONLY a 401 means the token is really dead — clearing on any error (a Neon
+      // cold start 500, a network hiccup) threw away valid logins and forced
+      // customers to sign in again (the "keeps asking to log in" bug)
+      if (r.status === 401) return clearCustomerToken();
+      if (!r.ok) return;
       const d = await r.json();
       if (d?.customer) {
         setCustomer(d.customer);
         setNearest(d.nearestWarehouse ?? null);
         setOrders(d.recentOrders ?? []);
-      } else clearCustomerToken();
+      } else if (r.status === 401) clearCustomerToken();
     } catch {
-      /* network hiccup — stay logged out silently */
+      /* network hiccup — keep the token, the next load retries */
     }
   };
 

@@ -145,6 +145,15 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ entity: str
       include: d.include,
       orderBy: d.orderBy ?? { createdAt: "desc" },
     });
+    // SalesPerson.warehouseId is a plain string (no Prisma relation) — attach the
+    // assigned warehouse object so the admin grid can render its NAME, not the id.
+    if (entity === "salespersons" && Array.isArray(rows)) {
+      const whs = await db.warehouse.findMany({ select: { id: true, name: true, city: true } });
+      const byId = new Map(whs.map((w) => [w.id, w]));
+      for (const r of rows as AnyRec[]) {
+        r.warehouse = byId.get(String(r.warehouseId || "")) ?? null;
+      }
+    }
     return NextResponse.json({ rows });
   } catch (e) {
     return jsonError(e instanceof Error ? e.message.slice(0, 300) : "List failed", 400);

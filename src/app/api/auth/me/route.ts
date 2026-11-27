@@ -7,12 +7,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { customerFromReq } from "@/lib/customer-auth";
+import { customerFromReq, isHttpsReq } from "@/lib/customer-auth";
 import { rankWarehouses } from "@/lib/geo";
 
 export const dynamic = "force-dynamic";
 
+/** Re-issue the storefront-gate cookie (dmk_sess) on EVERY successful /me call.
+ *  The page gate (proxy.ts) trusts ONLY that httpOnly cookie while the login token
+ *  lives in localStorage — without this happy-path refresh the 30-day cookie dies
+ *  while the token lives on, and every gated page bounced the buyer to /login
+ *  (the "already logged in but asked to sign in again" bug). */
+function withFreshGateCookie(res: NextResponse, token: string, req: NextRequest): NextResponse {
+  if (token) {
+    res.cookies.set("dmk_sess", token, {
+      httpOnly: true, sameSite: "lax", secure: isHttpsReq(req),
+      path: "/", maxAge: 60 * 60 * 24 * 30,
+    });
+  }
+  return res;
+}
+
 export async function GET(req: NextRequest) {
+  const token = req.headers.get("x-customer-token") || "";
   const customerId = customerFromReq(req);
   if (!customerId) return NextResponse.json({ customer: null }, { status: 401 });
   const customer = await db.customer.findUnique({ where: { id: customerId } });
@@ -39,7 +55,7 @@ export async function GET(req: NextRequest) {
           items: o.items.map((i) => ({ ...i, unitPrice: 0, total: 0, discount: 0 })),
         },
   );
-  return NextResponse.json({
+  return withFreshGateCookie(NextResponse.json({
     customer: {
       id: customer.id, name: customer.name, shopName: customer.shopName, phone: customer.phone,
       email: customer.email, customerType: customer.customerType, tier: customer.tier,
@@ -52,7 +68,7 @@ export async function GET(req: NextRequest) {
       : null,
     warehouses: ranked.map((w) => ({ id: w.id, name: w.name, city: w.city, address: w.address, phone: w.phone, isDefault: w.isDefault })),
     recentOrders: safeOrders,
-  });
+  }), token, req);
 }
 
 const patchSchema = z.object({

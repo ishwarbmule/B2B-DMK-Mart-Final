@@ -34,17 +34,30 @@ const orderSchema = z.object({
   pickupWarehouseId: z.string().optional().or(z.literal("")),
   paymentMethod: z.enum(["UPI", "CARD", "COD", "CREDIT"]).optional(),
   note: z.string().optional().or(z.literal("")),
+  // store location pin (N3) — same options as the customer create form
+  lat: z.number().optional(),
+  lng: z.number().optional(),
+  geoSource: z.enum(["MAP", "GPS", "SALESTEAM", "ADMIN"]).optional(),
   items: z.array(lineSchema).min(1),
 });
 
-async function salespersonFromReq(req: NextRequest): Promise<{ id: string; name: string } | null> {
+async function salespersonFromReq(req: NextRequest): Promise<{ id: string; name: string; warehouseId: string } | null> {
   const identity = await staffIdentity(req);
   if (!identity || identity.role !== "salesperson") return null;
-  return { id: identity.salesPersonId, name: identity.name };
+  return { id: identity.salesPersonId, name: identity.name, warehouseId: identity.warehouseId || "" };
 }
 
-/** Serving warehouse — pickup warehouse for PICKUP, nearest-by-city / default godown for DELIVERY. */
-async function resolveWarehouse(fulfillment: Fulfillment, pickupWarehouseId: string, city: string) {
+/**
+ * Serving warehouse — the admin-assigned godown ALWAYS wins when set (the salesperson
+ * books orders for exactly that warehouse, pickup or delivery). Without an assignment
+ * the legacy routing applies (chosen pickup warehouse / nearest-by-city / default).
+ */
+async function resolveWarehouse(fulfillment: Fulfillment, pickupWarehouseId: string, city: string, assignedWhId: string) {
+  if (assignedWhId) {
+    const wh = await db.warehouse.findFirst({ where: { id: assignedWhId, active: true } });
+    if (wh) return { id: wh.id, name: wh.name };
+    // assigned godown missing/inactive — fall through to legacy routing rather than block the visit
+  }
   if (fulfillment === "PICKUP") {
     const wh = pickupWarehouseId
       ? await db.warehouse.findFirst({ where: { id: pickupWarehouseId, active: true } })
@@ -88,8 +101,18 @@ export async function POST(req: NextRequest) {
           status: "PENDING",
           source: "WEB",
           createdBy: sp.name,
+          ...(typeof d.lat === "number" && typeof d.lng === "number"
+            ? { lat: d.lat, lng: d.lng, geoSource: d.geoSource || "SALESTEAM", geoUpdatedAt: new Date() }
+            : {}),
         },
       });
+    } else if (typeof d.lat === "number" && typeof d.lng === "number" && !cust.lat) {
+      // existing shop visited on the road without a pin yet — record it (never overrides an admin pin)
+      const found_cust = cust;
+      cust = await db.customer.update({
+        where: { id: found_cust.id },
+        data: { lat: d.lat, lng: d.lng, geoSource: d.geoSource || "SALESTEAM", geoUpdatedAt: new Date() },
+      }).catch(() => found_cust);
     }
 
     // products + tier pricing (same engine as web checkout)
@@ -130,7 +153,7 @@ export async function POST(req: NextRequest) {
     const slabDisc = round2((itemTotal * slabPct) / 100);
     const discount = slabDisc;
 
-    const serving = await resolveWarehouse(fulfillment, d.pickupWarehouseId || "", d.city);
+    const serving = await resolveWarehouse(fulfillment, d.pickupWarehouseId || "", d.city, sp.warehouseId);
     if (!serving) return NextResponse.json({ error: "Choose a pickup warehouse" }, { status: 400 });
 
     const deliveryFee = fulfillment === "PICKUP" ? 0 : 250;

@@ -58,14 +58,19 @@ export default async function InvoicePage({
   const qr = await upiQrSvg(payable, order.invoiceNo);
 
   return (
-    <div className="mx-auto w-full bg-white text-black print:p-0" style={{ maxWidth: 830, fontFamily: SANS }}>
+    <div className="mx-auto w-full bg-white text-black print:p-0" style={{ width: "190mm", maxWidth: "100%", fontFamily: SANS }}>
       <style>{`
-        @page { size: A4; margin: 10mm; }
+        @page { size: A4 portrait; margin: 10mm; }
         @media print {
           .no-print { display: none !important; }
-          body { background: #fff; }
+          body { background: #fff; margin: 0 !important; }
           thead { display: table-header-group; }
           tr { page-break-inside: avoid; }
+          /* exact mm layout on paper: 190mm fills the A4 printable area edge-to-edge,
+             so columns/boxes line up the same on every printer (no browser shrink-fit) */
+          * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+          table { table-layout: fixed; }
+          td, th { word-wrap: break-word; overflow-wrap: break-word; }
         }
         @media screen {
           body { background: #e5e7eb; padding: 20px 0; }
@@ -246,8 +251,9 @@ export default async function InvoicePage({
             UPI ID : <b>{FIRM.upi}</b>
           </p>
         </div>
-        <div className="flex items-center gap-2 p-2">
-          <div className="h-[72px] w-[72px] shrink-0 [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: qr }} />
+        <div className="flex items-center gap-3 p-2">
+          {/* 24mm QR — a printer-exact size: scans from paper, never crops, sits flush in the payment box */}
+          <div className="h-[24mm] w-[24mm] shrink-0 bg-white [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: qr }} />
           <div>
             <p className="text-[8.5px] font-bold uppercase tracking-wide">Scan &amp; Pay</p>
             <p className="mt-0.5 text-[12px] font-black leading-tight">₹{num2(payable)}</p>

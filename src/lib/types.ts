@@ -155,6 +155,7 @@ export interface DProduct {
   tier2?: number;
   tier3?: number;
   tier4?: number;
+  tier5?: number;
   // Location pricing: the logged-in buyer's city override, resolved server-side
   // from Product.locationPrices — wins over every slab (lib/pricing.ts piecePriceOf).
   locPrice?: { dealerPrice?: number; mrp?: number };
@@ -244,6 +245,10 @@ export interface OrderRow {
   note?: string;
   confirmedAt?: string;
   nextDeliveryAt?: string;
+  // warehouse-manager verification (N4) — stamped when the serving godown's
+  // manager submits the per-line available / not-available check
+  verifiedAt?: string | null;
+  verifiedBy?: string;
   createdAt: string;
 }
 

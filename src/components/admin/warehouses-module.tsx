@@ -15,7 +15,7 @@ import {
   Warehouse as WarehouseIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import { api, ModuleHeader } from "./ui-bits";
+import { api, ImageField, ModuleHeader } from "./ui-bits";
 import { formatINR } from "@/lib/store";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,7 @@ import { Switch } from "@/components/ui/switch";
 
 export type Wh = {
   id: string; name: string; code: string; source: string;
-  address: string; city: string; phone: string;
+  address: string; city: string; phone: string; image?: string;
   isDefault: boolean; active: boolean; sortOrder: number;
   createdAt: string; updatedAt: string;
   productCount: number; totalStock: number;
@@ -37,8 +37,8 @@ type ProductRow = {
   qty: number; unit: string; packQty: number; dealerPrice: number; mrp: number; stock: number;
 };
 
-type FormState = { name: string; code: string; city: string; address: string; phone: string; sortOrder: string; isDefault: boolean; active: boolean };
-const EMPTY_FORM: FormState = { name: "", code: "", city: "", address: "", phone: "", sortOrder: "0", isDefault: false, active: true };
+type FormState = { name: string; code: string; city: string; address: string; phone: string; image: string; sortOrder: string; isDefault: boolean; active: boolean };
+const EMPTY_FORM: FormState = { name: "", code: "", city: "", address: "", phone: "", image: "", sortOrder: "0", isDefault: false, active: true };
 
 const slimScroll = "[scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-700";
 
@@ -65,7 +65,7 @@ export function WarehousesModule({ token }: { token: string }) {
 
   const openEdit = (w: Wh) => {
     setEditing(w);
-    setForm({ name: w.name, code: w.code, city: w.city, address: w.address, phone: w.phone, sortOrder: String(w.sortOrder), isDefault: w.isDefault, active: w.active });
+    setForm({ name: w.name, code: w.code, city: w.city, address: w.address, phone: w.phone, image: w.image || "", sortOrder: String(w.sortOrder), isDefault: w.isDefault, active: w.active });
     setFormOpen(true);
   };
 
@@ -151,18 +151,24 @@ export function WarehousesModule({ token }: { token: string }) {
           {whs.map((w) => (
             <div key={w.id} className={`flex flex-col rounded-xl border bg-white p-4 ${w.active ? "" : "opacity-60"}`}>
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
-                    <WarehouseIcon className="h-4 w-4 shrink-0 text-yellow-500" />
-                    <span className="truncate">{w.name}</span>
-                  </p>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                    {w.code && <span className="rounded bg-gray-900 px-1.5 py-0.5 font-mono text-[10px] font-bold text-yellow-400">{w.code}</span>}
-                    {w.source === "ERP"
-                      ? <Badge className="border-transparent bg-black px-1.5 text-[10px] text-yellow-400">SYNCED</Badge>
-                      : <Badge variant="outline" className="border-gray-300 px-1.5 text-[10px] text-gray-500">LOCAL</Badge>}
-                    {w.isDefault && <Badge className="border-transparent bg-yellow-400 px-1.5 text-[10px] text-black"><Star className="h-3 w-3" /> DEFAULT</Badge>}
-                    {!w.active && w.source !== "ERP" && <Badge variant="outline" className="border-red-200 px-1.5 text-[10px] text-red-600">INACTIVE</Badge>}
+                <div className="flex min-w-0 items-start gap-2.5">
+                  {w.image ? (
+                    <Image src={w.image} alt={w.name} width={44} height={44} className="h-11 w-11 shrink-0 rounded-lg border border-gray-700 object-cover" unoptimized />
+                  ) : (
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-gray-800 bg-gray-900"><WarehouseIcon className="h-5 w-5 text-gray-600" /></span>
+                  )}
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
+                      <span className="truncate">{w.name}</span>
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      {w.code && <span className="rounded bg-gray-900 px-1.5 py-0.5 font-mono text-[10px] font-bold text-yellow-400">{w.code}</span>}
+                      {w.source === "ERP"
+                        ? <Badge className="border-transparent bg-black px-1.5 text-[10px] text-yellow-400">SYNCED</Badge>
+                        : <Badge variant="outline" className="border-gray-300 px-1.5 text-[10px] text-gray-500">LOCAL</Badge>}
+                      {w.isDefault && <Badge className="border-transparent bg-yellow-400 px-1.5 text-[10px] text-black"><Star className="h-3 w-3" /> DEFAULT</Badge>}
+                      {!w.active && w.source !== "ERP" && <Badge variant="outline" className="border-red-200 px-1.5 text-[10px] text-red-600">INACTIVE</Badge>}
+                    </div>
                   </div>
                 </div>
                 {w.source === "LOCAL" && w.productCount === 0 && (
@@ -252,9 +258,21 @@ export function WarehousesModule({ token }: { token: string }) {
               <Label className="text-[10px] font-bold uppercase text-gray-400">Phone</Label>
               <Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+91…" className="mt-1 h-11 border-gray-700 bg-gray-900 text-white placeholder:text-gray-600" />
             </div>
-            <div>
+            <div className="sm:col-span-2">
               <Label className="text-[10px] font-bold uppercase text-gray-400">Sort order</Label>
               <Input type="number" min={0} value={form.sortOrder} onChange={(e) => setForm((f) => ({ ...f, sortOrder: e.target.value }))} className="mt-1 h-11 border-gray-700 bg-gray-900 text-white" />
+            </div>
+            {/* godown photo — the customer warehouse-chooser card image (public/wh-*.png is the placeholder) */}
+            <div className="sm:col-span-2">
+              <Label className="text-[10px] font-bold uppercase text-gray-400">Warehouse photo (shown on the customer warehouse-chooser)</Label>
+              <div className="mt-1.5 rounded-lg border border-gray-800 bg-gray-900 p-3">
+                <ImageField
+                  value={form.image}
+                  onChange={(v) => setForm((f) => ({ ...f, image: v }))}
+                  token={token}
+                  folder="warehouses"
+                />
+              </div>
             </div>
           </div>
 

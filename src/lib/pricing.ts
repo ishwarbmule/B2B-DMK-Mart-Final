@@ -2,7 +2,7 @@
  * DMK Mart pricing engine (shared by server routes and client UI).
  *
  * Business slabs (Customer.customerType → Product tier column):
- *   tier1 = Distributor · tier2 = Wholesale · tier3 = Semi-Wholesale · tier4 = Retailer
+ *   tier1 = Distributor · tier2 = Wholesale · tier3 = Semi-Wholesale · tier4 = Retailer · tier5 = MRP (retail shelf)
  *
  * Owner rules:
  *   - Logged-out visitors see WHOLESALE (tier2) piece prices.
@@ -22,6 +22,7 @@ export const TIER_LABEL: Record<string, string> = {
   tier2: "Wholesale",
   tier3: "Semi-Wholesale",
   tier4: "Retailer",
+  tier5: "Retail (MRP)",
 };
 
 export type Fulfillment = "PICKUP" | "DELIVERY";
@@ -52,6 +53,8 @@ export interface TieredProduct {
   tier2: number;
   tier3: number;
   tier4: number;
+  /** retail-shelf (MRP) slab — synced from the ERP tier5Mrp column */
+  tier5?: number;
   dealerPrice: number;
   packPrice?: number;
   packQty?: number;
@@ -67,6 +70,8 @@ export function piecePriceOf(p: TieredProduct, tier: string): number {
   if (tier === "tier2" && p.tier2 > 0) return p.tier2;
   if (tier === "tier3" && p.tier3 > 0) return p.tier3;
   if (tier === "tier4" && p.tier4 > 0) return p.tier4;
+  const t5 = Number(p.tier5 ?? 0);
+  if (tier === "tier5" && t5 > 0) return t5;
   return p.dealerPrice || p.tier4 || 0;
 }
 

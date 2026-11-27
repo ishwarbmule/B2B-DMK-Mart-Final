@@ -11,10 +11,17 @@ if (!sp) {
   sp = r.row;
   console.log("salesperson created:", sp?.name, sp?.id);
 } else console.log("salesperson exists:", sp.name);
+// assign the Pune godown to the salesperson (admin picks the warehouse per salesperson)
+const whList = (await fetch(BASE + "/api/admin/warehouses", { headers: H }).then(r => r.json())).warehouses ?? [];
+const pune = whList.find(w => /pune/i.test(w.name)) || whList[0];
+if (pune) {
+  await fetch(BASE + "/api/admin/crud/salespersons", { method: "PATCH", headers: H, body: JSON.stringify({ id: sp.id, warehouseId: pune.id }) });
+  console.log("salesperson warehouse assigned:", pune.name);
+}
 console.log("SALESPERSON LOGIN → username: rahul · password: rahul123");
 // verify login
 const sl = await fetch(BASE + "/api/salesteam/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: "rahul", password: "rahul123" }) }).then(r => r.json());
-console.log("salesperson login test:", sl.token ? "✓ token issued for " + sl.profile?.name : "❌ " + JSON.stringify(sl).slice(0, 120));
+console.log("salesperson login test:", sl.token ? "✓ token issued for " + sl.profile?.name + (sl.profile?.warehouse ? " → " + sl.profile.warehouse.name : " (no warehouse)") : "❌ " + JSON.stringify(sl).slice(0, 120));
 
 // warehouse manager demo (Kolhar)
 const whs = (await fetch(BASE + "/api/admin/warehouses", { headers: H }).then(r => r.json())).warehouses;

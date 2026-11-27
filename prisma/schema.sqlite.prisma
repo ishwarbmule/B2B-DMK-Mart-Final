@@ -228,6 +228,8 @@ model Order {
   warehouseName        String  @default("")
   confirmedAt    DateTime?
   confirmedBy    String      @default("")
+  verifiedAt     DateTime?   // warehouse-manager line verification (N4)
+  verifiedBy     String      @default("")
   nextDeliveryAt String      @default("")
   editedAt       DateTime?
   editedBy       String      @default("")
@@ -516,6 +518,7 @@ model SalesPerson {
   password      String   @default("") // portal password (created by admin)
   email         String   @default("")
   area          String   @default("") // area / location of working
+  warehouseId   String   @default("") // Warehouse.id assigned by admin — salesperson orders only for this godown
   historyAccess Boolean  @default(true)
   active        Boolean  @default(true)
   createdAt     DateTime @default(now())

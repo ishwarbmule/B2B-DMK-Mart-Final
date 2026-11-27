@@ -41,23 +41,29 @@ export function customerAuthHeaders(): Record<string, string> {
  * Callers fire this once per page mount: cheap, idempotent, self-healing.
  * Returns true when the visitor holds a valid customer token.
  */
-let gateSynced = false;
+let gateSync: Promise<boolean> | null = null;
 export async function ensureGateCookie(): Promise<boolean> {
   const token = getCustomerToken();
   if (!token) return false;
-  if (gateSynced) return true;
-  gateSynced = true;
-  try {
-    const res = await fetch("/api/auth/session", { method: "POST", headers: { "x-customer-token": token } });
-    if (!res.ok) gateSynced = false; // allow retry after a failed sync (e.g. flaky network)
-    return res.ok;
-  } catch {
-    gateSynced = false;
-    return false;
-  }
+  if (gateSync) return gateSync;
+  // single in-flight promise — concurrent callers (page mount + store chrome)
+  // share one fetch AND get the real result (the old pre-set flag reported
+  // "cookie OK" before the request ever resolved)
+  const attempt = (async () => {
+    try {
+      const res = await fetch("/api/auth/session", { method: "POST", headers: { "x-customer-token": token } });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  })();
+  gateSync = attempt;
+  const ok = await attempt;
+  if (!ok) gateSync = null; // failure → allow a later retry; success stays cached
+  return ok;
 }
 
 /** Reset after logout so a fresh sign-in re-syncs the gate cookie. */
 export function resetGateSync() {
-  gateSynced = false;
+  gateSync = null;
 }

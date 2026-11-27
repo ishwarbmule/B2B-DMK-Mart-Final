@@ -76,9 +76,12 @@ export function extractCustomerToken(header: string | null): string | null {
   return header;
 }
 
-/** Returns the authenticated customer id or null. */
+/** Returns the authenticated customer id or null.
+ *  Tokens older than 180 days are rejected (stolen tokens are not immortal);
+ *  the 30-day dmk_sess gate cookie is refreshed by /api/auth/me, so a buyer
+ *  who visits at least twice a year keeps a working session. */
 export function customerFromReq(req: Request): string | null {
-  return verifyCustomerToken(extractCustomerToken(req.headers.get("x-customer-token")));
+  return verifyCustomerToken(extractCustomerToken(req.headers.get("x-customer-token")), { maxAgeSec: 180 * 86400 });
 }
 
 /** Normalize a login identifier: 10-digit Indian mobile (strips +91/spaces) or lowercase email. */

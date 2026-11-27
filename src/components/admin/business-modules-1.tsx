@@ -448,7 +448,7 @@ export function CustomersModule({ token }: { token: string }) {
                     title="Change price tier — applies this customer's slab everywhere"
                     className="ml-1 rounded-full border border-yellow-200 bg-yellow-50 px-1.5 py-0.5 text-[10px] font-semibold text-yellow-800 outline-none hover:border-yellow-400"
                   >
-                    {["tier1", "tier2", "tier3", "tier4"].map((t) => <option key={t} value={t}>{t.toUpperCase()}</option>)}
+                    {["tier1", "tier2", "tier3", "tier4", "tier5"].map((t) => <option key={t} value={t}>{t.toUpperCase()}</option>)}
                   </select>
                 </td>
                 <td className="px-3 py-2.5">
@@ -528,7 +528,7 @@ export function CustomersModule({ token }: { token: string }) {
                         <div>
                           <label className="mb-1 block text-[11px] font-bold text-gray-600">Price tier</label>
                           <select value={editForm.tier ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, tier: e.target.value }))} className="h-9 w-full rounded-lg border border-gray-200 px-2 text-[13px] outline-none focus:border-yellow-400">
-                            {["tier1", "tier2", "tier3", "tier4"].map((t) => <option key={t} value={t}>{t.toUpperCase()}</option>)}
+                            {["tier1", "tier2", "tier3", "tier4", "tier5"].map((t) => <option key={t} value={t}>{t.toUpperCase()}</option>)}
                           </select>
                         </div>
                         <div>

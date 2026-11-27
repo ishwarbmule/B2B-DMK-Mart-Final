@@ -237,6 +237,10 @@ model Order {
   warehouseName        String  @default("")
   confirmedAt    DateTime?   // set when admin confirms the order (stock checked here)
   confirmedBy    String      @default("")
+  // warehouse-manager verification (N4): the serving godown's manager marks each line
+  // available / not-available BEFORE the Super Admin confirms — verifiedAt/By stamp it
+  verifiedAt     DateTime?   // set when the warehouse manager submits the line verification
+  verifiedBy     String      @default("") // manager name (or Super Admin)
   nextDeliveryAt String      @default("") // planned next delivery date for out-of-stock lines
   editedAt       DateTime?   // last time admin edited items/prices (customer is NOT told until sendUpdatedList)
   editedBy       String      @default("") // who edited (Super Admin / manager name)
@@ -579,6 +583,7 @@ model SalesPerson {
   password      String   @default("") // portal password (created by admin)
   email         String   @default("")
   area          String   @default("") // area / location of working
+  warehouseId   String   @default("") // Warehouse.id the admin assigned — salesperson creates orders ONLY for this godown ("" = not assigned yet)
   historyAccess Boolean  @default(true)
   active        Boolean  @default(true)
   createdAt     DateTime @default(now())

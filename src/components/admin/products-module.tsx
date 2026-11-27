@@ -12,7 +12,7 @@ type Row = Record<string, unknown> & {
   id: string; sku: string; name: string; image: string; slug: string;
   company: string; deliveryRate: number;
   dealerPrice: number; mrp: number; purchaseCost: number; stock: number; packQty: number; packPrice: number;
-  tier1: number; tier2: number; tier3: number; tier4: number;
+  tier1: number; tier2: number; tier3: number; tier4: number; tier5: number;
   isTop: boolean; isFeatured: boolean; isHot: boolean; isDeal: boolean; active: boolean;
   syncSource: string;
   top: { id: string; name: string }; mid: { id: string; name: string }; end: { id: string; name: string };
@@ -391,7 +391,7 @@ export function ProductsModule({ token }: { token: string }) {
           id: editRow.id,
           name: editRow.name, sku: editRow.sku, company: editRow.company, dealerPrice: editRow.dealerPrice, mrp: editRow.mrp,
           purchaseCost: editRow.purchaseCost, stock: editRow.stock, packQty: editRow.packQty, packPrice: editRow.packPrice,
-          tier1: editRow.tier1, tier2: editRow.tier2, tier3: editRow.tier3, tier4: editRow.tier4,
+          tier1: editRow.tier1, tier2: editRow.tier2, tier3: editRow.tier3, tier4: editRow.tier4, tier5: editRow.tier5,
           deliveryRate: editRow.deliveryRate,
           barcode: editRow.barcode, hsn: editRow.hsn, image: editRow.image,
           unit: editRow.unit || "Pcs", gst: editRow.gst, weightGrams: editRow.weightGrams,
@@ -955,6 +955,7 @@ export function ProductsModule({ token }: { token: string }) {
                 ["mrp", "MRP", "number"], ["packPrice", "Pack Price ₹/pack", "number"],
                 ["tier1", "Tier 1 — Distributor ₹", "number"], ["tier2", "Tier 2 — Wholesale ₹", "number"],
                 ["tier3", "Tier 3 — Semi-Wholesale ₹", "number"], ["tier4", "Tier 4 — Retailer ₹", "number"],
+                ["tier5", "Tier 5 — MRP / Retail shelf ₹", "number"],
                 ["deliveryRate", "Delivery Rate ₹", "number"],
                 ["stock", "Stock", "number"],
                 ["packQty", "Pack Qty", "number"],
