@@ -3,12 +3,14 @@
 import { Fragment, useEffect, useState } from "react";
 import Image from "next/image";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { BadgePercent, Boxes, CheckCircle2, IndianRupee, MapPin, MessageCircle, ShoppingCart, Star, Truck, Users, XCircle } from "lucide-react";
+import { BadgePercent, Boxes, CheckCircle2, IndianRupee, Loader2, MapPin, MapPinned, MessageCircle, Pencil, Save, ShoppingCart, Star, Trash2, Truck, Users, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { api, ModuleHeader, StatCard, StatusBadge, Toggle } from "./ui-bits";
 import { Code39Svg } from "./barcode";
 import { formatINR } from "@/lib/store";
-import { nearbyLocationsForWarehouse } from "@/lib/maharashtra";
+import { istDateTime, istDate } from "@/lib/ist";
+import { MAHARASHTRA_LOCATIONS, nearbyLocationsForWarehouse } from "@/lib/maharashtra";
+import StoreLocationPicker, { type PickedLocation } from "@/components/store-map/store-location-picker";
 
 /* ══════════════ DASHBOARD ══════════════ */
 type DashData = {
@@ -144,7 +146,7 @@ export function DashboardModule({ token }: { token: string }) {
               <div key={o.id} className="flex items-center justify-between rounded-lg border p-2 text-xs">
                 <div className="min-w-0">
                   <p className="truncate font-bold">{o.customerName}</p>
-                  <p className="text-[10px] text-gray-400">{o.invoiceNo || "—"} · {new Date(o.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} · {o.source === "WEB" ? "Website" : o.source === "SALESTEAM" ? "Sales team" : o.source}</p>
+                  <p className="text-[10px] text-gray-400">{o.invoiceNo || "—"} · {istDate(o.createdAt)} · {o.source === "WEB" ? "Website" : o.source === "SALESTEAM" ? "Sales team" : o.source}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${o.status === "DELIVERED" ? "bg-emerald-50 text-emerald-600" : o.status === "CANCELLED" ? "bg-gray-100 text-gray-500" : o.status === "PENDING" ? "bg-red-50 text-red-600" : "bg-blue-50 text-blue-600"}`}>{o.status}</span>
@@ -235,6 +237,11 @@ export function CustomersModule({ token }: { token: string }) {
   const [waCode, setWaCode] = useState("");
   const [waNote, setWaNote] = useState("");
   const [waBusy, setWaBusy] = useState(false);
+  // full customer editor — every field, the store-map pin and delete
+  const [editPanel, setEditPanel] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Record<string, string>>({});
+  const [editPin, setEditPin] = useState<PickedLocation | null>(null);
+  const [editBusy, setEditBusy] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -257,6 +264,73 @@ export function CustomersModule({ token }: { token: string }) {
     try {
       await call("/api/admin/crud/customers", { method: "PATCH", body: JSON.stringify({ id, status: newStatus }) });
       toast.success(`Customer ${newStatus.toLowerCase()}`);
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
+  };
+
+  /* ── full customer editor: every field + the accurate store-map pin ── */
+  const openEdit = (c: Record<string, unknown>) => {
+    if (editPanel === String(c.id)) { setEditPanel(null); return; }
+    setEditPanel(String(c.id));
+    setWaPanel(null);
+    setEditForm({
+      name: String(c.name ?? ""), shopName: String(c.shopName ?? ""), phone: String(c.phone ?? ""),
+      email: String(c.email ?? ""), gstin: String(c.gstin ?? ""), address: String(c.address ?? ""),
+      city: String(c.city ?? ""), pincode: String(c.pincode ?? ""), customerType: String(c.customerType ?? "RETAILER"),
+      tier: String(c.tier ?? "tier4"), creditLimit: String(Number(c.creditLimit ?? 0)), creditBalance: String(Number(c.creditBalance ?? 0)),
+      status: String(c.status ?? "PENDING"),
+    });
+    const lat = Number(c.lat), lng = Number(c.lng);
+    setEditPin(c.lat != null && c.lng != null && Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng, source: "MAP" } : null);
+  };
+
+  const saveEdit = async (id: string) => {
+    setEditBusy(true);
+    try {
+      const body: Record<string, unknown> = {
+        id,
+        name: editForm.name, shopName: editForm.shopName, phone: editForm.phone.replace(/\s/g, ""),
+        email: editForm.email, gstin: editForm.gstin, address: editForm.address,
+        city: editForm.city, pincode: editForm.pincode, customerType: editForm.customerType,
+        tier: editForm.tier, creditLimit: Number(editForm.creditLimit) || 0, creditBalance: Number(editForm.creditBalance) || 0,
+        status: editForm.status,
+      };
+      if (editPin) {
+        // the owner dropped/moved the pin — stamp it as the accurate store location
+        body.lat = editPin.lat;
+        body.lng = editPin.lng;
+        body.geoSource = "ADMIN";
+        body.geoUpdatedAt = new Date().toISOString();
+      }
+      await call("/api/admin/crud/customers", { method: "PATCH", body: JSON.stringify(body) });
+      toast.success("Customer updated" + (editPin ? " — store pin saved" : ""));
+      setEditPanel(null);
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setEditBusy(false);
+    }
+  };
+
+  const deleteCustomer = async (c: Record<string, unknown>) => {
+    const label = String(c.shopName || c.name);
+    if (!window.confirm(`Delete customer "${label}" permanently?\nThis removes their account, saved location and login. Orders stay in history.`)) return;
+    try {
+      await call(`/api/admin/crud/customers?id=${String(c.id)}`, { method: "DELETE" });
+      toast.success(`Customer "${label}" deleted`);
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Delete failed — the customer may still have linked records");
+    }
+  };
+
+  const quickTier = async (id: string, tier: string) => {
+    try {
+      await call("/api/admin/crud/customers", { method: "PATCH", body: JSON.stringify({ id, tier }) });
+      toast.success(`Price tier set to ${tier.toUpperCase()}`);
       load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed");
@@ -368,7 +442,14 @@ export function CustomersModule({ token }: { token: string }) {
                 </td>
                 <td className="px-3 py-2.5">
                   <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold">{String(c.customerType)}</span>
-                  <span className="ml-1 rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-semibold text-yellow-800">{String(c.tier).toUpperCase()}</span>
+                  <select
+                    value={String(c.tier)}
+                    onChange={(e) => quickTier(String(c.id), e.target.value)}
+                    title="Change price tier — applies this customer's slab everywhere"
+                    className="ml-1 rounded-full border border-yellow-200 bg-yellow-50 px-1.5 py-0.5 text-[10px] font-semibold text-yellow-800 outline-none hover:border-yellow-400"
+                  >
+                    {["tier1", "tier2", "tier3", "tier4"].map((t) => <option key={t} value={t}>{t.toUpperCase()}</option>)}
+                  </select>
                 </td>
                 <td className="px-3 py-2.5">
                   <p>{String(c.phone)}</p>
@@ -390,15 +471,112 @@ export function CustomersModule({ token }: { token: string }) {
                       </button>
                     )}
                     <button
+                      onClick={() => openEdit(c)}
+                      title="Edit all details, change tier, pin the exact store location"
+                      className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold ${editPanel === String(c.id) ? "bg-black text-yellow-400" : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"}`}
+                    >
+                      <Pencil className="h-3 w-3" /> Edit
+                    </button>
+                    <button
                       onClick={() => openWa(c)}
                       title="Send WhatsApp (OTP / message)"
                       className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold ${waPanel === String(c.id) ? "bg-emerald-600 text-white" : "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"}`}
                     >
                       <MessageCircle className="h-3 w-3" /> WhatsApp
                     </button>
+                    <button
+                      onClick={() => deleteCustomer(c)}
+                      title="Delete this customer account"
+                      className="flex items-center gap-1 rounded-md border border-red-200 bg-white px-2 py-1 text-[10px] font-bold text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-3 w-3" /> Delete
+                    </button>
                   </div>
                 </td>
               </tr>
+              {editPanel === String(c.id) && (
+                <tr className="bg-gray-50/70">
+                  <td colSpan={7} className="px-4 pb-4 pt-1">
+                    <div className="rounded-xl border bg-white p-4">
+                      <p className="mb-3 flex items-center gap-2 text-xs font-bold text-gray-900">
+                        <Pencil className="h-4 w-4 text-yellow-600" /> Edit customer — {String(c.shopName || c.name)}
+                        <span className="ml-auto rounded-full bg-gray-100 px-2 py-0.5 text-[9px] font-bold text-gray-500">{String(c.phone)}</span>
+                      </p>
+                      <div className="grid gap-3 md:grid-cols-3">
+                        {([
+                          ["name", "Contact name"], ["shopName", "Shop name"], ["phone", "Mobile (login ID)"],
+                          ["email", "Email"], ["gstin", "GSTIN"], ["pincode", "Pincode"],
+                        ] as const).map(([k, label]) => (
+                          <div key={k}>
+                            <label className="mb-1 block text-[11px] font-bold text-gray-600">{label}</label>
+                            <input value={editForm[k] ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, [k]: e.target.value }))} className="h-9 w-full rounded-lg border border-gray-200 px-3 text-[13px] outline-none focus:border-yellow-400" />
+                          </div>
+                        ))}
+                        <div>
+                          <label className="mb-1 block text-[11px] font-bold text-gray-600">City / town</label>
+                          <input list="dmk-mh-cities" value={editForm.city ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))} className="h-9 w-full rounded-lg border border-gray-200 px-3 text-[13px] outline-none focus:border-yellow-400" />
+                          <datalist id="dmk-mh-cities">
+                            {MAHARASHTRA_LOCATIONS.map((loc) => <option key={loc} value={loc} />)}
+                          </datalist>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-bold text-gray-600">Account type</label>
+                          <select value={editForm.customerType ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, customerType: e.target.value }))} className="h-9 w-full rounded-lg border border-gray-200 px-2 text-[13px] outline-none focus:border-yellow-400">
+                            {["RETAILER", "SEMI_WHOLESALE", "WHOLESALE", "DISTRIBUTOR"].map((t) => <option key={t} value={t}>{t.replace("_", "-")}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-bold text-gray-600">Price tier</label>
+                          <select value={editForm.tier ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, tier: e.target.value }))} className="h-9 w-full rounded-lg border border-gray-200 px-2 text-[13px] outline-none focus:border-yellow-400">
+                            {["tier1", "tier2", "tier3", "tier4"].map((t) => <option key={t} value={t}>{t.toUpperCase()}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-bold text-gray-600">Credit limit ₹</label>
+                          <input type="number" value={editForm.creditLimit ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, creditLimit: e.target.value }))} className="h-9 w-full rounded-lg border border-gray-200 px-3 text-[13px] outline-none focus:border-yellow-400" />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-bold text-gray-600">Credit balance ₹</label>
+                          <input type="number" value={editForm.creditBalance ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, creditBalance: e.target.value }))} className="h-9 w-full rounded-lg border border-gray-200 px-3 text-[13px] outline-none focus:border-yellow-400" />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-bold text-gray-600">Status</label>
+                          <select value={editForm.status ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))} className="h-9 w-full rounded-lg border border-gray-200 px-2 text-[13px] outline-none focus:border-yellow-400">
+                            {["PENDING", "APPROVED", "SUSPENDED"].map((t) => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                        </div>
+                        <div className="md:col-span-3">
+                          <label className="mb-1 block text-[11px] font-bold text-gray-600">Shop address</label>
+                          <textarea rows={2} value={editForm.address ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, address: e.target.value }))} className="w-full rounded-lg border border-gray-200 p-2.5 text-[13px] outline-none focus:border-yellow-400" />
+                        </div>
+                        {/* accurate store pin — admin drops/moves the exact spot; the buyer's
+                            map pin shows this on the Store Map the moment it saves */}
+                        <div className="md:col-span-3">
+                          <label className="mb-1 flex items-center gap-1.5 text-[11px] font-bold text-gray-600">
+                            <MapPinned className="h-3.5 w-3.5 text-yellow-600" /> Store location pin
+                            <span className="font-normal text-gray-400">— tap/drag on the map to pin the accurate shop spot (saved as ADMIN-verified)</span>
+                            {c.geoSource ? <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[9px] font-bold text-gray-500">current: {String(c.geoSource)}{c.geoUpdatedAt ? ` · ${istDateTime(new Date(String(c.geoUpdatedAt)))}` : ""}</span> : null}
+                          </label>
+                          <StoreLocationPicker
+                            lat={editPin?.lat ?? null}
+                            lng={editPin?.lng ?? null}
+                            onChange={(loc) => setEditPin(loc)}
+                            autoQuery={[editForm.city, editForm.pincode].filter(Boolean).join(" ")}
+                            compact
+                            fitKey={editPanel ? 1 : 0}
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-3 flex items-center justify-end gap-2">
+                        <button onClick={() => setEditPanel(null)} className="rounded-lg border px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
+                        <button onClick={() => saveEdit(String(c.id))} disabled={editBusy} className="flex items-center gap-1.5 rounded-lg bg-black px-4 py-2 text-xs font-bold text-yellow-400 hover:bg-gray-900 disabled:opacity-50">
+                          {editBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Save customer
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              )}
               {waPanel === String(c.id) && (
                 <tr className="bg-emerald-50/50">
                   <td colSpan={7} className="px-4 pb-4 pt-1">
@@ -673,7 +851,7 @@ function SlabPricing({ token }: { token: string }) {
                   {logs.length === 0 && <tr><td colSpan={6} className="px-3 py-6 text-center text-gray-400">No changes yet.</td></tr>}
                   {logs.map((l) => (
                     <tr key={l.id} className="border-t">
-                      <td className="px-2 py-1.5 text-gray-400">{new Date(l.createdAt).toLocaleString("en-IN")}</td>
+                      <td className="px-2 py-1.5 text-gray-400">{istDateTime(l.createdAt)}</td>
                       <td className="px-2 py-1.5 font-mono">{l.sku}</td>
                       <td className="px-2 py-1.5 font-bold">{l.field}</td>
                       <td className="px-2 py-1.5 text-right">{formatINR(l.oldVal)}</td>

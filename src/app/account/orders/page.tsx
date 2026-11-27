@@ -9,6 +9,7 @@ import { StoreChrome } from "@/components/dmk/store-chrome";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { formatINR } from "@/lib/store";
 import { clearCustomerToken, getCustomerToken } from "@/lib/customer-session";
+import { istDate } from "@/lib/ist";
 
 type OrderItem = { id: string; name: string; image: string; qty: number; unitType: string; packQty: number; total: number };
 
@@ -148,7 +149,7 @@ function OrdersInner() {
                           <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${st.cls}`}>{st.label}</span>
                         </span>
                         <span className="mt-0.5 block text-[11px] text-gray-500">
-                          {new Date(o.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} · {o.totalUnits} pcs · {o.fulfillment === "PICKUP" ? `Pickup — ${o.pickupWarehouseName || "warehouse"}` : "Delivery"}
+                          {istDate(o.createdAt)} · {o.totalUnits} pcs · {o.fulfillment === "PICKUP" ? `Pickup — ${o.pickupWarehouseName || "warehouse"}` : "Delivery"}
                         </span>
                       </span>
                       <span className="shrink-0 text-right">

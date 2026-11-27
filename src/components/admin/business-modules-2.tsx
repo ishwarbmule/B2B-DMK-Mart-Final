@@ -6,9 +6,10 @@ import { Download, FileSpreadsheet, Printer, RefreshCcw, Save, IndianRupee, Tren
 import { toast } from "sonner";
 import { api, ModuleHeader, StatCard } from "./ui-bits";
 import { formatINR } from "@/lib/store";
+import { istDayKey } from "@/lib/ist";
 
-const today = () => new Date().toISOString().slice(0, 10);
-const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+const today = () => istDayKey(new Date());
+const daysAgo = (n: number) => istDayKey(new Date(Date.now() - n * 86400000));
 
 /* ══════════════ FINANCIAL ══════════════ */
 type FinData = {
@@ -198,13 +199,13 @@ export function ReportsModule({ token }: { token: string }) {
     switch (r) {
       case "today": return [today(), today()];
       case "week": return [daysAgo(6), today()];
-      case "month": return [new Date(y, now.getMonth(), 1).toISOString().slice(0, 10), today()];
+      case "month": return [istDayKey(new Date(y, now.getMonth(), 1)), today()];
       case "quarter": {
         const qm = Math.floor(now.getMonth() / 3) * 3;
-        return [new Date(y, qm, 1).toISOString().slice(0, 10), today()];
+        return [istDayKey(new Date(y, qm, 1)), today()];
       }
       case "half": return [daysAgo(182), today()];
-      case "year": return [new Date(y, 0, 1).toISOString().slice(0, 10), today()];
+      case "year": return [istDayKey(new Date(y, 0, 1)), today()];
       default: return [from, to];
     }
   };

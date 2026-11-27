@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin, jsonError } from "@/lib/admin-auth";
 import * as XLSX from "xlsx";
+import { istDayKey } from "@/lib/ist";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -25,7 +26,7 @@ const SHEET_HEADER = [
 ];
 
 const d2 = (v: number) => (Number.isFinite(v) ? Math.round(v * 100) / 100 : 0);
-const dateOnly = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
+const dateOnly = (d: Date | null) => (d ? istDayKey(d) : "");
 
 export async function GET(req: NextRequest) {
   const unauthorized = requireAdmin(req);

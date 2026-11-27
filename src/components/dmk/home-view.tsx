@@ -399,7 +399,7 @@ function DealsRail({ cfg, deals, title, sub }: { cfg?: HomeSectionCfg; deals: DP
 }
 
 /* ─────────────── Homepage showcase — TWO SQUARE TABS, centered, icon over label.
-      Ready to Dispatch  → in-demand SKUs, 20 at a time with a Load More button (no pagination)
+      Ready to Dispatch  → every in-demand SKU at once, brand-wise sorted (no Load More)
       Brand Products     → every brand as a logo tile
       Switching tabs plays a smooth, slow crossfade+slide (desktop and mobile). ─────────────── */
 const SHOWCASE_TABS = [
@@ -408,36 +408,47 @@ const SHOWCASE_TABS = [
 ] as const;
 
 type ShowcaseTab = (typeof SHOWCASE_TABS)[number]["key"];
-const DISPATCH_PAGE_SIZE = 20;
 
+/**
+ * Ready to Dispatch — EVERY in-stock SKU, brand-wise sorted (owner's rule:
+ * no Load More button). The API streams products company-by-company (company
+ * asc → name asc), so all pages are fetched once and clustered per brand.
+ */
 function ReadyToDispatchGrid() {
   const [products, setProducts] = useState<DProduct[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-
-  const loadPage = useCallback(async (nextPage: number, replace: boolean) => {
-    if (replace) setLoading(true);
-    else setLoadingMore(true);
-    try {
-      const r = await fetch(`/api/products?flag=top&limit=${DISPATCH_PAGE_SIZE}&page=${nextPage}`, { headers: customerAuthHeaders() });
-      const d = await r.json();
-      const fresh = (d.products ?? []) as DProduct[];
-      setProducts((prev) => (replace ? fresh : [...prev, ...fresh]));
-      setTotal(d.total ?? 0);
-      setPage(nextPage);
-    } catch {
-      /* keep previous content on failure */
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, []);
 
   useEffect(() => {
-    loadPage(1, true);
-  }, [loadPage]);
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const headers = customerAuthHeaders();
+        const first = await fetch(`/api/products?flag=top&limit=60&page=1`, { headers }).then((r) => r.json());
+        if (cancelled) return;
+        const all: DProduct[] = [...(first.products ?? [])];
+        const pages = Math.min(first.pages ?? 1, 20); // hard safety cap
+        for (let start = 2; start <= pages; start += 4) {
+          const batch = await Promise.all(
+            Array.from({ length: Math.min(4, pages - start + 1) }, (_, k) =>
+              fetch(`/api/products?flag=top&limit=60&page=${start + k}`, { headers }).then((r) => r.json()).catch(() => null),
+            ),
+          );
+          if (cancelled) return;
+          for (const d of batch) if (d?.products?.length) all.push(...(d.products as DProduct[]));
+        }
+        if (cancelled) return;
+        // pages are fetched in parallel — dedupe keeps the brand-wise order intact
+        const seen = new Set<string>();
+        setProducts(all.filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true))));
+      } catch {
+        /* keep whatever loaded */
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // BRAND CLUSTERS — the API streams Ready-to-Dispatch company-by-company, so
   // consecutive runs are whole brands. Each run gets its own header row + grid:
@@ -495,27 +506,6 @@ function ReadyToDispatchGrid() {
           </div>
         </div>
       ))}
-      {/* Load More appends the next 20 inline — never a pagination jump */}
-      {products.length < total && (
-        <div className="mt-6 flex flex-col items-center gap-1.5">
-          <button
-            onClick={() => loadPage(page + 1, false)}
-            disabled={loadingMore}
-            className="flex items-center gap-2 rounded-xl bg-black px-8 py-3 text-sm font-bold uppercase tracking-wide text-yellow-400 transition-all duration-500 hover:bg-gray-800 disabled:opacity-50"
-          >
-            {loadingMore ? (
-              <>
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-yellow-400 border-t-transparent" /> Loading…
-              </>
-            ) : (
-              <>
-                Load More <ArrowRight className="h-4 w-4" />
-              </>
-            )}
-          </button>
-          <p className="text-[11px] font-semibold text-gray-400">Showing {products.length} of {total} SKUs</p>
-        </div>
-      )}
     </>
   );
 }

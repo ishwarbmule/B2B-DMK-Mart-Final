@@ -5,11 +5,15 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * Vercel Cron — DAILY (vercel.json `0 1 * * *` = 1:00 UTC / 6:30 AM IST).
- * Hobby plan allows one cron per day, so the run loops product pages within
- * its 50s budget (cursor persisted — leftover rows continue next run or via
- * the admin "Re-sync now" loop). Auth: ?key=CRON_SECRET env or the
- * admin-managed cron_secret setting, or a valid admin token (manual run).
+ * Vercel Cron — DAILY DEEP SYNC at 05:00 AM IST.
+ * vercel.json `30 23 * * *` = 23:30 UTC = 05:00 IST (IST = UTC+5:30, so the
+ * cron must fire 30 minutes past 23:00 UTC the previous evening).
+ *
+ * The run scans the SELECTED godowns warehouse-by-warehouse (deep stock pass),
+ * refreshes warehouses, then loops product pages within its 50s budget (cursor
+ * persisted — leftover rows continue next run or via the admin "Re-sync now"
+ * loop). Auth: ?key=CRON_SECRET env or the admin-managed cron_secret setting,
+ * or a valid admin token (manual run).
  */
 export async function GET(req: Request) {
   const url = new URL(req.url);

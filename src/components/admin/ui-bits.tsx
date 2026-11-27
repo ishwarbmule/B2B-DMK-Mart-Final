@@ -61,7 +61,7 @@ function CloudinaryPicker({ token, folder, onPick, onClose }: {
  *  a clear (remove) action. `aspect` enforces a frame ratio client-side
  *  (e.g. "16:9" for Big Sale banners) — wrong-shape files are rejected BEFORE
  *  upload so only correctly sized creatives land in Cloudinary. */
-function ImageField({ value, onChange, token, aspect, folder }: { value: string; onChange: (v: string) => void; token: string; aspect?: string; folder?: string }) {
+export function ImageField({ value, onChange, token, aspect, folder }: { value: string; onChange: (v: string) => void; token: string; aspect?: string; folder?: string }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [picking, setPicking] = useState(false);

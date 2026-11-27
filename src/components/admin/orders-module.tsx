@@ -11,6 +11,7 @@ import { api, ModuleHeader, StatusBadge } from "./ui-bits";
 import { Code39Svg } from "./barcode";
 import { formatINR } from "@/lib/store";
 import type { OrderRow, OrderItemRow } from "@/lib/types";
+import { istDateTime, istDate } from "@/lib/ist";
 
 const STATUSES = ["PENDING", "CONFIRMED", "PACKED", "DISPATCHED", "DELIVERED", "CANCELLED"];
 
@@ -315,7 +316,7 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
                       {open === o.id ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                       {o.invoiceNo}
                     </button>
-                    <p className="text-[10px] text-gray-400">{new Date(o.createdAt).toLocaleDateString("en-IN")} · {o.source}</p>
+                    <p className="text-[10px] text-gray-400">{istDate(o.createdAt)} · {o.source}</p>
                   </td>
                   <td className="px-3 py-2.5">
                     <p className="font-semibold">{o.customerName}</p>
@@ -495,7 +496,7 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
                           <div className="mt-1.5 flex flex-wrap gap-2 text-[10px] font-semibold">
                             {stock.order.editedAt && (
                               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">
-                                Edited {new Date(stock.order.editedAt).toLocaleString("en-IN")} · {stock.order.editedBy || "admin"}
+                                Edited {istDateTime(stock.order.editedAt)} · {stock.order.editedBy || "admin"}
                               </span>
                             )}
                             {stock.order.editedAt && !stock.order.customerNotifiedAt && (
@@ -503,7 +504,7 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
                             )}
                             {stock.order.customerNotifiedAt && (
                               <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">
-                                Customer notified {new Date(stock.order.customerNotifiedAt).toLocaleString("en-IN")}
+                                Customer notified {istDateTime(stock.order.customerNotifiedAt)}
                               </span>
                             )}
                           </div>
@@ -665,7 +666,7 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
                   <input
                     type="date"
                     value={nextDate}
-                    onChange={(e) => setNextDate(e.target.value ? new Date(e.target.value).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "")}
+                    onChange={(e) => setNextDate(e.target.value ? istDate(e.target.value) : "")}
                     className="h-9 w-full rounded-lg border px-3 text-xs"
                   />
                   <p className="text-[10px] text-gray-500">
@@ -731,7 +732,7 @@ export function OrdersModule({ token, lockedWarehouseId }: { token: string; lock
                 <input
                   type="date"
                   value={(() => { const m = planDate.match(/(\d{1,2})-([A-Za-z]{3})-(\d{4})/); if (!m) return ""; const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; const mi = months.indexOf(m[2]); return mi >= 0 ? `${m[3]}-${String(mi + 1).padStart(2, "0")}-${m[1].padStart(2, "0")}` : ""; })()}
-                  onChange={(e) => setPlanDate(e.target.value ? new Date(e.target.value).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "")}
+                  onChange={(e) => setPlanDate(e.target.value ? istDate(e.target.value) : "")}
                   className="h-9 w-full rounded-lg border px-3 text-xs"
                 />
               </div>

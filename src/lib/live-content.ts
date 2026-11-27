@@ -55,6 +55,25 @@ export const LIVE_TEXTS: LiveTextDef[] = [
   { key: "home.sec.allProducts.title", page: "home", label: "Section — All Products (title)", value: "All Products" },
   { key: "home.sec.allProducts.sub", page: "home", label: "Section — All Products (subtext)", value: "Complete wholesale range — filter by department, category, brand, price and sort" },
   { key: "home.sec.dept.title", page: "home", label: "Section — Wholesale Departments (title)", value: "Wholesale Departments" },
+
+  /* Login page — the owner edits every word/image from Admin → Website
+     Management → Login Page Management (slider slides live in the Slider
+     table; these keys cover the frame around them) */
+  { key: "login.topline", page: "login", label: "Top bar — right-side line", value: "Wholesale marketplace for verified B2B buyers" },
+  { key: "login.usp.chips", page: "login", label: "Slider — USP chips (comma-separated)", value: "Tier wholesale pricing,Two ready warehouses,Door-step delivery,GST invoices" },
+  { key: "login.panel.strip", page: "login", label: "Sign-in card — yellow strip text", value: "New to DMK Mart? Wholesale rates, tier pricing and two ordering locations — Pune and Kolhar. Create an account and our team will approve it fast." },
+  { key: "login.register.note", page: "login", label: "Create-account — bottom note", value: "Accounts open after a quick admin verification — pricing is assigned by the DMK Mart team, never self-selected." },
+  { key: "login.regdone.text", page: "login", label: "Account-created card — message", value: "The DMK Mart team verifies every B2B buyer before the catalog opens. You will get a WhatsApp message as soon as your account is approved — then just sign in and start ordering.", multiline: true },
+  { key: "login.footer", page: "login", label: "Footer line", value: "© 2026 DMK Mart · Wholesale marketplace for verified B2B buyers" },
+
+  /* Warehouse selection page — same treatment (per-warehouse photos live in
+     Admin → Warehouses) */
+  { key: "wh.badge", page: "warehouse", label: "Card badge line", value: "DMK Mart godown" },
+  { key: "wh.title", page: "warehouse", label: "Page heading", value: "Which warehouse will you order from?" },
+  { key: "wh.subtitle", page: "warehouse", label: "Page subtext", value: "You will see that location's products and prices — you can change it anytime." },
+  { key: "wh.cardcaption", page: "warehouse", label: "Card caption line", value: "Full catalog of this location · pickup & delivery" },
+  { key: "wh.mismatch.title", page: "warehouse", label: "Location-mismatch warning — title", value: "Different area than your registered shop" },
+  { key: "wh.mismatch.text", page: "warehouse", label: "Location-mismatch warning — message", value: "Your shop is registered near {home}, but you are ordering from {chosen}. Products, prices and stock belong to that warehouse. Continue only if that is intended.", multiline: true },
 ];
 
 export const LIVE_DEFAULTS: Record<string, string> = Object.fromEntries(LIVE_TEXTS.map((t) => [t.key, t.value]));

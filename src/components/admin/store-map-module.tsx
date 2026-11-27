@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { api, ModuleHeader } from "./ui-bits";
 import { formatINR } from "@/lib/store";
 import StoreLocationPicker, { type PickedLocation } from "@/components/store-map/store-location-picker";
+import { istDate } from "@/lib/ist";
 
 interface MarkerRow {
   id: string; name: string; shopName: string; phone: string;
@@ -155,7 +156,7 @@ export function StoreMapModule({ token }: { token: string }) {
         <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;background:${STATUS_COLOR[r.status] || "#888"}22;color:${STATUS_COLOR[r.status] || "#555"}">${r.status}</span>
         <span style="font-size:10px;color:#777">${r.orders} ord · ${formatINR(r.totalSpent)} spend</span>
       </div>
-      <div style="font-size:9.5px;color:#999;margin-bottom:8px">Pin: ${escapeHtml(r.geoSource || "—")} · customer since ${new Date(r.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</div>
+      <div style="font-size:9.5px;color:#999;margin-bottom:8px">Pin: ${escapeHtml(r.geoSource || "—")} · customer since ${istDate(r.createdAt)}</div>
       <div style="display:flex;gap:6px">
         <button data-act="edit" style="flex:1;font-size:11px;font-weight:800;padding:5px 8px;border-radius:8px;background:#111;color:#facc15;border:0;cursor:pointer">📍 Move pin</button>
         <a href="tel:+91${escapeHtml(r.phone)}" style="flex:1;text-align:center;font-size:11px;font-weight:800;padding:5px 8px;border-radius:8px;background:#2563eb;color:#fff;text-decoration:none">Call</a>

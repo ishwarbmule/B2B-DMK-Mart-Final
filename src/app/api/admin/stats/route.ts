@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin, jsonError } from "@/lib/admin-auth";
+import { istDayKey } from "@/lib/ist";
 
 export const dynamic = "force-dynamic";
 
@@ -47,10 +48,10 @@ export async function GET(req: NextRequest) {
     const byDay = new Map<string, number>();
     for (let i = 13; i >= 0; i--) {
       const d = new Date(Date.now() - i * 24 * 3600 * 1000);
-      byDay.set(d.toISOString().slice(0, 10), 0);
+      byDay.set(istDayKey(d), 0);
     }
     for (const o of recent) {
-      const k = o.createdAt.toISOString().slice(0, 10);
+      const k = istDayKey(o.createdAt);
       if (byDay.has(k)) byDay.set(k, (byDay.get(k) || 0) + o.grandTotal);
     }
     const revenueSeries = Array.from(byDay.entries()).map(([date, total]) => ({ date, total: Math.round(total) }));

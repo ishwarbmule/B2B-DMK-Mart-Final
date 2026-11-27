@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, Building2, ChevronRight, Flame, LayoutTemplate, LayoutGrid, Package, Star, TrendingUp, Zap } from "lucide-react";
 import { ProductCard, ProductCardMini } from "./product-card";
+import { endCategoryIcon } from "@/lib/category-icons";
 import { formatINR } from "@/lib/store";
 import { getCustomerToken } from "@/lib/customer-session";
 import type { DProduct } from "@/lib/types";
@@ -88,10 +89,12 @@ export function BrandCategoryTabs({ brand, categories, all }: { brand: BrandData
         </div>
         <span className="hidden text-xs font-semibold text-gray-500 sm:block">{loading ? "Loading…" : `${total} SKUs`}</span>
       </div>
-      {/* tab rail */}
+      {/* tab rail — every category carries its own matching icon (same icon set
+          the header mega menu uses, so buyers recognise categories everywhere) */}
       <div className="scrollbar-hide -mx-1 mb-4 flex gap-1.5 overflow-x-auto px-1 pb-1">
         {tabs.map((t) => {
           const isActive = active === t.id;
+          const TabIcon = t.id ? endCategoryIcon(t.end) : Package;
           return (
             <button
               key={t.id || "all"}
@@ -100,7 +103,8 @@ export function BrandCategoryTabs({ brand, categories, all }: { brand: BrandData
                 isActive ? "border-black bg-black text-yellow-400" : "border-gray-200 bg-white text-gray-700 hover:border-yellow-400 hover:bg-yellow-50"
               }`}
             >
-              {t.end}
+              <TabIcon className={`h-3.5 w-3.5 shrink-0 ${isActive ? "text-yellow-400" : "text-yellow-600"}`} aria-hidden />
+              <span className="max-w-[180px] truncate">{t.end}</span>
               <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-black ${isActive ? "bg-yellow-400 text-black" : "bg-gray-100 text-gray-500"}`}>{t.count}</span>
             </button>
           );

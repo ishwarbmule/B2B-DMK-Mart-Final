@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { BadgeCheck, MessageCircle, RefreshCcw, UserCheck, UserX, Wallet, Phone, MapPin, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { api, ModuleHeader } from "./ui-bits";
+import { istDate } from "@/lib/ist";
 
 type PendingCustomer = {
   id: string; name: string; shopName: string; phone: string; email: string; gstin: string;
@@ -93,7 +94,7 @@ export function ApprovalsModule({ token }: { token: string }) {
                     <MapPin className="mt-0.5 h-3 w-3 shrink-0" /> {[c.address, c.city, c.pincode].filter(Boolean).join(", ") || "—"}
                   </p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5 text-[10px]">
-                    <span className="rounded bg-gray-100 px-1.5 py-0.5">Applied {new Date(c.createdAt).toLocaleDateString("en-IN")}</span>
+                    <span className="rounded bg-gray-100 px-1.5 py-0.5">Applied {istDate(c.createdAt)}</span>
                     <span className="rounded bg-gray-100 px-1.5 py-0.5">Self-declared: {TYPE_OPTIONS.find((t) => t.key === c.customerType)?.label ?? c.customerType}</span>
                   </div>
                 </div>

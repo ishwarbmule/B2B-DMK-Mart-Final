@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { RefreshCw, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { api, ModuleHeader } from "./ui-bits";
+import { istDateTime } from "@/lib/ist";
 
 export function LogsModule({ token }: { token: string }) {
   const call = useMemo(() => api(token), [token]);
@@ -39,7 +40,7 @@ export function LogsModule({ token }: { token: string }) {
             <span className="w-20 shrink-0 font-semibold uppercase text-gray-400">{r.entity}</span>
             <span className="min-w-0 flex-1 truncate text-gray-700">{r.detail}</span>
             <span className="hidden shrink-0 text-[10px] text-gray-400 md:block">{r.user}</span>
-            <span className="shrink-0 text-[10px] text-gray-400">{new Date(r.createdAt).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+            <span className="shrink-0 text-[10px] text-gray-400">{istDateTime(r.createdAt)}</span>
           </div>
         ))}
         {loading && <div className="py-10 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin text-gray-300" /></div>}

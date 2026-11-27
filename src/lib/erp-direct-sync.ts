@@ -287,6 +287,12 @@ const NAME_RE = /^(names?|items?_?names?|products?_?names?|titles?|descriptions?
 const COMPANY_RE = /(company|firm|brand|supplier|vendor|make)/i;
 const MRP_RE = /(mrp|max.?retail|msrp|tier5)/i;
 const RATE_RE = /(rate|price|retail|sell|tier4|dealer|wholesale)/i;
+// tier 1-3 price columns — the owner's ask: ALL tier prices must be picked up
+// (tier1 distributor / tier2 wholesale / tier3 semi-wholesale slabs). These are
+// matched BEFORE rate/mrp picks and survive separately in the mapping.
+const TIER1_RE = /(tier[_\-. ]?1|distribut)/i;
+const TIER2_RE = /(tier[_\-. ]?2|wholesale)/i;
+const TIER3_RE = /(tier[_\-. ]?3|semi[_\-. ]?whole)/i;
 const COST_RE = /(cost|purchase|buy)/i;
 const STOCK_RE = /(stock|qty|quantity|balance|available)/i;
 const IMAGE_RE = /(image|img|photo|pic|thumb|picture)/i;
@@ -328,6 +334,9 @@ export async function autoDetectMapping(entity: "products" | "warehouses" | "sto
       companyCol: pick(cols, COMPANY_RE),
       mrpCol: pick(cols, MRP_RE),
       rateCol: pick(cols, RATE_RE),
+      tier1Col: pick(cols, TIER1_RE) || undefined,
+      tier2Col: pick(cols, TIER2_RE) || undefined,
+      tier3Col: pick(cols, TIER3_RE) || undefined,
       costCol: pick(cols, COST_RE) || undefined,
       deliveryRateCol: pick(cols, /delivery/i) || undefined,
       stockCol: pick(cols, STOCK_RE) || undefined,
@@ -992,7 +1001,7 @@ export async function syncWarehouses(): Promise<{ seen: number; created: number;
  *  after SELECT). */
 export async function fetchStockJoined(
   sm: StockMapping,
-  opts?: { scoped?: boolean; limit?: number; offset?: number; searchCol?: string; search?: string },
+  opts?: { scoped?: boolean; limit?: number; offset?: number; searchCol?: string; search?: string; whCode?: string },
 ): Promise<Record<string, unknown>[]> {
   const p = await erpPool();
   const sel: string[] = [];
@@ -1027,6 +1036,18 @@ export async function fetchStockJoined(
         sql += ` WHERE s.\`${assertIdentifier(sm.warehouseCodeCol)}\` IN (${marks})`;
         params.push(...whSel.ids);
       }
+    }
+  }
+  // deep per-warehouse scan: restrict to ONE godown's rows (by joined code when
+  // the stock source joins a godown table, by the raw column otherwise)
+  if (opts?.whCode) {
+    const code = assertIdentifier(sm.warehouseCodeCol);
+    params.push(opts.whCode);
+    if (sm.warehouseJoin) {
+      assertIdentifier(sm.warehouseJoin.selectCol);
+      sql += ` ${sql.includes("WHERE") ? "AND" : "WHERE"} j2.\`${sm.warehouseJoin.selectCol}\` = ?`;
+    } else {
+      sql += ` ${sql.includes("WHERE") ? "AND" : "WHERE"} s.\`${code}\` = ?`;
     }
   }
   if (opts?.search && opts.searchCol) {
@@ -1161,16 +1182,148 @@ export async function syncStock(): Promise<{ rows: number; stocksUpserted: numbe
   return result;
 }
 
-// ───────── orchestration (cron tick / Re-sync now loop driver) ─────────
-
-export type TickResult = { ran: boolean; reason?: string; products?: SyncPageResult; warehouses?: { created: number; updated: number; deactivated: number }; stock?: { rows: number; stocksUpserted: number; productsUpdated: number }; durationMs: number; errors: string[] };
+export type DeepStockWarehouse = { id: string; name: string; code: string; rows: number; upserted: number; staleRemoved: number; errors: string[] };
+export type DeepStockResult = { warehouses: DeepStockWarehouse[]; totals: { rows: number; upserted: number; productsUpdated: number }; durationMs: number };
 
 /**
- * Daily sync for Vercel HOBBY (cron limited to once per day): refreshes
- * warehouses + stock fully, then pulls product pages IN A LOOP within the
- * function time budget (Hobby serverless cap 60s), pageBudget caps the worst
- * case. Cursor persists, so whatever the budget could not cover continues on
- * the next daily run — or instantly via the admin "Re-sync now" loop.
+ * DEEP stock scan — the owner's rule: the selected godowns are scanned ONE AT
+ * A TIME, warehouse by warehouse, and ONLY the selected ones. Each godown gets
+ * its own ERP read (scoped to that godown's code), its own diff/upsert and its
+ * own stale-row cleanup, so one bad godown can never blur another's numbers
+ * and the per-warehouse progress is visible in Sync Logs.
+ *
+ * The final product roll-up (Product.stock + mirror + auto-dispatch) runs once
+ * at the end across every touched SKU, preserving the owner's manual
+ * Ready-to-Dispatch picks for SKUs whose quantity did not actually change.
+ */
+export async function syncStockDeep(opts?: { onProgress?: (line: string) => void }): Promise<DeepStockResult> {
+  const t0 = Date.now();
+  const sm = await getStockMapping();
+  if (!sm) throw new Error("Stock mapping not configured — tick columns in Admin → ERP Data first");
+  const say = (line: string) => { try { opts?.onProgress?.(line); } catch { /* progress is best-effort */ } };
+
+  // ONLY the godowns the admin picked (shown = active ERP warehouses)
+  const warehouses = await db.warehouse.findMany({
+    where: { source: "ERP", active: true },
+    select: { id: true, name: true, code: true },
+    orderBy: [{ isDefault: "desc" }, { sortOrder: "asc" }],
+  });
+  const allCols = [...new Set([sm.skuCol, sm.warehouseCodeCol, sm.qtyCol, ...(sm.columns || [])].filter(Boolean) as string[])];
+
+  const out: DeepStockResult = { warehouses: [], totals: { rows: 0, upserted: 0, productsUpdated: 0 }, durationMs: 0 };
+  const grandTotals = new Map<string, number>(); // sku → summed qty across godowns
+  const changedSkus = new Set<string>(); // SKUs whose (wh,pid) qty actually changed
+
+  for (const w of warehouses) {
+    const whRes: DeepStockWarehouse = { id: w.id, name: w.name, code: w.code, rows: 0, upserted: 0, staleRemoved: 0, errors: [] };
+    try {
+      // per-godown read — this godown only, never the others
+      const rows = (sm.skuJoin || sm.warehouseJoin)
+        ? await fetchStockJoined(sm, { scoped: false, whCode: w.code, limit: 5000 })
+        : await fetchErpPage(sm.table, allCols, {
+            limit: 5000, orderBy: sm.skuCol,
+            extraWhere: `\`${assertIdentifier(sm.warehouseCodeCol)}\` = ?`,
+            extraParams: [w.code],
+          });
+      whRes.rows = rows.length;
+
+      const parsed: { sku: string; qty: number }[] = [];
+      for (const raw of rows) {
+        const sku = str(val(raw, sm.skuCol));
+        const qty = Math.round(num(val(raw, sm.qtyCol)));
+        if (!sku) continue;
+        parsed.push({ sku, qty });
+        grandTotals.set(sku, (grandTotals.get(sku) ?? 0) + qty);
+      }
+
+      // diff against this godown's current rows, in memory (coverage markers
+      // with qty 0 planted by finalize live here too — they never get deleted)
+      const skus = [...new Set(parsed.map((r) => r.sku))];
+      const prodRows = skus.length
+        ? await db.product.findMany({ where: { sku: { in: skus } }, select: { id: true, sku: true } })
+        : [];
+      const existing = await db.warehouseStock.findMany({ where: { warehouseId: w.id }, select: { id: true, productId: true, qty: true } });
+      const prodBySku = new Map(prodRows.map((p) => [p.sku, p.id]));
+      const skuByPid = new Map(prodRows.map((p) => [p.id, p.sku]));
+      const desired = new Map<string, { pid: string; qty: number }>();
+      for (const r of parsed) {
+        const pid = prodBySku.get(r.sku);
+        if (!pid) continue;
+        desired.set(pid, { pid, qty: r.qty });
+      }
+      const existingByPid = new Map(existing.map((e) => [e.productId, e]));
+
+      const creates: { warehouseId: string; productId: string; qty: number }[] = [];
+      const updates: { id: string; pid: string; qty: number }[] = [];
+      for (const [pid, d] of desired) {
+        const ex = existingByPid.get(pid);
+        if (!ex) creates.push({ warehouseId: w.id, productId: pid, qty: d.qty });
+        else if (ex.qty !== d.qty) updates.push({ id: ex.id, pid, qty: d.qty });
+      }
+      for (let i = 0; i < creates.length; i += 1000) {
+        await db.warehouseStock.createMany({ data: creates.slice(i, i + 1000), skipDuplicates: true });
+      }
+      for (let i = 0; i < updates.length; i += 25) {
+        await Promise.all(updates.slice(i, i + 25).map((u) => db.warehouseStock.update({ where: { id: u.id }, data: { qty: u.qty } })));
+      }
+      whRes.upserted = creates.length + updates.length;
+      out.totals.upserted += whRes.upserted;
+      out.totals.rows += rows.length;
+      for (const c of creates) { const sku = skuByPid.get(c.productId); if (sku) changedSkus.add(sku); }
+      for (const u of updates) { const sku = skuByPid.get(u.pid); if (sku) changedSkus.add(sku); }
+
+      // stale rows for THIS godown only (positive rows the source no longer has;
+      // zero-qty coverage markers are never touched)
+      if (rows.length < 5000) {
+        const keep = [...desired.keys()];
+        const del = await db.warehouseStock.deleteMany({
+          where: { warehouseId: w.id, productId: { notIn: keep }, qty: { gt: 0 } },
+        });
+        whRes.staleRemoved = typeof del === "number" ? del : del.count;
+      }
+      say(`${w.name}: ${rows.length} rows read · ${whRes.upserted} upserted · ${whRes.staleRemoved} stale removed`);
+    } catch (e) {
+      whRes.errors.push(e instanceof Error ? e.message : String(e));
+      say(`${w.name}: FAILED — ${whRes.errors[0]}`);
+    }
+    out.warehouses.push(whRes);
+    await logSyncEvent({
+      direction: "ERP→WEB", action: "stock-deep", status: whRes.errors.length ? "PARTIAL" : "OK",
+      message: `${w.name} (${w.code}): ${whRes.rows} rows, ${whRes.upserted} upserted, ${whRes.staleRemoved} stale removed`,
+      durationMs: 0,
+    });
+  }
+
+  // one bulk roll-up at the end (per-godown totals summed across godowns)
+  const totalsArr = [...grandTotals.entries()].filter(([sku]) => sku);
+  if (totalsArr.length) {
+    const values = Prisma.join(totalsArr.map(([sku, total]) => Prisma.sql`(${sku}, ${total})`));
+    out.totals.productsUpdated = await db.$executeRaw(
+      Prisma.sql`UPDATE "Product" p SET "stock" = v.total FROM (VALUES ${values}) AS v(sku, total) WHERE p."sku" = v.sku AND p."syncSource" <> 'LOCAL'`,
+    );
+    await db.$executeRaw(
+      Prisma.sql`UPDATE "ErpProductMirror" m SET "availableStock" = v.total FROM (VALUES ${values}) AS v(sku, total) WHERE m."sku" = v.sku`,
+    );
+    try { await applyAutoDispatchBySkus([...changedSkus].filter(Boolean)); } catch { /* best-effort */ }
+  }
+  await setSetting("erp_sync_last_stock_at", new Date().toISOString());
+  out.durationMs = Date.now() - t0;
+  return out;
+}
+
+
+// ───────── orchestration (cron tick / Re-sync now loop driver) ─────────
+
+export type TickResult = { ran: boolean; reason?: string; products?: SyncPageResult; warehouses?: { created: number; updated: number; deactivated: number }; stock?: { rows: number; stocksUpserted: number; productsUpdated: number }; deepStock?: { name: string; rows: number; upserted: number }[]; finalize?: { shown: number; hidden: number }; durationMs: number; errors: string[] };
+
+/**
+ * DAILY DEEP SYNC — the owner's rule: every morning at 05:00 IST the selected
+ * godowns are scanned warehouse-by-warehouse (deep stock pass), warehouses
+ * refresh, then product pages loop within the function time budget (Hobby
+ * serverless cap 60s). Cursor persists, so whatever the budget could not
+ * cover continues on the next daily run — or instantly via the admin
+ * "Re-sync now" loop. When the products finish inside the budget, the
+ * coverage reconcile (finalize) also runs so visibility stays true.
  */
 export async function runErpDaily(opts?: { timeBudgetMs?: number; pageBudget?: number }): Promise<TickResult> {
   const t0 = Date.now();
@@ -1196,10 +1349,12 @@ export async function runErpDaily(opts?: { timeBudgetMs?: number; pageBudget?: n
     } catch (e) { errors.push(`warehouses: ${e instanceof Error ? e.message : String(e)}`); }
   }
   if (sm) {
+    // DEEP: warehouse-by-warehouse scan, selected godowns only
     try {
-      const s = await syncStock();
-      out.stock = { rows: s.rows, stocksUpserted: s.stocksUpserted, productsUpdated: s.productsUpdated };
-      if (s.errors.length) errors.push(...s.errors.slice(0, 5));
+      const s = await syncStockDeep();
+      out.stock = { rows: s.totals.rows, stocksUpserted: s.totals.upserted, productsUpdated: s.totals.productsUpdated };
+      out.deepStock = s.warehouses.map((w) => ({ name: w.name, rows: w.rows, upserted: w.upserted }));
+      for (const w of s.warehouses) if (w.errors.length) errors.push(`${w.name}: ${w.errors[0]}`);
     } catch (e) { errors.push(`stock: ${e instanceof Error ? e.message : String(e)}`); }
   }
   if (pm) {
@@ -1212,9 +1367,16 @@ export async function runErpDaily(opts?: { timeBudgetMs?: number; pageBudget?: n
         if (last.errors.length) errors.push(...last.errors.slice(0, 3));
       } while (!last.done && pages < pageCap && Date.now() - t0 < budget);
       out.products = last;
+      // products fully covered inside the budget → reconcile visibility now
+      if (last.done && Date.now() - t0 < budget) {
+        try {
+          const fin = await finalizeSyncSelection();
+          out.finalize = { shown: fin.shownProducts, hidden: fin.hiddenProducts };
+        } catch (e) { errors.push(`finalize: ${e instanceof Error ? e.message : String(e)}`); }
+      }
       await logSyncEvent({
-        direction: "ERP→WEB", action: "mysql-daily", status: errors.length ? "PARTIAL" : "OK",
-        message: `${pages} page(s), last@${last.offset} ${last.created}c/${last.updated}u/${last.skipped}s ${last.done ? "(full done)" : "(budget cap — continues tomorrow or Re-sync now)"}`,
+        direction: "ERP→WEB", action: "deep-sync-05am", status: errors.length ? "PARTIAL" : "OK",
+        message: `deep stock ${out.stock ? `(${out.stock.stocksUpserted} upserted across ${out.deepStock?.length ?? 0} godowns)` : "skipped"}; ${pages} product page(s), last@${last.offset} ${last.created}c/${last.updated}u/${last.skipped}s ${last.done ? "(full done)" : "(budget cap — continues tomorrow or Re-sync now)"}`,
         seen: last.seen, created: last.created, updated: last.updated, skipped: last.skipped, durationMs: Date.now() - t0,
       });
     } catch (e) { errors.push(`products: ${e instanceof Error ? e.message : String(e)}`); }
@@ -1324,7 +1486,9 @@ export async function fullResyncChunk(pageSize = 300, stage?: "warehouses" | "st
 const GROUP_DEFS: { id: string; label: string; keys: (keyof ProductMapping)[]; locked?: boolean }[] = [
   { id: "pricing", label: "Selling price", keys: ["rateCol", "tier4Col"], locked: true },
   { id: "mrp", label: "MRP", keys: ["mrpCol", "tier5Col"] },
-  { id: "tiers", label: "Wholesale tier prices", keys: ["tier1Col", "tier2Col", "tier3Col"] },
+  { id: "tier1", label: "Tier 1 price — Distributor", keys: ["tier1Col"] },
+  { id: "tier2", label: "Tier 2 price — Wholesale", keys: ["tier2Col"] },
+  { id: "tier3", label: "Tier 3 price — Semi-wholesale", keys: ["tier3Col"] },
   { id: "delivery", label: "Delivery rate", keys: ["deliveryRateCol"] },
   { id: "stock", label: "Stock quantity", keys: ["stockCol"] },
   { id: "unitPack", label: "Unit & pack size", keys: ["unitCol", "packQtyCol", "piecesPerBoxCol"] },

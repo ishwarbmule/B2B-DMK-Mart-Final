@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatINR } from "@/lib/store";
+import { istDate } from "@/lib/ist";
 
 type Profile = { id: string; name: string; mobile: string; area: string; email?: string };
 
@@ -453,7 +454,7 @@ function MyOrders({ token }: { token: string }) {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-gray-900">{o.invoiceNo}</p>
-                  <p className="text-[11px] text-gray-500">{o.customerName} · {o.phone} · {o.city || "—"} · {new Date(o.createdAt).toLocaleDateString("en-IN")}</p>
+                  <p className="text-[11px] text-gray-500">{o.customerName} · {o.phone} · {o.city || "—"} · {istDate(o.createdAt)}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-base font-semibold text-gray-900">{formatINR(o.grandTotal)}</p>

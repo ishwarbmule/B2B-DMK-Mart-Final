@@ -15,6 +15,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { verifyToken } from "@/lib/admin-auth";
 import { PrintButton } from "@/components/admin/print-button";
+import { istDate } from "@/lib/ist";
 
 export const dynamic = "force-dynamic";
 
@@ -143,7 +144,7 @@ export default async function BarcodeSheetPage({
           {/* order header label */}
           <div className="mb-4 rounded-xl border-2 border-black p-4 text-center">
             <p className="text-lg font-black">{brand} · {phone}</p>
-            <p className="text-[11px] text-gray-600">ORDER {order.invoiceNo} · {order.customerName} · {order.phone} · {new Date(order.createdAt).toLocaleDateString("en-IN")}</p>
+            <p className="text-[11px] text-gray-600">ORDER {order.invoiceNo} · {order.customerName} · {order.phone} · {istDate(order.createdAt)}</p>
             <div className="mt-2 flex justify-center"><OrderBarcode value={`DMK${invoiceDigits}`} height={46} /></div>
             <p className="mt-1 font-mono text-[10px] font-bold">DMK{invoiceDigits}</p>
           </div>

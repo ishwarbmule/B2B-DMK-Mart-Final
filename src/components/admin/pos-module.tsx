@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { api, ModuleHeader } from "./ui-bits";
 import { formatINR } from "@/lib/store";
 import type { DProduct } from "@/lib/types";
+import { istDateTime } from "@/lib/ist";
 
 interface PosLine { id: string; name: string; brand: string; image: string; packQty: number; price: number; unitType: "SINGLE" | "PACK" | "BULK"; qty: number }
 
@@ -79,7 +80,7 @@ export function PosModule({ token }: { token: string }) {
     const w = window.open("", "_blank");
     if (!w) return;
     w.document.write(`<html><head><title>${docType} ${invoiceNo}</title><style>body{font-family:monospace;padding:16px;font-size:12px}table{width:100%;border-collapse:collapse}td{padding:2px 4px}.r{text-align:right}h2{margin:0 0 2px}</style></head><body>
-    <h2>DMK MART</h2><p style="margin:0">${docType} · ${invoiceNo}<br/>${new Date().toLocaleString("en-IN")}<br/>Counter: POS-1 · Manjri Warehouse</p><hr/>
+    <h2>DMK MART</h2><p style="margin:0">${docType} · ${invoiceNo}<br/>${istDateTime(new Date())}<br/>Counter: POS-1 · Manjri Warehouse</p><hr/>
     ${customerName ? `<p>Customer: ${customerName} ${phone}</p>` : ""}
     <table>${lines.map((l) => `<tr><td>${l.name}<br/>&nbsp;&nbsp;${l.qty} ${l.unitType} × ₹${l.price}</td><td class="r">₹${lineTotal(l).toFixed(2)}</td></tr>`).join("")}</table><hr/>
     <table>

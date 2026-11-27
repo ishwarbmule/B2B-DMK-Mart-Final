@@ -38,8 +38,9 @@ export async function POST(req: NextRequest) {
   if (!ALLOWED.includes(file.type)) return jsonError(`Unsupported file type ${file.type}. Use JPG, PNG, WEBP, GIF or AVIF.`, 400);
   if (file.size > MAX_BYTES) return jsonError("Image is larger than 8 MB.", 400);
 
-  // Folder routing — product images go to dmk-mart/products, ads stay in dmk-mart/ads
-  const FOLDERS: Record<string, string> = { ads: "ads", products: "products", brands: "brands", categories: "categories", warehouses: "warehouses" };
+  // Folder routing — product images go to dmk-mart/products, ads stay in dmk-mart/ads,
+  // website creatives (login page / warehouse chooser artwork) in dmk-mart/website
+  const FOLDERS: Record<string, string> = { ads: "ads", products: "products", brands: "brands", categories: "categories", warehouses: "warehouses", website: "website" };
   const folderKey = FOLDERS[String(form.get("folder") || "ads").toLowerCase()] ? String(form.get("folder")).toLowerCase() : "ads";
   const folder = `dmk-mart/${FOLDERS[folderKey]}`;
 

@@ -243,6 +243,29 @@ export function ErpDirectModule({ token }: { token: string }) {
     }
   };
 
+  /** DEEP per-warehouse stock scan — each SELECTED godown is scanned one at a
+   *  time (the same pass the 05:00 IST daily cron runs). */
+  const deepScanStock = async () => {
+    setSyncing(true);
+    setLog([]);
+    try {
+      setLog(["Deep scan — scanning each selected warehouse one by one…"]);
+      const d = await call("/api/admin/erp-direct/sync", { method: "POST", body: JSON.stringify({ action: "deep-stock" }) });
+      const lines: string[] = (d.warehouses ?? []).map((w: { name: string; rows: number; upserted: number; staleRemoved: number; errors: string[] }) =>
+        `${w.name}: ${w.rows} rows · ${w.upserted} upserted · ${w.staleRemoved} stale removed${w.errors.length ? ` · ERROR: ${w.errors[0]}` : ""}`,
+      );
+      setLog([...lines, `Totals: ${d.totals?.rows ?? 0} rows, ${d.totals?.upserted ?? 0} upserted, ${d.totals?.productsUpdated ?? 0} product stock totals updated`]);
+      const failed = (d.warehouses ?? []).some((w: { errors: string[] }) => w.errors.length);
+      if (failed) toast.error("Deep scan finished with errors — check the log");
+      else toast.success(`Deep scan done — ${d.totals?.upserted ?? 0} stock rows updated`);
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Deep scan failed");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center gap-2 py-16 text-sm text-gray-400">
@@ -260,6 +283,9 @@ export function ErpDirectModule({ token }: { token: string }) {
     <div>
       <ModuleHeader title="ERP Sync" sub="Keep products, warehouses and stock fresh — pick what to show, then update">
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={deepScanStock} disabled={busy || !connected} title="Scan each selected warehouse one-by-one — same pass the daily 05:00 AM IST deep sync runs">
+            {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />} Deep scan warehouses
+          </Button>
           <Button variant="outline" size="sm" onClick={updateInformation} disabled={busy || !connected} title="Refresh prices, names and stock of the products already listed — adds nothing new">
             {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />} Update information
           </Button>

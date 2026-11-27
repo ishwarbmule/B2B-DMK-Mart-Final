@@ -16,6 +16,7 @@ import { api, CrudModule, ModuleHeader, StatCard } from "./ui-bits";
 import { CONFIGS } from "./crud-configs";
 import { MANAGER_SECTIONS } from "@/lib/manager-sections";
 import { formatINR } from "@/lib/store";
+import { istDate } from "@/lib/ist";
 
 /* ══════════════ SALESPERSON MANAGEMENT ══════════════ */
 
@@ -88,7 +89,7 @@ export function SalesTeamModule({ token }: { token: string }) {
                   <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{formatINR(r.revenue)}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums">{r.orders30d}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums">{formatINR(r.revenue30d)}</td>
-                  <td className="px-3 py-2.5">{r.lastOrderAt ? <span title={r.lastInvoice}>{new Date(r.lastOrderAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span> : "—"}</td>
+                  <td className="px-3 py-2.5">{r.lastOrderAt ? <span title={r.lastInvoice}>{istDate(r.lastOrderAt)}</span> : "—"}</td>
                   <td className="px-3 py-2.5">
                     {r.portalReady
                       ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Login ready</span>

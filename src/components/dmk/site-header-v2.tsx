@@ -400,11 +400,12 @@ export function SiteHeaderV2() {
                         <ChevronRight className="h-3 w-3 shrink-0 text-yellow-500" />
                         <span className="truncate">{m.name}</span>
                       </Link>
-                      {/* leaf categories with their own small icons — the owner's
-                          rule: photos on top level, icons on the end level */}
+                      {/* leaf categories in a compact GRID (owner's rule: not a
+                          vertical list — lists eat too much vertical space),
+                          each leaf still carrying its own small icon */}
                       {m.ends?.length > 0 && (
-                        <div className="ml-3.5 space-y-0 border-l border-gray-100 pl-2">
-                          {m.ends.slice(0, 6).map((end) => {
+                        <div className="ml-3.5 grid grid-cols-2 gap-x-3 gap-y-0.5 border-l border-gray-100 pl-2">
+                          {m.ends.slice(0, 8).map((end) => {
                             const Icon = endCategoryIcon(end.name);
                             return (
                               <Link
@@ -412,7 +413,7 @@ export function SiteHeaderV2() {
                                 href={`/catalog?end=${end.id}`}
                                 onClick={() => setMega(null)}
                                 title={end.name}
-                                className="flex items-center gap-1.5 truncate rounded px-1.5 py-0.5 text-[11px] text-gray-500 transition hover:bg-yellow-50 hover:text-yellow-700"
+                                className="flex min-w-0 items-center gap-1.5 rounded px-1.5 py-0.5 text-[11px] text-gray-500 transition hover:bg-yellow-50 hover:text-yellow-700"
                               >
                                 <Icon className="h-3 w-3 shrink-0 text-yellow-600" aria-hidden />
                                 <span className="truncate">{end.name}</span>

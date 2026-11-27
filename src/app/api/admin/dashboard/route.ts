@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireStaff } from "@/lib/staff-auth";
+import { istDayKey } from "@/lib/ist";
 
 export const dynamic = "force-dynamic";
 
@@ -72,11 +73,11 @@ export async function GET(req: NextRequest) {
   const trendDays = Math.min(usedWindow || 120, 120);
   const trendMap = new Map<string, { revenue: number; orders: number }>();
   for (let i = trendDays - 1; i >= 0; i--) {
-    const d = daysAgo(i).toISOString().slice(0, 10);
+    const d = istDayKey(daysAgo(i));
     trendMap.set(d, { revenue: 0, orders: 0 });
   }
   for (const o of trendRaw) {
-    const d = new Date(o.createdAt).toISOString().slice(0, 10);
+    const d = istDayKey(o.createdAt);
     const t = trendMap.get(d);
     if (t) { t.revenue += o.grandTotal; t.orders += 1; }
   }

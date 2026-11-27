@@ -5,16 +5,24 @@
  * buyer WHICH warehouse they order from (Kolhar / Pune) BEFORE they see any
  * products; the cart then never asks again. The pick is stored in the dmk_wh
  * cookie — every product list on the site is scoped to that godown.
+ *
+ * The owner's second rule: if the buyer picks a warehouse in a DIFFERENT area
+ * than their registered shop (e.g. a Pune shop ordering from Kolhar), a clear
+ * warning appears before the pick is applied — and again at order-confirm time
+ * in checkout. Heading, subtext and captions are admin-editable (Website
+ * Management → Warehouse Page), photos live in Admin → Warehouses.
  */
 import { Suspense, useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Building2, CheckCircle2, Loader2, MapPin, Package, Warehouse } from "lucide-react";
+import { AlertTriangle, ArrowRight, Building2, CheckCircle2, Loader2, MapPin, Package, Warehouse, X } from "lucide-react";
 import { toast } from "sonner";
 import { getCustomerToken, clearCustomerToken } from "@/lib/customer-session";
 import { useCustomerSession } from "@/lib/customer-client";
+import { LIVE_DEFAULTS } from "@/lib/live-content";
 
-const BTN = "h-11 w-full rounded-full bg-black text-sm font-bold uppercase tracking-wide text-yellow-400 transition hover:bg-gray-900 disabled:cursor-not-allowed disabled:opacity-50";
+const BTN = "flex h-12 w-full items-center justify-center gap-1.5 rounded-xl bg-black text-[13px] font-bold uppercase tracking-wide text-yellow-400 transition hover:bg-gray-900 disabled:cursor-not-allowed disabled:opacity-50";
+const BTN_DONE = "flex h-12 w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 text-[13px] font-bold text-gray-400";
 
 /** Demo godown artwork per location — used only until the admin uploads a
  *  Warehouse Image (Admin → Warehouses → edit → Image field, Cloudinary). */
@@ -42,16 +50,30 @@ function Chooser() {
   const [whs, setWhs] = useState<WhRow[]>([]);
   const [busy, setBusy] = useState("");
   const [loading, setLoading] = useState(true);
+  const [content, setContent] = useState<Record<string, string>>({});
+  const ct = (key: string) => (content[key] ?? "").trim() || LIVE_DEFAULTS[key] || "";
+
+  // mismatch warning state — picked warehouse vs the buyer's registered area
+  const [warnPick, setWarnPick] = useState<WhRow | null>(null);
+
+  // the buyer's home warehouse (nearest to their registered shop) from /api/auth/me
+  const nearest = useCustomerSession((s) => s.nearestWarehouse);
+  const loadSession = useCustomerSession((s) => s.load);
 
   useEffect(() => {
+    loadSession();
+    fetch("/api/site-content")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setContent(d?.overrides ?? {}))
+      .catch(() => {});
     fetch("/api/catalog")
       .then((r) => r.json())
       .then((d) => setWhs(d.warehouses ?? []))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [loadSession]);
 
-  const pick = async (w: WhRow) => {
+  const applyPick = async (w: WhRow) => {
     setBusy(w.id);
     try {
       const token = getCustomerToken();
@@ -71,11 +93,26 @@ function Chooser() {
     }
   };
 
+  const pick = (w: WhRow) => {
+    // WARNING AREA 1 — choosing a warehouse in a different area than the
+    // registered shop (e.g. Pune shop → Kolhar godown) asks for confirmation
+    if (nearest && w.id !== nearest.id) {
+      setWarnPick(w);
+      return;
+    }
+    void applyPick(w);
+  };
+
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     clearCustomerToken();
     router.push("/login");
   };
+
+  const mismatchText = (w: WhRow) =>
+    (ct("wh.mismatch.text") || "")
+      .replace(/\{home\}/g, `${nearest?.name || nearest?.city || "your registered area"}`)
+      .replace(/\{chosen\}/g, `${w.name}${w.city ? ` (${w.city})` : ""}`);
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
@@ -97,10 +134,8 @@ function Chooser() {
           <span className="inline-flex items-center gap-1.5 rounded-full bg-yellow-100 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-yellow-800">
             <MapPin className="h-3 w-3" /> One quick question
           </span>
-          <h1 className="mt-3 text-2xl font-black text-gray-900">Which warehouse will you order from?</h1>
-          <p className="mt-1.5 text-sm text-gray-500">
-            You will see that location&apos;s products and prices — you can change it anytime.
-          </p>
+          <h1 className="mt-3 text-2xl font-black text-gray-900">{ct("wh.title")}</h1>
+          <p className="mt-1.5 text-sm text-gray-500">{ct("wh.subtitle")}</p>
         </div>
 
         {loading ? (
@@ -112,30 +147,30 @@ function Chooser() {
                 key={w.id}
                 onClick={() => pick(w)}
                 disabled={!!busy}
-                className="group overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition hover:border-yellow-400 hover:shadow-lg disabled:opacity-60"
+                className="group flex flex-col overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition hover:border-yellow-400 hover:shadow-lg disabled:opacity-60"
               >
                 <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100">
                   <Image src={whImage(w)} alt={`${w.name} godown`} fill sizes="(max-width: 640px) 100vw, 380px"
                     className="object-cover transition duration-300 group-hover:scale-105" unoptimized />
                   <span className="absolute left-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-yellow-400">
-                    <Warehouse className="mr-1 inline h-3 w-3" /> DMK Mart godown
+                    <Warehouse className="mr-1 inline h-3 w-3" /> {ct("wh.badge")}
                   </span>
                 </div>
-                <div className="p-4">
+                <div className="flex flex-1 flex-col p-4">
                   <p className="text-base font-black text-gray-900">{w.name}</p>
                   <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-500">
-                    <MapPin className="h-3 w-3 text-yellow-500" /> {w.city}, Maharashtra
+                    <MapPin className="h-3 w-3 text-yellow-500" /> {w.city}
                   </p>
                   <p className="mt-2 flex items-center gap-1 text-[11px] text-gray-400">
-                    <Package className="h-3 w-3" /> Full catalog of this location · pickup & delivery
+                    <Package className="h-3 w-3" /> {ct("wh.cardcaption")}
                   </p>
-                  <div className="mt-3">
+                  <div className="mt-auto pt-3">
                     {busy === w.id ? (
-                      <span className={BTN}><Loader2 className="mr-1 inline h-4 w-4 animate-spin" /> Opening…</span>
+                      <span className={BTN}><Loader2 className="h-4 w-4 animate-spin" /> Opening…</span>
                     ) : busy ? (
-                      <span className="flex h-11 w-full items-center justify-center rounded-full border border-gray-200 text-sm font-bold text-gray-400"><CheckCircle2 className="mr-1 h-4 w-4" /> Selected</span>
+                      <span className={BTN_DONE}><CheckCircle2 className="h-4 w-4" /> Selected</span>
                     ) : (
-                      <span className={BTN}>Order from here</span>
+                      <span className={BTN}>Order from here <ArrowRight className="h-4 w-4" /></span>
                     )}
                   </div>
                 </div>
@@ -149,6 +184,37 @@ function Chooser() {
           </div>
         )}
       </div>
+
+      {/* ── LOCATION-MISMATCH WARNING (area 1 — right after picking a different-area warehouse) ── */}
+      {warnPick && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-100">
+                <AlertTriangle className="h-6 w-6 text-amber-600" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-base font-black text-gray-900">{ct("wh.mismatch.title")}</p>
+                <p className="mt-1 text-[13px] leading-relaxed text-gray-600">{mismatchText(warnPick)}</p>
+              </div>
+              <button onClick={() => setWarnPick(null)} aria-label="Close" className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button onClick={() => setWarnPick(null)} className="flex-1 rounded-xl border px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                Reconsider
+              </button>
+              <button
+                onClick={() => { const w = warnPick; setWarnPick(null); void applyPick(w); }}
+                className="flex-1 rounded-xl bg-amber-500 px-4 py-3 text-sm font-bold text-white hover:bg-amber-600"
+              >
+                Yes, order from {warnPick.city || warnPick.name}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

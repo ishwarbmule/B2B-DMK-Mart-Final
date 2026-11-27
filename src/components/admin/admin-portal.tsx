@@ -27,6 +27,7 @@ import { SalesTeamModule, WarehouseManagersModule } from "./staff-modules";
 import { StoreMapModule } from "./store-map-module";
 import { BrochureModule } from "./brochure-module";
 import { LiveEditorModule } from "./live-editor-module";
+import { LoginPageManagement } from "./login-page-module";
 
 type ModuleId = string;
 
@@ -77,6 +78,7 @@ const NAV: { group: string; items: { id: ModuleId; label: string; icon: React.Co
     { id: "erpDirect", label: "ERP Sync", icon: RefreshCcw },
     { id: "website", label: "Website Management", icon: Globe, sub: [
       { id: "liveEditor", label: "Live Visual Editor" },
+      { id: "loginPage", label: "Login Page Management" },
       { id: "website", label: "Pages / SEO / Robots" },
       { id: "sliders", label: "Hero Section (Sliders)" },
       { id: "homeEditor", label: "Homepage Editor (v2)" },
@@ -253,6 +255,7 @@ export function AdminPortal() {
       case "reports": return <ReportsModule token={token} />;
       case "website": return <WebsiteModule token={token} />;
       case "liveEditor": return <LiveEditorModule token={token} />;
+      case "loginPage": return <LoginPageManagement token={token} />;
       case "homeEditor": return <HomeEditorModule token={token} />;
       case "storefronts": return <StorefrontsModule token={token} />;
       case "erpDirect": return <ErpDirectModule token={token} />;

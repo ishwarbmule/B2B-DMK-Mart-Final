@@ -7,6 +7,7 @@
  * storefront settings hold older placeholder values.
  */
 import QRCode from "qrcode";
+import { istDate } from "@/lib/ist";
 
 export const FIRM = {
   name: "Jay Yogeshwar Enterprises",
@@ -21,13 +22,10 @@ export const FIRM = {
   upi: "7219420014@hdfc",
 } as const;
 
-/** Demo date format — "29 Oct 2026". */
+/** Demo date format — "29 Oct 2026" — always Indian Standard Time (prints are
+ *  generated server-side; without an explicit zone Vercel would print UTC). */
 export function fmtDate(d: Date | string): string {
-  return new Date(d).toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  return istDate(d);
 }
 
 /** 29710 → "29,710.00" — demo prints every number with 2 decimals, Indian grouping. */

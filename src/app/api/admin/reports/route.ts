@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin, jsonError } from "@/lib/admin-auth";
+import { istDate, istDayKey } from "@/lib/ist";
 
 export const dynamic = "force-dynamic";
 
@@ -10,9 +11,9 @@ export async function GET(req: NextRequest) {
   if (unauthorized) return unauthorized;
   const sp = req.nextUrl.searchParams;
   const type = sp.get("type") || "sales";
-  const to = sp.get("to") ? new Date(sp.get("to") + "T23:59:59") : new Date();
-  const from = sp.get("from") ? new Date(sp.get("from")) : new Date(to.getTime() - 29 * 86400000);
-  const range = { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+  const to = sp.get("to") ? new Date(sp.get("to") + "T23:59:59+05:30") : new Date();
+  const from = sp.get("from") ? new Date(sp.get("from") + "T00:00:00+05:30") : new Date(to.getTime() - 29 * 86400000);
+  const range = { from: istDayKey(from), to: istDayKey(to) };
 
   if (type === "sales") {
     const orders = await db.order.findMany({
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
       select: { invoiceNo: true, createdAt: true, customerName: true, customerType: true, phone: true, city: true, paymentMethod: true, paymentStatus: true, status: true, itemTotal: true, gstAmount: true, discount: true, grandTotal: true, couponCode: true, otp: true },
     });
-    return NextResponse.json({ range, type, columns: ["Invoice", "Date", "Customer", "Type", "Phone", "City", "Payment", "PayStatus", "OrderStatus", "ItemTotal", "Discount", "GrandTotal", "Coupon", "OTP"], rows: orders.map((o) => [o.invoiceNo, new Date(o.createdAt).toLocaleDateString("en-IN"), o.customerName, o.customerType, o.phone, o.city, o.paymentMethod, o.paymentStatus, o.status, o.itemTotal, o.discount, o.grandTotal, o.couponCode, o.otp]) });
+    return NextResponse.json({ range, type, columns: ["Invoice", "Date", "Customer", "Type", "Phone", "City", "Payment", "PayStatus", "OrderStatus", "ItemTotal", "Discount", "GrandTotal", "Coupon", "OTP"], rows: orders.map((o) => [o.invoiceNo, istDate(o.createdAt), o.customerName, o.customerType, o.phone, o.city, o.paymentMethod, o.paymentStatus, o.status, o.itemTotal, o.discount, o.grandTotal, o.couponCode, o.otp]) });
   }
 
   if (type === "products") {
@@ -52,7 +53,7 @@ export async function GET(req: NextRequest) {
       orderBy: { totalSpent: "desc" },
       select: { name: true, shopName: true, phone: true, customerType: true, tier: true, city: true, status: true, orders: true, totalSpent: true, createdAt: true },
     });
-    return NextResponse.json({ range, type, columns: ["Customer", "Shop", "Phone", "Type", "Tier", "City", "Status", "Orders", "LifetimeValue", "Joined"], rows: customers.map((c) => [c.name, c.shopName, c.phone, c.customerType, c.tier, c.city, c.status, c.orders, c.totalSpent, new Date(c.createdAt).toLocaleDateString("en-IN")]) });
+    return NextResponse.json({ range, type, columns: ["Customer", "Shop", "Phone", "Type", "Tier", "City", "Status", "Orders", "LifetimeValue", "Joined"], rows: customers.map((c) => [c.name, c.shopName, c.phone, c.customerType, c.tier, c.city, c.status, c.orders, c.totalSpent, istDate(c.createdAt)]) });
   }
 
   if (type === "offers") {
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest) {
       db.coupon.findMany({ select: { code: true, headline: true, type: true, value: true, minOrder: true, usedCount: true, usageLimit: true, scopeType: true, showOnHome: true, active: true } }),
     ]);
     const rows = [
-      ...offers.map((o) => ["OFFER", o.name, o.headline, o.type, `${o.discountType} ${o.discountValue}`, o.scopeType, o.heroSlot ? "Hero" : "-", o.active ? "Active" : "Inactive", `${new Date(o.startAt ?? 0).toLocaleDateString("en-IN")} → ${new Date(o.endAt ?? 0).toLocaleDateString("en-IN")}`, ""]),
+      ...offers.map((o) => ["OFFER", o.name, o.headline, o.type, `${o.discountType} ${o.discountValue}`, o.scopeType, o.heroSlot ? "Hero" : "-", o.active ? "Active" : "Inactive", `${istDate(o.startAt ?? 0)} → ${istDate(o.endAt ?? 0)}`, ""]),
       ...coupons.map((c) => ["COUPON", c.code, c.headline, c.type, `${c.type} ${c.value}`, c.scopeType, c.showOnHome ? "Homepage" : "-", c.active ? "Active" : "Inactive", "-", `${c.usedCount}/${c.usageLimit || "∞"} used`]),
     ];
     return NextResponse.json({ range, type, columns: ["Kind", "Name/Code", "Headline", "Type", "Value", "Scope", "Placement", "Status", "Dates", "Usage"], rows });

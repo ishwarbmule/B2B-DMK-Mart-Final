@@ -17,6 +17,7 @@ import { useCustomerSession } from "@/lib/customer-client";
 import { MAHARASHTRA_GROUPS } from "@/lib/maharashtra";
 import { Checkbox } from "@/components/ui/checkbox";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { istDate } from "@/lib/ist";
 
 type Customer = {
   id: string; name: string; shopName: string; phone: string; email: string;
@@ -489,7 +490,7 @@ function AccountInner() {
                         return (
                           <tr key={o.id} className="border-b last:border-0">
                             <td className="px-4 py-2.5 font-bold text-gray-900">{o.invoiceNo}</td>
-                            <td className="px-4 py-2.5 text-gray-500">{new Date(o.createdAt).toLocaleDateString("en-IN")}</td>
+                            <td className="px-4 py-2.5 text-gray-500">{istDate(o.createdAt)}</td>
                             <td className="px-4 py-2.5 font-black">{o.confirmedAt ? formatINR(o.grandTotal) : <span className="text-[10px] font-bold text-orange-600">Invoice after confirmation</span>}</td>
                             <td className="px-4 py-2.5">
                               <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${st.cls}`}>{st.label}</span>

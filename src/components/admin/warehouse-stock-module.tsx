@@ -12,6 +12,7 @@ import { ArrowRight, ArrowRightLeft, Boxes, Database, History, Plus, RefreshCcw,
 import { toast } from "sonner";
 import { api, ModuleHeader } from "./ui-bits";
 import { formatINR } from "@/lib/store";
+import { istDateTime } from "@/lib/ist";
 
 type WRow = { id: string; sku: string; name: string; image: string; stock: number; unit: string; packQty: number; qty: number };
 type Wh = { id: string; name: string; isDefault: boolean; city?: string };
@@ -505,7 +506,7 @@ function TransferStock({ token, warehouses }: { token: string; warehouses: Wh[] 
               <div key={tr.id} className="border-b px-4 py-3 text-xs last:border-0">
                 <div className="flex items-center justify-between">
                   <p className="font-semibold text-gray-900">{tr.code}</p>
-                  <p className="text-[10px] text-gray-400">{new Date(tr.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</p>
+                  <p className="text-[10px] text-gray-400">{istDateTime(tr.createdAt)}</p>
                 </div>
                 <p className="mt-0.5 flex items-center gap-1 text-[11px] font-semibold text-gray-700">
                   {tr.fromWarehouse?.name ?? "?"} <ArrowRight className="h-3 w-3 text-yellow-500" /> {tr.toWarehouse?.name ?? "?"}

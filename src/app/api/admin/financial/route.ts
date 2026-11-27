@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireStaff } from "@/lib/staff-auth";
+import { istDayKey } from "@/lib/ist";
 
 export const dynamic = "force-dynamic";
 
@@ -75,7 +76,7 @@ export async function GET(req: NextRequest) {
     for (const it of o.items) {
       cogs += (pcById.get(it.productId) ?? 0) * it.pieces;
     }
-    const d = new Date(o.createdAt).toISOString().slice(0, 10);
+    const d = istDayKey(o.createdAt);
     const profit = o.grandTotal - o.gstAmount - o.deliveryFee - o.items.reduce((s, i) => s + (pcById.get(i.productId) ?? 0) * i.pieces, 0);
     const day = byDay.get(d) ?? { revenue: 0, orders: 0, profit: 0 };
     day.revenue += o.grandTotal; day.orders += 1; day.profit += Math.max(0, profit);
@@ -89,7 +90,7 @@ export async function GET(req: NextRequest) {
   }
 
   const grossR = Math.round(gross), cogsR = Math.round(cogs);
-  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  const fmt = (d: Date) => istDayKey(d);
   return NextResponse.json({
     range: { from: fmt(from), to: fmt(to) },
     presetUsed: used,

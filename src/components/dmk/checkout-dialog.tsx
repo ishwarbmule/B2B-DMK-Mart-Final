@@ -14,7 +14,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { BadgeCheck, CheckCircle2, KeyRound, MapPin, MessageCircle, Store, Truck } from "lucide-react";
+import { AlertTriangle, BadgeCheck, CheckCircle2, KeyRound, MapPin, MessageCircle, Store, Truck } from "lucide-react";
 import { toast } from "sonner";
 import { useCartStore, cartTotals, formatINR, unitPriceFor } from "@/lib/store";
 import { useHydrated } from "@/hooks/use-hydrated";
@@ -44,6 +44,7 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
   const salesman = useCartStore((s) => s.salesman); // picked in the cart — saved on the order
   const customer = useCustomerSession((s) => s.customer);
   const warehouses = useCustomerSession((s) => s.warehouses); // nearest-first for this buyer
+  const nearestWarehouse = useCustomerSession((s) => s.nearestWarehouse); // buyer's registered-area godown
   const sessionLoaded = useCustomerSession((s) => s.loaded);
 
   useEffect(() => { if (open) useCustomerSession.getState().load(); }, [open]);
@@ -101,6 +102,18 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
   const homeWhId = typeof document !== "undefined"
     ? (document.cookie.match(/(?:^|; )dmk_wh=([^;]+)/)?.[1] ?? "")
     : "";
+
+  // WARNING AREA 2 — the buyer is confirming an order whose warehouse is in a
+  // different area than their registered shop (Pune shop ordering from Kolhar
+  // etc.). The first warning fired at warehouse selection; this one repeats it
+  // right above the confirm button so it is impossible to miss.
+  const confirmingWhId = fulfillment === "PICKUP" ? pickupWh : homeWhId;
+  const whMismatch = !!(nearestWarehouse && confirmingWhId && confirmingWhId !== nearestWarehouse.id);
+  const confirmingWhName = (() => {
+    const w = warehouses.find((x) => x.id === confirmingWhId);
+    return w ? `${w.name}${w.city ? ` (${w.city})` : ""}` : "your chosen warehouse";
+  })();
+  const whHomeName = nearestWarehouse?.name || nearestWarehouse?.city || "";
 
   const validateAddress = () => {
     const e: Record<string, string> = {};
@@ -355,6 +368,15 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
         {/* ── PICKUP: order details + confirm order ONLY (no payment options, no dispatch preference) ── */}
         {step === "pay" && fulfillment === "PICKUP" && (
           <div className="space-y-3 p-5">
+            {whMismatch && (
+              <div className="flex items-start gap-2.5 rounded-xl border border-amber-300 bg-amber-50 p-3 text-[11px] leading-relaxed text-amber-800" role="alert">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <span>
+                  <b>Location check:</b> you are ordering from <b>{confirmingWhName}</b>, but your shop is registered near <b>{whHomeName}</b>.
+                  Products, prices and stock belong to the chosen warehouse — pickup or delivery will be arranged from there.
+                </span>
+              </div>
+            )}
             <div className="rounded-xl border bg-gray-50 p-3 text-[11px] leading-relaxed text-gray-600">
               <b className="text-gray-900">Pickup from:</b>{" "}
               {chosenWh ? `${chosenWh.name}${chosenWh.city ? ` — ${chosenWh.city}` : ""}` : "loading…"}
@@ -386,6 +408,15 @@ export function CheckoutDialog({ open, onOpenChange, couponCode = "", couponDisc
         {/* ── DELIVERY: order details + dispatch preference (no payment options) ── */}
         {step === "pay" && fulfillment === "DELIVERY" && (
           <div className="space-y-3 p-5">
+            {whMismatch && (
+              <div className="flex items-start gap-2.5 rounded-xl border border-amber-300 bg-amber-50 p-3 text-[11px] leading-relaxed text-amber-800" role="alert">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <span>
+                  <b>Location check:</b> you are ordering from <b>{confirmingWhName}</b>, but your shop is registered near <b>{whHomeName}</b>.
+                  Products, prices and stock belong to the chosen warehouse — delivery will be dispatched from there.
+                </span>
+              </div>
+            )}
             <div className="rounded-xl border bg-gray-50 p-3 text-[11px] leading-relaxed text-gray-600">
               <b className="text-gray-900">Deliver to:</b> {[form.addressLine, form.city, form.pincode].filter(Boolean).join(", ")}
               <br />Single piece prices applied · flat ₹250 delivery charge.
