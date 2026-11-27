@@ -37,6 +37,7 @@ import { db } from "@/lib/db";
 import { getSetting, setSetting, logSyncEvent } from "@/lib/settings";
 import { applyAutoDispatchBySkus } from "@/lib/stock-rules";
 import { assertIdentifier, assertReadOnly, describeErpTable, erpPool, erpQuery, fetchErpPage } from "@/lib/erp-mysql";
+import { isExcludedProduct, isExcludedSku } from "@/lib/erp-sync-exclusions";
 
 // ───────── mapping types + storage ─────────
 
@@ -715,12 +716,15 @@ export async function syncProductsPage(pageSize = 300, offsetOverride?: number, 
   // brand-new SKUs are counted and left for "Update Products"/"Sync now" to add.
   const updateOnly = !!opts?.updateOnly;
 
-  // normalize in memory — no DB access per row
+  // normalize in memory — no DB access per row. GST-firm lines (owner rule:
+  // only the non-GST Kolhar/Pune firms feed the site) are skipped BEFORE any
+  // write — never created, never updated, never mirrored.
   const items: NormalizedRow[] = [];
   for (const raw of rows) {
     const it = normalizeProductRow(raw, m, imageBase);
-    if (it) items.push(it);
-    else result.skipped++;
+    if (!it) { result.skipped++; continue; }
+    if (isExcludedProduct(it.sku, it.company)) { result.skipped++; continue; }
+    items.push(it);
   }
   if (!items.length) {
     if (result.done) { await setSetting("erp_sync_cursor_products", "0"); await setSetting("erp_sync_last_full_at", new Date().toISOString()); }
@@ -1094,6 +1098,7 @@ export async function syncStock(): Promise<{ rows: number; stocksUpserted: numbe
     const whCode = str(val(raw, sm.warehouseCodeCol));
     const qty = Math.round(num(val(raw, sm.qtyCol)));
     if (!sku || !whCode) continue;
+    if (isExcludedSku(sku)) continue; // GST-firm lines: no stock rows, ever
     const whId = whByCode.get(whCode);
     if (!whId) { result.missing++; continue; }
     parsed.push({ sku, whId, qty });
@@ -1232,7 +1237,7 @@ export async function syncStockDeep(opts?: { onProgress?: (line: string) => void
       for (const raw of rows) {
         const sku = str(val(raw, sm.skuCol));
         const qty = Math.round(num(val(raw, sm.qtyCol)));
-        if (!sku) continue;
+        if (!sku || isExcludedSku(sku)) continue; // GST-firm lines: never counted
         parsed.push({ sku, qty });
         grandTotals.set(sku, (grandTotals.get(sku) ?? 0) + qty);
       }
@@ -1681,6 +1686,7 @@ export async function finalizeSyncSelection(): Promise<FinalizeResult> {
       for (const r of skuRows) {
         const sku = str(r.sku);
         if (!sku || seen.has(sku)) continue;
+        if (isExcludedSku(sku)) continue; // GST-firm lines are not covered → finalize hides them
         seen.add(sku);
         for (const neonWhId of whIdsForFirm.get(str(r.firmId)) ?? []) {
           const list = skusByGodown.get(neonWhId) ?? [];
