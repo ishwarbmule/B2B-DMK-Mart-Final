@@ -50,13 +50,14 @@ export async function GET(req: NextRequest) {
   if (stocked === "1") where.stock = { gt: 0 };
   if (stocked === "0") where.stock = { lte: 0 };
   // image filter: With image vs Without image (owner request — missing photos list)
+  // image is a non-null String (@default "") — empty string = no photo
   const hasImage = sp.get("hasImage") || "";
-  if (hasImage === "1") where.image = { notIn: [""] };
-  if (hasImage === "0") where.AND = [...((where.AND as unknown[]) ?? []), { OR: [{ image: null }, { image: "" }] }];
+  if (hasImage === "1") where.image = { not: "" };
+  if (hasImage === "0") where.image = "";
   // pricing filter: products with a real selling price vs zero-priced ones
   const priced = sp.get("priced") || "";
   if (priced === "1") where.dealerPrice = { gt: 0 };
-  if (priced === "0") where.AND = [...((where.AND as unknown[]) ?? []), { OR: [{ dealerPrice: null }, { dealerPrice: { lte: 0 } }] }];
+  if (priced === "0") where.dealerPrice = { lte: 0 };
   // warehouse-wise management: the catalog is the same across godowns — pick a
   // warehouse and every product is listed with THAT godown's qty (0 = not stocked
   // there yet, editable inline). Only an explicit onlyStocked=1 narrows the list.
