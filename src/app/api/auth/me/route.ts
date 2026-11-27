@@ -45,14 +45,15 @@ export async function GET(req: NextRequest) {
   const orders = await db.order.findMany({
     where: { customerId }, orderBy: { createdAt: "desc" }, take: 10, include: { items: true },
   });
-  // hide the bill until the admin confirms the order
+  // hide the bill AND the order lines until the admin confirms the order (owner rule)
   const safeOrders = orders.map((o) =>
     o.confirmedAt
-      ? o
+      ? { ...o, itemCount: o.items.length }
       : {
           ...o,
           itemTotal: 0, deliveryFee: 0, discount: 0, gstAmount: 0, grandTotal: 0, totalSavings: 0,
-          items: o.items.map((i) => ({ ...i, unitPrice: 0, total: 0, discount: 0 })),
+          items: [],
+          itemCount: o.items.length,
         },
   );
   return withFreshGateCookie(NextResponse.json({

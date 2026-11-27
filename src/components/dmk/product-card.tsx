@@ -100,7 +100,6 @@ export function ProductCard({ p }: { p: DProduct }) {
   const items = useCartStore((s) => s.items);
   const setQty = useCartStore((s) => s.setQty);
   const sessionTier = useCustomerSession((s) => s.customer?.tier);
-  const loaded = useCustomerSession((s) => s.loaded);
   const [wish, setWish] = useState(false);
   const unitType: UnitType = "SINGLE";
   const key = lineKey(p.id, unitType);
@@ -182,9 +181,6 @@ export function ProductCard({ p }: { p: DProduct }) {
             <span className="text-lg font-extrabold tracking-tight text-gray-900 sm:text-xl">{formatINR(priceShown)}</span>
             <span className="text-[11px] font-semibold text-gray-400">/pc</span>
             {(p.locPrice?.mrp ?? p.mrp) > priceShown && <span className="text-xs font-medium text-gray-400 line-through">{formatINR(p.locPrice?.mrp ?? p.mrp)}</span>}
-            {hydrated && loaded && sessionTier && sessionTier !== "tier2" && (
-              <span className="ml-auto rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-700">Your slab</span>
-            )}
           </div>
           {/* the two rates — label-left / price-right rows (receipt style): aligned edges
               on every device, prices never wrap mid-number or truncate, /pc never floats */}

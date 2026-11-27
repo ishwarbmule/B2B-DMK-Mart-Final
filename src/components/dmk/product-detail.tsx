@@ -21,9 +21,9 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
   const items = useCartStore((s) => s.items);
   const cartFulfillment = useCartStore((s) => s.fulfillment);
   const setCartFulfillment = useCartStore((s) => s.setFulfillment);
-  // Task 15: session (slab pricing + nearest warehouse)
+  // session load (cart pricing follows the buyer's tier server-side); no tier UI here —
+  // the owner does not want tier/slab labels on customer pages
   useEffect(() => { useCustomerSession.getState().load(); }, []);
-  const customer = useCustomerSession((s) => s.customer);
   const [qty, setQty] = useState(1);
   const [imgIdx, setImgIdx] = useState(0);
   // Fulfilment selection — the PICKUP / DELIVERY pricing cards are the selector:
@@ -103,7 +103,7 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
         <Link href="/" className="hover:text-yellow-600">Home</Link>
         <span>/</span>
         <Link href="/catalog" className="hover:text-yellow-600">Catalog</Link>
-        {p.top && (<><span>/</span><Link href={`/catalog?top=${p.top.name}`} className="hover:text-yellow-600">{p.top.name}</Link></>)}
+        {p.top && (<><span>/</span><Link href={`/catalog?top=${p.top.id}`} className="hover:text-yellow-600">{p.top.name}</Link></>)}
         <span>/</span>
         <span className="font-semibold text-gray-800">{p.name}</span>
       </nav>
@@ -194,14 +194,12 @@ export function ProductDetail({ p, related }: { p: DProduct; related: DProduct[]
             </div>
           )}
 
-          {/* price block */}
+          {/* price block — single price per viewer, no tier/slab wording (owner rule:
+              customers must never see tier labels or a tier price table) */}
           <div className="mt-4 flex flex-wrap items-end gap-3 rounded-2xl border bg-white p-4">
             <div>
               <p className="text-3xl font-black text-gray-900">{formatINR(up)}</p>
               <p className="text-[11px] text-gray-500">per piece · {mode === "PICKUP" ? "pickup rate" : "delivery rate"}</p>
-              <p className="text-[10px] font-semibold text-emerald-700">
-                {customer ? `Your ${customer.customerType.replace("_", "-").toLowerCase()} slab pricing` : "Wholesale (guest) pricing — login for your slab"}
-              </p>
             </div>
             {p.mrp > up && (
               <div className="text-right">

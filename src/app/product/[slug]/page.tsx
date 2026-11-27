@@ -18,7 +18,7 @@ const getProduct = cache(async function getProduct(slug: string) {
     where: { slug },
     include: {
       brand: { select: { name: true, slug: true, logo: true } },
-      top: { select: { name: true } },
+      top: { select: { id: true, name: true } },
       mid: { select: { name: true } },
       end: { select: { name: true } },
     },

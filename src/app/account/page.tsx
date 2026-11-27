@@ -435,8 +435,9 @@ function AccountInner() {
                 </button>
               </div>
 
-              {/* stats */}
-              <div className="grid grid-cols-3 gap-3">
+              {/* stats — orders & lifetime value (price tier hidden: the owner does not
+                  want the raw tier box in customer accounts) */}
+              <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-2xl border bg-white p-4 text-center">
                   <p className="text-xl font-black text-gray-900">{customer.orders}</p>
                   <p className="text-[10px] uppercase tracking-wide text-gray-400">Orders</p>
@@ -444,10 +445,6 @@ function AccountInner() {
                 <div className="rounded-2xl border bg-white p-4 text-center">
                   <p className="text-xl font-black text-gray-900">{formatINR(customer.totalSpent)}</p>
                   <p className="text-[10px] uppercase tracking-wide text-gray-400">Lifetime value</p>
-                </div>
-                <div className="rounded-2xl border bg-white p-4 text-center">
-                  <p className="text-xl font-black uppercase text-yellow-600">{customer.tier}</p>
-                  <p className="text-[10px] uppercase tracking-wide text-gray-400">Price tier</p>
                 </div>
               </div>
 

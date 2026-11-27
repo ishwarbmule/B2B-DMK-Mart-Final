@@ -5,6 +5,8 @@
  *  • New Order   — visit a shop, capture customer details (find-or-create by phone),
  *                  build the product list, verify, confirm → lands in the admin Orders
  *                  section with the salesperson's name, routed to the nearest warehouse.
+ *                  (No store map here — the owner asked to keep the map pin only in
+ *                  the My Customers / New Shop Visit form.)
  *  • My Orders   — the order book: every order this salesperson brought to the business.
  *  • My Customers— shops on the beat + create a brand-new customer (all details + location).
  */
@@ -182,7 +184,6 @@ export function SalesteamPanel() {
 function NewOrder({ token, whId }: { token: string; whId: string }) {
   const [cust, setCust] = useState({ ...emptyCustomer });
   const [email, setEmail] = useState("");
-  const [pin, setPin] = useState<PickedLocation | null>(null);
   const [lookup, setLookup] = useState("");
   const [found, setFound] = useState<CustomerRow | null>(null);
   const [q, setQ] = useState("");
@@ -250,7 +251,6 @@ function NewOrder({ token, whId }: { token: string; whId: string }) {
   const placeOrder = async () => {
     if (!cust.customerName.trim() || !/^[6-9]\d{9}$/.test(cust.phone)) return toast.error("Customer name and valid 10-digit mobile are required");
     if (!cust.addressLine.trim() || !cust.city.trim() || !/^\d{6}$/.test(cust.pincode)) return toast.error("Full location (address, city, 6-digit pincode) is required");
-    if (!found && !pin) return toast.error("Pin the shop location on the map — the admin uses it for delivery planning");
     if (lines.length === 0) return toast.error("Add at least one product");
     if (!confirm(`Verify order list:\n${lines.map((l) => `• ${l.name} × ${l.qty}`).join("\n")}\n\nPlace this order for ${cust.customerName}?`)) return;
     setBusy(true);
@@ -261,7 +261,6 @@ function NewOrder({ token, whId }: { token: string; whId: string }) {
         body: JSON.stringify({
           ...cust,
           email,
-          ...(pin ? { lat: pin.lat, lng: pin.lng, geoSource: pin.source } : {}),
           items: lines.map((l) => ({ id: l.productId, unitType: l.unitType, qty: Number(l.qty) })),
         }),
       });
@@ -271,7 +270,6 @@ function NewOrder({ token, whId }: { token: string; whId: string }) {
       setLines([]);
       setCust({ ...emptyCustomer });
       setEmail("");
-      setPin(null);
       setFound(null);
       toast.success(`Order ${d.invoiceNo} placed — visible in the admin Orders section`);
     } catch (e) {
@@ -360,19 +358,6 @@ function NewOrder({ token, whId }: { token: string; whId: string }) {
               {["RETAILER", "WHOLESALE", "SEMI_WHOLESALE", "DISTRIBUTOR"].map((t) => <option key={t} value={t}>{t.replace(/_/g, " ")}</option>)}
             </select>
           </div>
-        </div>
-        {/* store map pin — same requirement as the website's customer create form */}
-        <div className="mt-3 rounded-xl border border-yellow-200 bg-yellow-50 p-3">
-          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold text-yellow-800"><MapPin className="h-3.5 w-3.5" /> Pin the shop location {found ? "(optional — only if the shop has no pin yet)" : "*"}</p>
-          <p className="mb-2 text-[10px] text-yellow-700">Tap the exact shop spot on the map (or use search / GPS). The admin panel shows this pin on the store map.</p>
-          <StoreLocationPicker
-            lat={pin?.lat ?? null}
-            lng={pin?.lng ?? null}
-            onChange={setPin}
-            autoQuery={[cust.city, cust.pincode].filter(Boolean).join(" ")}
-            compact
-          />
-          {pin && <p className="mt-1.5 text-[10px] font-semibold text-emerald-700">Pinned at {pin.lat.toFixed(5)}, {pin.lng.toFixed(5)}</p>}
         </div>
       </div>
 

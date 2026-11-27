@@ -302,14 +302,17 @@ export async function POST(req: NextRequest) {
   }
 }
 
-/** money fields are hidden until the admin confirms the order — customers see a pending
- *  order without the bill; the itemised invoice appears after confirmation */
-function redactUnconfirmed<T extends { confirmedAt: Date | null; itemTotal: number; deliveryFee: number; discount: number; grandTotal: number; totalSavings: number; gstAmount: number; items?: Array<{ unitPrice: number; total: number; discount: number }> }>(order: T): T {
-  if (order.confirmedAt) return order;
+/** money fields AND the order lines themselves are hidden until the admin confirms the
+ *  order (owner rule) — the buyer sees only the invoice number, status and delivery OTP;
+ *  itemCount lets the UI show "how many" without revealing what */
+function redactUnconfirmed<T extends { confirmedAt: Date | null; itemTotal: number; deliveryFee: number; discount: number; grandTotal: number; totalSavings: number; gstAmount: number; items?: Array<{ unitPrice: number; total: number; discount: number }> }>(order: T): T & { itemCount: number } {
+  const itemCount = order.items?.length ?? 0;
+  if (order.confirmedAt) return { ...order, itemCount };
   return {
     ...order,
     itemTotal: 0, deliveryFee: 0, discount: 0, gstAmount: 0, grandTotal: 0, totalSavings: 0,
-    items: order.items?.map((i) => ({ ...i, unitPrice: 0, total: 0, discount: 0 })),
+    items: [],
+    itemCount,
   };
 }
 

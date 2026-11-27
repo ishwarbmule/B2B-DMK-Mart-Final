@@ -30,13 +30,20 @@ export const config = {
  */
 const PUBLIC_PATHS = ["/login", "/forgot-password", "/salesteam", "/warehouse"];
 
+/** Content/legal pages (About Us, Contact Us, Terms, Privacy, policies) render for
+ *  everyone — the owner flagged the footer links as broken: with the rows seeded they
+ *  must open even when a session cookie has expired, instead of bouncing to /login. */
+function isPublicContent(pathname: string): boolean {
+  return pathname === "/page" || pathname.startsWith("/page/");
+}
+
 function isStaticAsset(pathname: string): boolean {
   return /\.[a-zA-Z0-9]{1,8}$/.test(pathname) && !pathname.endsWith(".php");
 }
 
 export async function proxy(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
-  if (PUBLIC_PATHS.includes(pathname) || pathname.startsWith("/admin") || isStaticAsset(pathname)) {
+  if (PUBLIC_PATHS.includes(pathname) || pathname.startsWith("/admin") || isStaticAsset(pathname) || isPublicContent(pathname)) {
     return NextResponse.next();
   }
 
