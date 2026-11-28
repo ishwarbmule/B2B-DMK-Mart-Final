@@ -84,8 +84,10 @@ export async function POST(req: NextRequest) {
       ? String(row.customerType)
       : "RETAILER";
     const tier = /^tier[1-5]$/.test(String(row.tier ?? "")) ? String(row.tier) : "tier4";
-    const lat = Number.isFinite(Number(row.lat)) ? Number(row.lat) : null;
-    const lng = Number.isFinite(Number(row.lng)) ? Number(row.lng) : null;
+    // null/undefined/"" must stay null — Number(null) is 0 and would create a bogus (0,0) ocean pin
+    const num = (v: unknown) => (v == null || v === "" ? null : Number.isFinite(Number(v)) ? Number(v) : null);
+    const lat = num(row.lat);
+    const lng = num(row.lng);
     const hasPin = lat != null && lng != null;
     const regDate = row.createdAt && !Number.isNaN(Date.parse(row.createdAt)) ? new Date(row.createdAt) : null;
 
