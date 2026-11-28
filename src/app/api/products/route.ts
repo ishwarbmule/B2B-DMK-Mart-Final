@@ -96,7 +96,7 @@ export async function GET(req: NextRequest) {
         // coverage rows for the whole firm catalog (stocked or still being
         // built). No URL escape can bypass the cookie. Legacy fallback when no
         // cookie: the buyer's city belt decides the godown.
-        const chosenId = req.cookies.get("dmk_wh")?.value || "";
+        const chosenId = req.cookies.get("dmk_wh")?.value || req.headers.get("x-warehouse-id") || "";
         const chosen = chosenId ? whs.find((w) => w.id === chosenId) : undefined;
         if (chosen) {
           scopedWarehouseId = chosen.id;
