@@ -28,8 +28,12 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Accept Android SDK licenses
+        run: |
+          SDKMGR=$(ls "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | sort -V | tail -1 || true)
+          [ -z "$SDKMGR" ] && SDKMGR=/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager
+          yes | "$SDKMGR" --licenses >/dev/null || true
+          echo "ANDROID_HOME=$ANDROID_HOME"
 
       - name: Install JS deps
         working-directory: mobile
